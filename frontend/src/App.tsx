@@ -1,10 +1,72 @@
-import { useState } from 'react'
-import { Sparkles, Zap, GraduationCap, Rocket, BarChart2, Users, BookOpen, Clock, Trophy, Flame, Target, Star, ArrowLeft, ShieldCheck, FileText, Settings, Bell, Search, LayoutDashboard, LogOut, Mail, MessageSquare, User, Lock, ArrowRight, Plus, Trash2, CheckCircle } from 'lucide-react'
+import { useEffect, useState, type ReactNode } from 'react'
+import {
+  Sparkles,
+  Zap,
+  GraduationCap,
+  Rocket,
+  BarChart2,
+  Users,
+  BookOpen,
+  Clock,
+  Trophy,
+  Flame,
+  Star,
+  ArrowLeft,
+  FileText,
+  Settings,
+  Bell,
+  Search,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  MessageSquare,
+  User,
+  Lock,
+  ArrowRight,
+  Plus,
+  Trash2,
+  Menu,
+  X,
+} from 'lucide-react'
+import { apiUrl, AUTH_DISABLED_PLACEHOLDER } from './apiBase'
+import { TeacherResources } from './components/TeacherResources'
+import { AccountSettings } from './components/AccountSettings'
+import { TeacherAutomatedTestFlow } from './components/TeacherAutomatedTestFlow'
+
+/** Matches backend AUTH_DEFAULT_PASSWORD / prisma seed until real passwords are enforced in the UI. */
+const DEFAULT_LOGIN_PASSWORD = import.meta.env.VITE_DEFAULT_LOGIN_PASSWORD ?? 'Password123!'
+
+const AUTH_DISABLED_UI = import.meta.env.VITE_AUTH_DISABLED === 'true'
 
 function App() {
-  const [view, setView] = useState<'landing' | 'teacher' | 'student' | 'contact' | 'login' | 'signup'>('landing')
+  const [view, setView] = useState<'landing' | 'teacher' | 'student' | 'contact' | 'login' | 'signup'>(() =>
+    typeof window !== 'undefined' && AUTH_DISABLED_UI ? 'teacher' : 'landing'
+  )
   const [studentGrade, setStudentGrade] = useState(10) // Default to Class 10 (Mature)
-  const [userRole, setUserRole] = useState<'teacher' | 'student'>('student')
+  const [userRole, setUserRole] = useState<'teacher' | 'student'>(() =>
+    AUTH_DISABLED_UI ? 'teacher' : 'student'
+  )
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    if (AUTH_DISABLED_UI) return AUTH_DISABLED_PLACEHOLDER
+    return localStorage.getItem('accessToken')
+  })
+
+  const clearAuth = () => {
+    if (AUTH_DISABLED_UI) {
+      setAccessToken(AUTH_DISABLED_PLACEHOLDER)
+      return
+    }
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    setAccessToken(null)
+  }
+
+  useEffect(() => {
+    if (AUTH_DISABLED_UI) return
+    if (accessToken) localStorage.setItem('accessToken', accessToken)
+    else localStorage.removeItem('accessToken')
+  }, [accessToken])
 
   // Shared Header for Landing Page
   const LandingHeader = () => (
@@ -42,76 +104,147 @@ function App() {
     </header>
   )
 
-  // Sidebar Component for Dashboards
-  const Sidebar = ({ role, activeTab, setActiveTab }: { role: 'teacher' | 'student', activeTab: string, setActiveTab: (tab: string) => void }) => (
-    <div className="w-64 bg-white border-r-[2px] border-ink flex flex-col p-6 justify-between h-screen sticky top-0">
-      <div className="space-y-8">
-        {/* Logo */}
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('landing')}>
-          <div className="w-10 h-10 bg-cobalt rounded-lg border-[2px] border-ink flex items-center justify-center shadow-[2px_2px_0_0_#1A1A1A]">
-            <Sparkles className="text-white" size={20} fill="white" />
-          </div>
-          <div>
-            <h1 className="font-display font-black text-xl tracking-tighter leading-none">Quizpop</h1>
-            <p className="font-accent text-sm text-cobalt leading-none">portal</p>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex flex-col gap-2">
-          <div 
-            onClick={() => setActiveTab('dashboard')}
-            className={`p-2.5 font-bold text-sm flex items-center gap-3 cursor-pointer rounded-lg transition-colors border-[2px] ${activeTab === 'dashboard' ? 'bg-paper border-ink shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
-          >
-            <LayoutDashboard size={18} className={role === 'teacher' ? 'text-cobalt' : 'text-mint'} /> Dashboard
-          </div>
-          <div 
-            onClick={() => setActiveTab('assessments')}
-            className={`p-2.5 font-bold text-sm flex items-center gap-3 cursor-pointer rounded-lg transition-colors border-[2px] ${activeTab === 'assessments' ? 'bg-paper border-ink shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
-          >
-            <BookOpen size={18} /> {role === 'teacher' ? 'Assessments' : 'My Quests'}
-          </div>
-          <div 
-            onClick={() => setActiveTab('community')}
-            className={`p-2.5 font-bold text-sm flex items-center gap-3 cursor-pointer rounded-lg transition-colors border-[2px] ${activeTab === 'community' ? 'bg-paper border-ink shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
-          >
-            {role === 'teacher' ? <Users size={18} /> : <Trophy size={18} />} {role === 'teacher' ? 'Students' : 'Leaderboard'}
-          </div>
-          <div 
-            onClick={() => setActiveTab('resources')}
-            className={`p-2.5 font-bold text-sm flex items-center gap-3 cursor-pointer rounded-lg transition-colors border-[2px] ${activeTab === 'resources' ? 'bg-paper border-ink shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
-          >
-            <FileText size={18} /> Resources
-          </div>
-          <div 
-            onClick={() => setActiveTab('settings')}
-            className={`p-2.5 font-bold text-sm flex items-center gap-3 cursor-pointer rounded-lg transition-colors border-[2px] ${activeTab === 'settings' ? 'bg-paper border-ink shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
-          >
-            <Settings size={18} /> Settings
-          </div>
-        </nav>
+  // Sidebar Component for Dashboards (collapsible on desktop, drawer on mobile)
+  const Sidebar = ({
+    role,
+    activeTab,
+    setActiveTab,
+    onLogout,
+    collapsed,
+    onToggleCollapsed,
+    mobileOpen,
+    onMobileClose,
+  }: {
+    role: 'teacher' | 'student'
+    activeTab: string
+    setActiveTab: (tab: string) => void
+    onLogout?: () => void
+    collapsed: boolean
+    onToggleCollapsed: () => void
+    mobileOpen: boolean
+    onMobileClose: () => void
+  }) => {
+    const navBtn = (tab: string, icon: ReactNode, label: string) => (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          setActiveTab(tab)
+          onMobileClose()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setActiveTab(tab)
+            onMobileClose()
+          }
+        }}
+        className={`flex cursor-pointer items-center gap-3 rounded-lg border-[2px] p-2.5 text-sm font-bold transition-colors ${
+          collapsed ? 'justify-center' : ''
+        } ${activeTab === tab ? 'border-ink bg-paper shadow-[2px_2px_0_0_#1A1A1A]' : 'border-transparent hover:bg-paper'}`}
+      >
+        {icon}
+        <span className={collapsed ? 'md:sr-only' : ''}>{label}</span>
       </div>
+    )
 
-      {/* Bottom Profile/Logout */}
-      <div className="border-t-[2px] border-ink pt-4 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-lemon rounded-full border-[2px] border-ink flex items-center justify-center font-display font-black">
-            {role === 'teacher' ? 'TR' : 'ST'}
-          </div>
-          <div>
-            <p className="font-bold text-sm">{role === 'teacher' ? 'Prof. Sharma' : 'Alex M.'}</p>
-            <p className="text-xs font-bold text-ink/50">{role === 'teacher' ? 'Mathematics' : 'Grade 10'}</p>
-          </div>
-        </div>
-        <button 
-          onClick={() => setView('landing')}
-          className="w-full bg-paper font-display font-extrabold text-xs px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer"
+    return (
+      <>
+        {/* Mobile backdrop */}
+        {mobileOpen && (
+          <button
+            type="button"
+            aria-label="Close menu"
+            className="fixed inset-0 z-40 bg-ink/40 md:hidden"
+            onClick={onMobileClose}
+          />
+        )}
+
+        <aside
+          className={`fixed md:relative z-50 md:z-auto inset-y-0 left-0 flex h-screen shrink-0 flex-col justify-between overflow-y-auto border-r-[2px] border-ink bg-white transition-[transform,width,padding] duration-200 ease-out md:transition-[width,padding] ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          } ${collapsed ? 'md:w-16 md:px-2 md:py-5' : 'md:w-64 md:p-6'} w-[min(18rem,85vw)] max-w-[85vw] p-6`}
         >
-          <LogOut size={14} /> Log Out to Portal
-        </button>
-      </div>
-    </div>
-  )
+          <div className={`space-y-6 ${collapsed ? 'md:space-y-4' : ''}`}>
+            {/* Hamburger + Logo */}
+            <div className={`flex flex-col gap-3 ${collapsed ? 'md:items-center' : ''}`}>
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={onToggleCollapsed}
+                  className="hidden md:flex shrink-0 items-center justify-center rounded-lg border-[2px] border-ink bg-paper p-2 shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] cursor-pointer"
+                  aria-expanded={!collapsed}
+                  aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                >
+                  <Menu size={20} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={onMobileClose}
+                  className="flex md:hidden shrink-0 items-center justify-center rounded-lg border-[2px] border-ink bg-paper p-2 shadow-[2px_2px_0_0_#1A1A1A] cursor-pointer"
+                  aria-label="Close menu"
+                >
+                  <X size={20} strokeWidth={2.5} />
+                </button>
+              </div>
+              <div
+                className={`flex cursor-pointer items-center gap-3 ${collapsed ? 'md:justify-center' : ''}`}
+                onClick={() => setView('landing')}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-[2px] border-ink bg-cobalt shadow-[2px_2px_0_0_#1A1A1A]">
+                  <Sparkles className="text-white" size={20} fill="white" />
+                </div>
+                <div className={`min-w-0 ${collapsed ? 'md:hidden' : ''}`}>
+                  <h1 className="font-display text-xl font-black leading-none tracking-tighter">Quizpop</h1>
+                  <p className="font-accent text-sm leading-none text-cobalt">portal</p>
+                </div>
+              </div>
+            </div>
+
+            <nav className="flex flex-col gap-2">
+              {navBtn(
+                'dashboard',
+                <LayoutDashboard size={18} className={role === 'teacher' ? 'text-cobalt' : 'text-mint'} />,
+                'Dashboard'
+              )}
+              {navBtn('assessments', <BookOpen size={18} />, role === 'teacher' ? 'Assessments' : 'My Quests')}
+              {navBtn(
+                'community',
+                role === 'teacher' ? <Users size={18} /> : <Trophy size={18} />,
+                role === 'teacher' ? 'Students' : 'Leaderboard'
+              )}
+              {navBtn('resources', <FileText size={18} />, 'Resources')}
+              {navBtn('settings', <Settings size={18} />, 'Settings')}
+            </nav>
+          </div>
+
+          <div className={`space-y-4 border-t-[2px] border-ink pt-4 ${collapsed ? 'md:pt-3' : ''}`}>
+            <div className={`flex items-center gap-3 ${collapsed ? 'md:justify-center' : ''}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-[2px] border-ink bg-lemon font-display font-black">
+                {role === 'teacher' ? 'TR' : 'ST'}
+              </div>
+              <div className={`min-w-0 ${collapsed ? 'md:sr-only' : ''}`}>
+                <p className="text-sm font-bold">{role === 'teacher' ? 'Prof. Sharma' : 'Alex M.'}</p>
+                <p className="text-xs font-bold text-ink/50">{role === 'teacher' ? 'Mathematics' : 'Grade 10'}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onLogout?.()
+                setView('landing')
+                onMobileClose()
+              }}
+              className={`flex w-full items-center justify-center gap-2 border-[2px] border-ink bg-paper px-4 py-2 font-display text-xs font-extrabold shadow-[2px_2px_0_0_#1A1A1A] transition-all hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer ${collapsed ? 'md:px-2' : ''}`}
+            >
+              <LogOut size={14} />
+              <span className={collapsed ? 'md:sr-only' : ''}>Log Out to Portal</span>
+            </button>
+          </div>
+        </aside>
+      </>
+    )
+  }
 
   // Landing Page
   const LandingView = () => (
@@ -162,8 +295,12 @@ function App() {
             <p className="text-white text-lg font-bold max-w-[75%] mb-10">
               Craft quirky assessments, track every learner, and grade with a grin. Bento-grid analytics included.
             </p>
-            <button 
-              onClick={() => { setUserRole('teacher'); setView('login'); }}
+            <button
+              type="button"
+              onClick={() => {
+                setUserRole('teacher')
+                setView('teacher')
+              }}
               className="bg-lemon text-ink font-display font-extrabold text-lg px-6 py-3 border-[3px] border-ink rounded-xl shadow-[4px_4px_0_0_#1A1A1A] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#1A1A1A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer flex items-center gap-2"
             >
               Open Command Center 🚀
@@ -182,8 +319,12 @@ function App() {
               Take quizzes, build streaks, climb the leaderboard. Your XP is calling.
             </p>
             <div className="flex justify-end">
-              <button 
-                onClick={() => { setUserRole('student'); setView('login'); }}
+              <button
+                type="button"
+                onClick={() => {
+                  setUserRole('student')
+                  setView('student')
+                }}
                 className="bg-mint text-ink font-display font-extrabold text-lg px-6 py-3 border-[3px] border-ink rounded-xl shadow-[4px_4px_0_0_#1A1A1A] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#1A1A1A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all cursor-pointer flex items-center gap-2"
               >
                 <Zap size={18} fill="black" /> Enter Arena
@@ -258,7 +399,60 @@ function App() {
   )
 
   // Login Page
-  const LoginView = () => (
+  const LoginView = () => {
+    const [email, setEmail] = useState('')
+    const [loginError, setLoginError] = useState('')
+    const [loginLoading, setLoginLoading] = useState(false)
+
+    const handleSubmit = async (e: React.FormEvent) => {
+      e.preventDefault()
+      setLoginError('')
+      setLoginLoading(true)
+      try {
+        const res = await fetch(apiUrl('/api/v1/auth/login'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: DEFAULT_LOGIN_PASSWORD }),
+        })
+        const raw = await res.text()
+        let data: { accessToken?: string; refreshToken?: string; message?: string } = {}
+        if (raw.trim()) {
+          try {
+            data = JSON.parse(raw) as typeof data
+          } catch {
+            throw new Error(
+              'Server returned non-JSON (often a missing API or wrong URL). Run the backend on port 3000 and use npm run dev (or vite preview with the API running).',
+            )
+          }
+        } else {
+          throw new Error(
+            'Empty response from the server. Start the backend (see backend/.env PORT, default 3000). If the API uses another port, set VITE_API_BASE_URL in frontend/.env.development.',
+          )
+        }
+        if (!res.ok) throw new Error(data.message || `Login failed (${res.status})`)
+        if (!data.accessToken) throw new Error('No access token returned')
+        localStorage.setItem('accessToken', data.accessToken)
+        if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
+        setAccessToken(data.accessToken)
+        setView(userRole)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        const network =
+          msg === 'Failed to fetch' ||
+          msg.includes('NetworkError') ||
+          msg.includes('Load failed') ||
+          msg.includes('ECONNREFUSED')
+        setLoginError(
+          network
+            ? 'Cannot reach the API. From the repository root run: npm install && npm run dev (starts backend + frontend). Or start only the API: cd backend && npm run dev on port 3000. First time: cd backend && npx prisma migrate deploy && npx prisma db seed.'
+            : msg,
+        )
+      } finally {
+        setLoginLoading(false)
+      }
+    }
+
+    return (
     <div className="min-h-screen bg-cream flex flex-col">
       <header className="p-6 flex justify-between items-center relative z-10">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('landing')}>
@@ -276,25 +470,38 @@ function App() {
         <div className="bg-white border-[3px] border-ink rounded-3xl p-8 max-w-md w-full shadow-[6px_6px_0_0_#1A1A1A] relative">
           <h2 className="font-display font-black text-4xl mb-2 tracking-tight">Welcome Back</h2>
           <p className="font-accent text-xl text-ink/70 mb-6">Log in to continue your journey.</p>
+          <p className="text-xs font-bold text-ink/55 mb-4 border-[2px] border-dashed border-ink/30 rounded-lg px-3 py-2 bg-paper">
+            Demo mode: enter your school email only — password uses the default dev credential automatically.
+          </p>
 
-          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); setView(userRole); }}>
+          {loginError && (
+            <p className="mb-4 text-sm font-bold text-bubble border-[2px] border-ink rounded-lg p-2 bg-paper">{loginError}</p>
+          )}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
               <label className="font-display font-bold text-sm block mb-1">Email Address</label>
               <div className="relative">
                 <Mail size={18} className="absolute left-3 top-3 text-ink/40" />
-                <input type="email" placeholder="you@school.edu" className="w-full pl-10 pr-4 py-2.5 border-[2px] border-ink rounded-lg focus:outline-none focus:shadow-[3px_3px_0_0_#1A1A1A] transition-all" required />
-              </div>
-            </div>
-            <div>
-              <label className="font-display font-bold text-sm block mb-1">Password</label>
-              <div className="relative">
-                <Lock size={18} className="absolute left-3 top-3 text-ink/40" />
-                <input type="password" placeholder="••••••••" className="w-full pl-10 pr-4 py-2.5 border-[2px] border-ink rounded-lg focus:outline-none focus:shadow-[3px_3px_0_0_#1A1A1A] transition-all" required />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="teacher@demo-school.test"
+                  className="w-full pl-10 pr-4 py-2.5 border-[2px] border-ink rounded-lg focus:outline-none focus:shadow-[3px_3px_0_0_#1A1A1A] transition-all"
+                  required
+                />
               </div>
             </div>
 
-            <button type="submit" className="w-full bg-cobalt text-white font-display font-extrabold text-lg px-6 py-3 border-[3px] border-ink rounded-xl shadow-[4px_4px_0_0_#1A1A1A] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#1A1A1A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer">
-              Log In <ArrowRight size={18} />
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full bg-cobalt text-white font-display font-extrabold text-lg px-6 py-3 border-[3px] border-ink rounded-xl shadow-[4px_4px_0_0_#1A1A1A] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0_0_#1A1A1A] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            >
+              {loginLoading ? 'Signing in…' : (
+                <>Log In <ArrowRight size={18} /></>
+              )}
             </button>
           </form>
 
@@ -305,7 +512,8 @@ function App() {
         </div>
       </main>
     </div>
-  )
+    )
+  }
 
   // Sign Up Page
   const SignupView = () => (
@@ -385,33 +593,57 @@ function App() {
   // Teacher Dashboard View
   const TeacherView = () => {
     const [activeTab, setActiveTab] = useState('dashboard')
-    const [isCreatingTest, setIsCreatingTest] = useState(false)
+    const [createMode, setCreateMode] = useState<'manual' | 'auto' | null>(null)
     const [testQuestions, setTestQuestions] = useState([{ question: '', options: ['', '', '', ''], correct: 0 }])
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+    const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
     return (
-      <div className="min-h-screen bg-paper flex">
-        <Sidebar role="teacher" activeTab={activeTab} setActiveTab={setActiveTab} />
-        
-        <div className="flex-grow flex flex-col">
+      <div className="h-screen bg-paper flex overflow-hidden">
+        <Sidebar
+          role="teacher"
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={clearAuth}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+          mobileOpen={mobileNavOpen}
+          onMobileClose={() => setMobileNavOpen(false)}
+        />
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Top Bar */}
-          <div className="bg-white border-b-[2px] border-ink px-6 py-3 flex justify-between items-center">
-            <div className="relative hidden sm:block">
+          <div className="shrink-0 bg-white border-b-[2px] border-ink px-4 sm:px-6 py-3 flex justify-between items-center gap-3">
+            <button
+              type="button"
+              className="md:hidden shrink-0 flex items-center justify-center rounded-lg border-[2px] border-ink bg-paper p-2 shadow-[2px_2px_0_0_#1A1A1A] cursor-pointer"
+              aria-label="Open menu"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu size={20} strokeWidth={2.5} />
+            </button>
+            <div className="relative hidden sm:block flex-1 min-w-0 max-w-xl">
               <Search size={16} className="absolute left-3 top-2.5 text-ink/40" />
-              <input type="text" placeholder="Search data..." className="pl-10 pr-4 py-1.5 border-[2px] border-ink rounded-lg text-sm focus:outline-none focus:shadow-[2px_2px_0_0_#1A1A1A]" />
+              <input type="text" placeholder="Search data..." className="w-full pl-10 pr-4 py-1.5 border-[2px] border-ink rounded-lg text-sm focus:outline-none focus:shadow-[2px_2px_0_0_#1A1A1A]" />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ml-auto">
               <button className="relative p-1.5 border-[2px] border-ink rounded-lg hover:bg-paper cursor-pointer">
                 <Bell size={18} />
                 <span className="absolute top-[-4px] right-[-4px] w-3 h-3 bg-bubble rounded-full border-[1px] border-ink"></span>
               </button>
-              <button className="p-1.5 border-[2px] border-ink rounded-lg hover:bg-paper cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="p-1.5 border-[2px] border-ink rounded-lg hover:bg-paper cursor-pointer"
+                aria-label="Open settings"
+              >
                 <Settings size={18} />
               </button>
             </div>
           </div>
 
           {/* Content Based on Tab */}
-          <main className="p-6 flex-grow overflow-auto">
+          <main className="min-h-0 flex-1 overflow-y-auto p-6">
             {activeTab === 'dashboard' && (
               <>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -420,7 +652,7 @@ function App() {
                     <p className="text-sm font-bold text-ink/60">Class 10-A • Academic Year 2026</p>
                   </div>
                   <button 
-                    onClick={() => { setActiveTab('assessments'); setIsCreatingTest(true); }}
+                    onClick={() => { setActiveTab('assessments'); setCreateMode('auto'); }}
                     className="bg-cobalt text-white font-display font-extrabold text-sm px-5 py-2.5 border-[2px] border-ink rounded-lg shadow-[3px_3px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[4px_4px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-2 cursor-pointer"
                   >
                      Generate New Assessment
@@ -521,24 +753,39 @@ function App() {
 
             {activeTab === 'assessments' && (
               <div className="bg-white border-[2px] border-ink rounded-xl p-6 shadow-[3px_3px_0_0_#1A1A1A]">
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
                   <h3 className="font-display font-black text-2xl">Assessments Bank</h3>
-                  {!isCreatingTest && (
-                    <button 
-                      onClick={() => setIsCreatingTest(true)}
-                      className="bg-lemon font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Plus size={16} /> Create Test
-                    </button>
+                  {!createMode && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setCreateMode('auto')}
+                        className="bg-lemon font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus size={16} /> Quick test (auto)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCreateMode('manual')}
+                        className="bg-white font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus size={16} /> Manual builder
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {isCreatingTest ? (
+                {createMode === 'auto' ? (
+                  <TeacherAutomatedTestFlow
+                    accessToken={accessToken}
+                    onCancel={() => setCreateMode(null)}
+                  />
+                ) : createMode === 'manual' ? (
                   // Create Test Form
                   <div className="border-[2px] border-ink rounded-lg p-5 bg-paper space-y-5">
                     <div className="flex justify-between items-center">
                       <h4 className="font-display font-bold text-lg">Create New Test</h4>
-                      <button onClick={() => setIsCreatingTest(false)} className="text-xs font-bold text-ink/60 border-b border-ink/60 border-dashed cursor-pointer">Cancel</button>
+                      <button onClick={() => setCreateMode(null)} className="text-xs font-bold text-ink/60 border-b border-ink/60 border-dashed cursor-pointer">Cancel</button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -594,8 +841,8 @@ function App() {
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
-                      <button onClick={() => setIsCreatingTest(false)} className="bg-white font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] cursor-pointer">Save Draft</button>
-                      <button onClick={() => setIsCreatingTest(false)} className="bg-mint font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer">Publish Test</button>
+                      <button onClick={() => setCreateMode(null)} className="bg-white font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] cursor-pointer">Save Draft</button>
+                      <button onClick={() => setCreateMode(null)} className="bg-mint font-display font-extrabold text-sm px-4 py-2 border-[2px] border-ink rounded-lg shadow-[2px_2px_0_0_#1A1A1A] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[3px_3px_0_0_#1A1A1A] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer">Publish Test</button>
                     </div>
                   </div>
                 ) : (
@@ -635,12 +882,9 @@ function App() {
               </div>
             )}
 
-            {(activeTab === 'resources' || activeTab === 'settings') && (
-              <div className="bg-white border-[2px] border-ink rounded-xl p-6 shadow-[3px_3px_0_0_#1A1A1A] text-center py-12">
-                <p className="font-accent text-3xl mb-2">Coming Soon!</p>
-                <p className="font-bold text-sm text-ink/60">This section is currently under development.</p>
-              </div>
-            )}
+            {activeTab === 'resources' && <TeacherResources accessToken={accessToken} />}
+
+            {activeTab === 'settings' && <AccountSettings accessToken={accessToken} />}
           </main>
         </div>
       </div>
@@ -650,31 +894,59 @@ function App() {
   // Student Dashboard View
   const StudentView = () => {
     const [activeTab, setActiveTab] = useState('dashboard')
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+    const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
     return (
-      <div className="min-h-screen bg-paper flex">
-        <Sidebar role="student" activeTab={activeTab} setActiveTab={setActiveTab} />
-        
-        <div className="flex-grow flex flex-col">
+      <div className="h-screen bg-paper flex overflow-hidden">
+        <Sidebar
+          role="student"
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onLogout={clearAuth}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}
+          mobileOpen={mobileNavOpen}
+          onMobileClose={() => setMobileNavOpen(false)}
+        />
+
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Top Bar */}
-          <div className="bg-white border-b-[2px] border-ink px-6 py-3 flex justify-between items-center">
-            <div className="relative hidden sm:block">
+          <div className="shrink-0 bg-white border-b-[2px] border-ink px-4 sm:px-6 py-3 flex justify-between items-center gap-3">
+            <button
+              type="button"
+              className="md:hidden shrink-0 flex items-center justify-center rounded-lg border-[2px] border-ink bg-paper p-2 shadow-[2px_2px_0_0_#1A1A1A] cursor-pointer"
+              aria-label="Open menu"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <Menu size={20} strokeWidth={2.5} />
+            </button>
+            <div className="relative hidden sm:block flex-1 min-w-0 max-w-xl">
               <Search size={16} className="absolute left-3 top-2.5 text-ink/40" />
-              <input type="text" placeholder="Search quests..." className="pl-10 pr-4 py-1.5 border-[2px] border-ink rounded-lg text-sm focus:outline-none focus:shadow-[2px_2px_0_0_#1A1A1A]" />
+              <input type="text" placeholder="Search quests..." className="w-full pl-10 pr-4 py-1.5 border-[2px] border-ink rounded-lg text-sm focus:outline-none focus:shadow-[2px_2px_0_0_#1A1A1A]" />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 ml-auto">
               <div className="border-[2px] border-ink rounded-lg p-0.5 flex gap-0.5 text-xs font-bold bg-paper">
                 <button onClick={() => setStudentGrade(6)} className={`px-2 py-0.5 rounded-md cursor-pointer ${studentGrade < 9 ? 'bg-lemon' : 'bg-transparent'}`}>Class &lt; 9</button>
                 <button onClick={() => setStudentGrade(10)} className={`px-2 py-0.5 rounded-md cursor-pointer ${studentGrade >= 9 ? 'bg-lemon' : 'bg-transparent'}`}>Class ≥ 9</button>
               </div>
               <button className="relative p-1.5 border-[2px] border-ink rounded-lg hover:bg-paper cursor-pointer">
                 <Bell size={18} />
+                <span className="absolute top-[-4px] right-[-4px] w-3 h-3 bg-bubble rounded-full border-[1px] border-ink"></span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="p-1.5 border-[2px] border-ink rounded-lg hover:bg-paper cursor-pointer"
+                aria-label="Open settings"
+              >
+                <Settings size={18} />
               </button>
             </div>
           </div>
 
           {/* Content Based on Tab */}
-          <main className="p-6 flex-grow">
+          <main className="min-h-0 flex-1 overflow-y-auto p-6">
             {activeTab === 'dashboard' && (
               studentGrade >= 9 ? (
                 // Mature Dashboard
@@ -808,12 +1080,14 @@ function App() {
               </div>
             )}
 
-            {(activeTab === 'resources' || activeTab === 'settings') && (
+            {activeTab === 'resources' && (
               <div className="bg-white border-[2px] border-ink rounded-xl p-6 shadow-[3px_3px_0_0_#1A1A1A] text-center py-12">
                 <p className="font-accent text-3xl mb-2">Coming Soon!</p>
                 <p className="font-bold text-sm text-ink/60">This section is currently under development.</p>
               </div>
             )}
+
+            {activeTab === 'settings' && <AccountSettings accessToken={accessToken} />}
           </main>
         </div>
       </div>

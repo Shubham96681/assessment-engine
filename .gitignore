@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Builds
+dist/
+dist-ssr/
+frontend/dist/
+
+# Logs & OS
+*.log
+.DS_Store
+
+# Local DB (if created at repo root)
+*.db
+*.db-journal

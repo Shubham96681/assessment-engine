@@ -306,24 +306,18 @@ Build a scalable, robust assessment engine for schools and teachers to generate,
 
 ### Database Technology Selection
 
-#### PostgreSQL (Primary Relational Database)
-- User accounts and authentication
-- School and organization data
-- Test configurations
-- Test attempts and results
-- Grading data
-- Analytics data
-
-#### MongoDB (Document Database)
-- Question bank (flexible schema for different question types)
-- Question metadata and tags
-- Question versions
-- Student answers (for descriptive/coding questions)
+#### PostgreSQL (Single Database Solution)
+- **All Data Storage**: Unified database for complete application
+- **ACID Compliance**: Full transactional integrity
+- **Advanced Features**: JSONB, Full-text search, Partitioning, Row-level security
+- **Scalability**: Read replicas, partitioning, connection pooling
+- **Performance**: Optimized indexing, query optimization, materialized views
 
 #### Redis (In-Memory Cache)
 - Session management
 - Real-time test data
 - Rate limiting
+- Query result caching
 - Temporary data storage
 
 ### PostgreSQL Schema
@@ -763,97 +757,1183 @@ CREATE INDEX idx_document_processing_jobs_status ON document_processing_jobs(sta
 CREATE INDEX idx_document_processing_jobs_priority ON document_processing_jobs(priority);
 ```
 
-### MongoDB Schema (Question Bank)
+### PostgreSQL Schema - Question Bank & Content
 
-```javascript
-// Questions Collection
-{
-  _id: ObjectId,
-  school_id: UUID,
-  created_by: UUID,
-  question_type: String, // 'mcq', 'true_false', 'fill_blank', 'descriptive', 'coding', 'matching'
-  question_text: String,
-  question_media: [{
-    type: String, // 'image', 'audio', 'video'
-    url: String,
-    alt_text: String
-  }],
-  options: [{
-    id: UUID,
-    text: String,
-    media_url: String,
-    is_correct: Boolean
-  }],
-  correct_answer: String, // For fill_blank, descriptive
-  correct_answers: [UUID], // For mcq, true_false
-  explanation: String,
-  difficulty: String, // 'easy', 'medium', 'hard'
-  marks: Number,
-  tags: [String],
-  subject_id: UUID,
-  topics: [String],
-  chapter: String,
-  reference: String,
-  language: String,
-  is_public: Boolean,
-  usage_count: Number,
-  average_score: Number,
-  version: Number,
-  parent_question_id: UUID,
-  source: {
-    type: String, // 'manual', 'book', 'question_paper', 'ai_generated'
-    resource_id: UUID,
-    resource_type: String,
-    chapter_id: UUID,
-    page_number: Number,
-    extraction_confidence: Number
-  },
-  metadata: {
-    time_limit_seconds: Number,
-    allowed_file_types: [String],
-    code_editor_config: Object,
-    rubric: Object
-  },
-  created_at: ISODate,
-  updated_at: ISODate,
-  deleted_at: ISODate
-}
+```sql
+-- Questions Table (Schema-based design for all question types)
+CREATE TABLE questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID REFERENCES schools(id) NOT NULL,
+    created_by UUID REFERENCES users(id) NOT NULL,
+    question_type VARCHAR(50) NOT NULL CHECK (question_type IN ('mcq', 'true_false', 'fill_blank', 'descriptive', 'coding', 'matching', 'drag_drop', 'hotspot')),
+    
+    -- Core question content
+    question_text TEXT NOT NULL,
+    question_media JSONB DEFAULT '[]', -- Array of media objects
+    explanation TEXT,
+    
+    -- Question-specific data (JSONB for flexibility)
+    question_data JSONB NOT NULL DEFAULT '{}', -- Structure varies by type
+    
+    -- Metadata
+    difficulty VARCHAR(20) DEFAULT 'medium' CHECK (difficulty IN ('easy', 'medium', 'hard')),
+    marks DECIMAL(5,2) NOT NULL DEFAULT 1.0,
+    negative_marks DECIMAL(5,2) DEFAULT 0.0,
+    time_limit_seconds INTEGER,
+    
+    -- Classification
+    subject_id UUID REFERENCES subjects(id),
+    topics TEXT[] DEFAULT '{}',
+    chapter VARCHAR(255),
+    tags TEXT[] DEFAULT '{}',
+    language VARCHAR(10) DEFAULT 'en',
+    
+    -- Source tracking
+    source_type VARCHAR(50) CHECK (source_type IN ('manual', 'book', 'question_paper', 'ai_generated', 'import')),
+    source_resource_id UUID,
+    source_resource_type VARCHAR(50),
+    source_chapter_id UUID,
+    source_page_number INTEGER,
+    extraction_confidence DECIMAL(3,2), -- 0.00 to 1.00
+    
+    -- Versioning and relationships
+    version INTEGER DEFAULT 1,
+    parent_question_id UUID REFERENCES questions(id),
+    
+    -- Performance tracking
+    usage_count INTEGER DEFAULT 0,
+    average_score DECIMAL(5,2),
+    average_time_seconds INTEGER,
+    
+    -- Access control
+    is_public BOOLEAN DEFAULT false,
+    is_verified BOOLEAN DEFAULT false,
+    verified_by UUID REFERENCES users(id),
+    verified_at TIMESTAMP,
+    
+    -- Advanced settings
+    metadata JSONB DEFAULT '{}', -- Time limits, rubrics, etc.
+    
+    -- Audit fields
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
 
-// Indexes
-db.questions.createIndex({ school_id: 1, deleted_at: 1 })
-db.questions.createIndex({ created_by: 1 })
-db.questions.createIndex({ question_type: 1 })
-db.questions.createIndex({ difficulty: 1 })
-db.questions.createIndex({ tags: 1 })
-db.questions.createIndex({ subject_id: 1 })
-db.questions.createIndex({ topics: 1 })
-db.questions.createIndex({ question_text: "text" })
+-- Question Options Table (for MCQ and similar types)
+CREATE TABLE question_options (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    option_text TEXT NOT NULL,
+    option_media JSONB DEFAULT '{}',
+    is_correct BOOLEAN DEFAULT false,
+    option_order INTEGER NOT NULL,
+    explanation TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Question Answers Table (for descriptive and coding questions)
+CREATE TABLE question_answers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    answer_text TEXT,
+    answer_data JSONB, -- For complex answers (code, formulas, etc.)
+    is_sample_answer BOOLEAN DEFAULT false,
+    explanation TEXT,
+    marks_allocated DECIMAL(5,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Question Rubrics Table (for subjective questions)
+CREATE TABLE question_rubrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    criteria_name VARCHAR(255) NOT NULL,
+    criteria_description TEXT,
+    max_marks DECIMAL(5,2) NOT NULL,
+    weight_percentage DECIMAL(5,2) DEFAULT 1.0,
+    rubric_levels JSONB NOT NULL, -- Array of rubric levels with descriptions and marks
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Question Usage Analytics
+CREATE TABLE question_usage_analytics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    test_id UUID REFERENCES tests(id),
+    usage_date DATE DEFAULT CURRENT_DATE,
+    attempts_count INTEGER DEFAULT 0,
+    correct_attempts INTEGER DEFAULT 0,
+    average_score DECIMAL(5,2),
+    average_time_seconds INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Question Tags Table (for better tag management)
+CREATE TABLE question_tags (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tag_name VARCHAR(100) NOT NULL,
+    tag_category VARCHAR(50), -- 'topic', 'difficulty', 'skill', etc.
+    school_id UUID REFERENCES schools(id),
+    usage_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(school_id, tag_name)
+);
+
+-- Question-Tag Junction Table
+CREATE TABLE question_tag_mappings (
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    tag_id UUID REFERENCES question_tags(id) ON DELETE CASCADE,
+    added_by UUID REFERENCES users(id),
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (question_id, tag_id)
+);
+
+-- Question Media Files Table
+CREATE TABLE question_media_files (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    file_type VARCHAR(50) NOT NULL,
+    file_size BIGINT,
+    mime_type VARCHAR(100),
+    alt_text TEXT,
+    display_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Comprehensive Indexes for Performance
+CREATE INDEX idx_questions_school_id ON questions(school_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_subject_id ON questions(subject_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_type_difficulty ON questions(question_type, difficulty) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_topics ON questions USING GIN(topics) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_tags ON questions USING GIN(tags) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_created_by ON questions(created_by) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_source ON questions(source_type, source_resource_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_text_search ON questions USING GIN(to_tsvector('english', question_text)) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_full_text ON questions USING GIN(to_tsvector('english', question_text || ' ' || COALESCE(explanation, ''))) WHERE deleted_at IS NULL;
+
+-- Composite indexes for common queries
+CREATE INDEX idx_questions_composite ON questions(school_id, subject_id, question_type, difficulty) WHERE deleted_at IS NULL;
+CREATE INDEX idx_questions_usage ON questions(usage_count DESC, average_score) WHERE deleted_at IS NULL;
+
+-- JSONB indexes for flexible querying
+CREATE INDEX idx_questions_data ON questions USING GIN(question_data);
+CREATE INDEX idx_questions_metadata ON questions USING GIN(metadata);
+
+-- Indexes for related tables
+CREATE INDEX idx_question_options_question_id ON question_options(question_id, option_order);
+CREATE INDEX idx_question_answers_question_id ON question_answers(question_id);
+CREATE INDEX idx_question_rubrics_question_id ON question_rubrics(question_id);
+CREATE INDEX idx_question_usage_question_date ON question_usage_analytics(question_id, usage_date);
+CREATE INDEX idx_question_tags_name ON question_tags(tag_name) WHERE school_id IS NULL; -- Global tags
+CREATE INDEX idx_question_tags_school ON question_tags(school_id, tag_name);
+
+-- Full-text search configuration
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS btree_gin;
+
+-- Trigram index for partial text matching
+CREATE INDEX idx_questions_text_trgm ON questions USING GIN(question_text gin_trgm_ops) WHERE deleted_at IS NULL;
+
+-- Partitioned table for question analytics (by date)
+CREATE TABLE question_usage_analytics_partitioned (
+    LIKE question_usage_analytics INCLUDING ALL
+) PARTITION BY RANGE (usage_date);
+
+-- Create monthly partitions
+SELECT create_monthly_partitions('question_usage_analytics_partitioned', '2024-01-01', '2026-12-31');
+
+-- Views for common queries
+CREATE VIEW active_questions AS
+SELECT q.*, 
+       array_agg(o.option_text ORDER BY o.option_order) as options,
+       COUNT(ua.attempts_count) as total_usage
+FROM questions q
+LEFT JOIN question_options o ON q.id = o.question_id
+LEFT JOIN question_usage_analytics ua ON q.id = ua.question_id
+WHERE q.deleted_at IS NULL
+GROUP BY q.id;
+
+CREATE VIEW question_search_view AS
+SELECT 
+    q.id,
+    q.question_text,
+    q.explanation,
+    q.question_type,
+    q.difficulty,
+    q.subject_id,
+    s.name as subject_name,
+    q.topics,
+    q.tags,
+    q.usage_count,
+    q.average_score,
+    ts_rank_cd(
+        to_tsvector('english', q.question_text || ' ' || COALESCE(q.explanation, '')),
+        plainto_tsquery('english', COALESCE(:search_term, ''))
+    ) as search_rank
+FROM questions q
+LEFT JOIN subjects s ON q.subject_id = s.id
+WHERE q.deleted_at IS NULL
+AND (
+    to_tsvector('english', q.question_text || ' ' || COALESCE(q.explanation, '')) 
+    @@ plainto_tsquery('english', COALESCE(:search_term, ''))
+    OR :search_term IS NULL
+);
 ```
 
-### Database Scaling Strategy
+### Smart, Scalable & Robust Database Architecture
 
-#### Read Replicas
-- 1 primary, 2-3 read replicas for PostgreSQL
-- Read replicas for analytics queries
-- Replica lag monitoring
+#### **Multi-Layer Database Strategy**
 
-#### Partitioning
-- Partition test_attempts by date
-- Partition performance_metrics by date
-- Partition audit_logs by date
+##### **1. Smart Database Design**
+- **Schema Validation**: Strict constraints, check constraints, triggers
+- **Data Integrity**: Foreign keys with CASCADE options, unique constraints
+- **Smart Indexing**: Composite indexes for common query patterns
+- **Auto-Generated UUIDs**: Version 4 UUIDs for distributed systems
+- **Soft Deletes**: Logical deletion with audit trails
+- **Temporal Tables**: Automatic history tracking for critical data
 
-#### Connection Pooling
-- PgBouncer for PostgreSQL
-- Max connections per instance
-- Connection timeout configuration
+##### **2. Advanced PostgreSQL Features**
+```sql
+-- Smart Constraints with Custom Error Messages
+CREATE CONSTRAINT TRIGGER validate_test_configuration
+AFTER INSERT OR UPDATE ON tests
+FOR EACH ROW EXECUTE FUNCTION validate_test_config();
 
-#### Backup Strategy
-- Daily full backups
-- Continuous WAL archiving
-- Point-in-time recovery capability
-- Cross-region backup replication
+-- Generated Columns for Computed Values
+ALTER TABLE tests ADD COLUMN estimated_time_minutes 
+GENERATED ALWAYS AS (SELECT calculate_estimated_time(question_count, question_types)) STORED;
+
+-- Partitioned Tables with Automatic Partition Management
+CREATE TABLE test_attempts (
+    LIKE test_attempts_template INCLUDING ALL
+) PARTITION BY RANGE (created_at);
+
+-- Smart Indexes with Partial Indexing
+CREATE INDEX idx_active_tests ON tests(school_id) WHERE deleted_at IS NULL AND status = 'published';
+CREATE INDEX idx_recent_attempts ON test_attempts(student_id, created_at) 
+WHERE created_at >= CURRENT_DATE - INTERVAL '30 days';
+```
+
+##### **3. Comprehensive Scaling Strategy**
+
+###### **Read Replicas Configuration**
+- **Primary-Replica Setup**: 1 primary + 3 read replicas
+- **Smart Routing**: Read queries automatically routed to nearest replica
+- **Replica Types**:
+  - **Analytics Replica**: Optimized for complex reporting queries
+  - **Cache Replica**: In-memory optimized for frequent lookups
+  - **Geo-Replica**: For low-latency access across regions
+- **Failover Automation**: Automatic promotion of replica to primary
+- **Replica Lag Monitoring**: Real-time lag alerts and automatic query routing
+
+###### **Advanced Partitioning Strategy**
+```sql
+-- Time-based Partitioning with Automatic Management
+CREATE TABLE test_attempts (
+    id UUID,
+    test_id UUID,
+    student_id UUID,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- other columns
+) PARTITION BY RANGE (created_at);
+
+-- Automatic Partition Creation
+SELECT create_monthly_partitions('test_attempts', '2024-01-01', '2025-12-31');
+
+-- Hash-based Partitioning for Load Distribution
+CREATE TABLE questions (
+    id UUID,
+    school_id UUID,
+    question_hash INTEGER DEFAULT (hashtext(id::text) % 16)
+) PARTITION BY HASH (question_hash);
+```
+
+###### **Connection Pooling & Management**
+- **PgBouncer Configuration**: Transaction-level pooling for high concurrency
+- **Connection Limits**: Per-user and per-database connection limits
+- **Health Checks**: Automatic connection validation and cleanup
+- **Load Balancing**: Intelligent connection distribution
+
+##### **4. High Availability & Disaster Recovery**
+
+###### **Multi-Region Setup**
+- **Primary Region**: Active database with real-time replication
+- **Secondary Region**: Standby with synchronous replication
+- **Tertiary Region**: Backup with asynchronous replication
+- **Automatic Failover**: Zero-downtime failover with DNS switching
+
+###### **Backup & Recovery Strategy**
+```sql
+-- Continuous Backup Pipeline
+1. Real-time WAL archiving to S3
+2. Hourly base backups compressed
+3. Daily full backups with verification
+4. Weekly cross-region backup replication
+5. Monthly backup restoration testing
+
+-- Point-in-Time Recovery (PITR)
+-- Recovery to any second within 30 days
+-- Recovery time objective (RTO): < 15 minutes
+-- Recovery point objective (RPO): < 1 minute
+```
+
+##### **5. Performance Optimization**
+
+###### **Query Optimization**
+```sql
+-- Smart Materialized Views
+CREATE MATERIALIZED VIEW student_performance_summary AS
+SELECT 
+    student_id,
+    AVG(percentage) as avg_score,
+    COUNT(*) as total_attempts,
+    MAX(created_at) as last_attempt
+FROM test_attempts 
+GROUP BY student_id
+WITH DATA;
+
+-- Auto-Refresh Strategy
+CREATE OR REPLACE FUNCTION refresh_performance_summary()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY student_performance_summary;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Scheduled Refresh
+SELECT cron.schedule('refresh-performance', '0 */6 * * *', 'SELECT refresh_performance_summary();');
+```
+
+###### **Caching Strategy**
+- **Redis Clusters**: Multi-node Redis for session and query caching
+- **Application-Level Caching**: Intelligent cache invalidation
+- **Database Query Caching**: Automatic result caching for repeated queries
+- **CDN Integration**: Static assets and API response caching
+
+##### **6. Monitoring & Observability**
+
+###### **Database Health Monitoring**
+```sql
+-- Comprehensive Monitoring Setup
+1. Connection pool metrics
+2. Query performance analysis
+3. Index usage statistics
+4. Lock contention monitoring
+5. Disk space and I/O metrics
+6. Replication lag tracking
+7. Backup verification status
+
+-- Alert Thresholds
+- CPU usage > 80% for 5 minutes
+- Memory usage > 85%
+- Disk space < 20%
+- Replication lag > 10 seconds
+- Query duration > 5 seconds
+```
+
+##### **7. Security & Compliance**
+
+###### **Data Security**
+```sql
+-- Row-Level Security for Multi-Tenant Isolation
+ALTER TABLE tests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY school_isolation ON tests
+FOR ALL TO application_role
+USING (school_id = current_setting('app.current_school_id')::uuid);
+
+-- Column-Level Encryption
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+ALTER TABLE users ADD COLUMN encrypted_email TEXT;
+UPDATE users SET encrypted_email = pgp_sym_encrypt(email, current_setting('app.encryption_key'));
+
+-- Audit Logging
+CREATE OR REPLACE FUNCTION audit_trigger()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO audit_logs (table_name, operation, old_values, new_values, user_id)
+    VALUES (TG_TABLE_NAME, TG_OP, row_to_json(OLD), row_to_json(NEW), current_setting('app.current_user_id')::uuid);
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+##### **8. Smart Error Handling & Recovery**
+
+###### **Automatic Error Recovery**
+```sql
+-- Deadlock Detection and Resolution
+CREATE OR REPLACE FUNCTION handle_deadlock()
+RETURNS void AS $$
+BEGIN
+    -- Log deadlock details
+    -- Retry transaction with exponential backoff
+    -- Notify monitoring system
+END;
+$$ LANGUAGE plpgsql;
+
+-- Data Consistency Checks
+CREATE OR REPLACE FUNCTION validate_data_integrity()
+RETURNS TABLE(table_name TEXT, issue_count BIGINT) AS $$
+BEGIN
+    -- Check for orphaned records
+    -- Validate foreign key relationships
+    -- Verify data constraints
+    -- Report inconsistencies
+END;
+$$ LANGUAGE plpgsql;
+```
+
+##### **9. Database Migration Strategy**
+
+###### **Zero-Downtime Migrations**
+```sql
+-- Blue-Green Deployment for Schema Changes
+1. Create new schema version
+2. Sync data to new schema
+3. Validate data consistency
+4. Switch application to new schema
+5. Keep old schema for rollback
+
+-- Backward-Compatible Changes
+- Add new columns as nullable
+- Use views for API compatibility
+- Gradual data migration
+- Feature flags for new functionality
+```
+
+##### **10. PostgreSQL Schema Optimization**
+
+###### **Smart Schema Design**
+```sql
+-- Optimized Question Storage with JSONB
+CREATE TABLE questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    school_id UUID NOT NULL,
+    question_text TEXT NOT NULL,
+    question_type VARCHAR(50) NOT NULL,
+    
+    -- JSONB for flexible data storage
+    question_data JSONB DEFAULT '{}',
+    metadata JSONB DEFAULT '{}',
+    
+    -- Embedded frequently accessed data
+    subject_name VARCHAR(255) GENERATED ALWAYS AS (
+        SELECT name FROM subjects WHERE id = questions.subject_id
+    ) STORED,
+    
+    -- Performance tracking
+    usage_stats JSONB DEFAULT '{
+        "times_used": 0,
+        "avg_score": 0.0,
+        "last_used": null
+    }'::jsonb,
+    
+    -- Search optimization
+    search_vector tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', question_text), 'A') ||
+        setweight(to_tsvector('english', COALESCE(explanation, '')), 'B') ||
+        setweight(to_tsvector('english', array_to_string(topics, ' ')), 'C')
+    ) STORED,
+    
+    -- Audit fields
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+
+-- Compound Indexes for Performance
+CREATE INDEX idx_questions_performance ON questions(
+    school_id, 
+    subject_id, 
+    question_type, 
+    (usage_stats->>'times_used')::INTEGER DESC
+) WHERE deleted_at IS NULL;
+
+-- JSONB-specific indexes
+CREATE INDEX idx_questions_data_gin ON questions USING GIN(question_data);
+CREATE INDEX idx_questions_usage_stats ON questions USING GIN(usage_stats);
+
+-- Full-text search index
+CREATE INDEX idx_questions_search ON questions USING GIN(search_vector);
+
+-- Partial index for frequently accessed active questions
+CREATE INDEX idx_questions_active ON questions(
+    school_id, subject_id, question_type
+) WHERE deleted_at IS NULL AND is_verified = true;
+```
+
+##### **11. Resilience Testing**
+
+###### **Chaos Engineering**
+- **Database Failover Tests**: Automatic failover validation
+- **Network Partition Tests**: Split-brain scenario testing
+- **Load Testing**: Simulated 10,000+ concurrent users
+- **Data Corruption Tests**: Automatic corruption detection and recovery
+- **Performance Degradation**: Graceful degradation under load
+
+This comprehensive database architecture ensures:
+- **Smart Design**: Intelligent constraints, validation, and optimization
+- **Scalability**: Horizontal and vertical scaling capabilities
+- **Robustness**: High availability, disaster recovery, and error resilience
+- **Performance**: Optimized queries, caching, and monitoring
+- **Security**: Multi-layer security and compliance features
 
 ---
+
+## Database Crash Prevention & Zero-Downtime Architecture
+
+### **Overview**
+
+Implementing a bulletproof database architecture that ensures the system never crashes and maintains 99.99% uptime through comprehensive prevention, monitoring, and automatic recovery mechanisms.
+
+### **1. Proactive Crash Prevention Strategies**
+
+#### **Database Resource Management**
+```sql
+-- Connection Pool Configuration
+ALTER SYSTEM SET max_connections = 500;
+ALTER SYSTEM SET superuser_reserved_connections = 10;
+ALTER SYSTEM SET shared_buffers = '4GB';
+ALTER SYSTEM SET effective_cache_size = '12GB';
+ALTER SYSTEM SET work_mem = '256MB';
+ALTER SYSTEM SET maintenance_work_mem = '1GB';
+
+-- Automatic Memory Management
+ALTER SYSTEM SET autovacuum = on;
+ALTER SYSTEM SET autovacuum_max_workers = 4;
+ALTER SYSTEM SET autovacuum_naptime = '1min';
+ALTER SYSTEM SET autovacuum_vacuum_scale_factor = 0.1;
+ALTER SYSTEM SET autovacuum_analyze_scale_factor = 0.05;
+
+-- Prevent Connection Exhaustion
+ALTER SYSTEM SET idle_in_transaction_session_timeout = '5min';
+ALTER SYSTEM SET statement_timeout = '30min';
+ALTER SYSTEM SET lock_timeout = '10s';
+```
+
+#### **Query Performance Protection**
+```sql
+-- Slow Query Detection
+CREATE OR REPLACE FUNCTION log_slow_queries()
+RETURNS event_trigger AS $$
+BEGIN
+    IF pg_stat_statements.calls > 100 AND pg_stat_statements.mean_exec_time > 5000 THEN
+        INSERT INTO slow_query_log (query, duration, user_id)
+        VALUES (current_query(), pg_stat_statements.mean_exec_time, current_user);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Resource Usage Monitoring
+CREATE OR REPLACE FUNCTION monitor_resource_usage()
+RETURNS void AS $$
+DECLARE
+    cpu_usage FLOAT;
+    memory_usage FLOAT;
+    disk_usage FLOAT;
+BEGIN
+    -- Monitor system resources
+    SELECT INTO cpu_usage, memory_usage, disk_usage 
+    get_system_metrics();
+    
+    -- Auto-throttle if resources are high
+    IF cpu_usage > 85 OR memory_usage > 90 OR disk_usage > 85 THEN
+        PERFORM pg_reload_conf();
+        -- Enable emergency mode
+        PERFORM enable_emergency_throttling();
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### **2. Real-Time Monitoring & Alerting System**
+
+#### **Comprehensive Health Monitoring**
+```sql
+-- Database Health Dashboard
+CREATE MATERIALIZED VIEW database_health_metrics AS
+SELECT 
+    'connection_pool' as metric_type,
+    (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+    (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'idle') as idle_connections,
+    (SELECT COUNT(*) FROM pg_stat_activity WHERE wait_event IS NOT NULL) as waiting_connections,
+    (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections,
+    ROUND(
+        (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active')::float / 
+        (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') * 100, 2
+    ) as connection_utilization_percent
+
+UNION ALL
+
+SELECT 
+    'memory_usage' as metric_type,
+    (SELECT shared_buffers_size FROM pg_settings) as shared_buffers,
+    (SELECT work_mem_size FROM pg_settings) as work_mem,
+    (SELECT maintenance_work_mem_size FROM pg_settings) as maintenance_work_mem,
+    (SELECT effective_cache_size FROM pg_settings) as effective_cache_size,
+    (SELECT total_memory_usage FROM system_metrics) as memory_utilization_percent
+
+UNION ALL
+
+SELECT 
+    'disk_io' as metric_type,
+    (SELECT reads FROM pg_stat_database WHERE datname = current_database()) as disk_reads,
+    (SELECT writes FROM pg_stat_database WHERE datname = current_database()) as disk_writes,
+    (SELECT blks_read FROM pg_stat_database WHERE datname = current_database()) as blocks_read,
+    (SELECT blks_hit FROM pg_stat_database WHERE datname = current_database()) as blocks_hit,
+    ROUND(
+        (SELECT blks_hit::float / (blks_read + blks_hit)) * 100, 2
+    ) as cache_hit_ratio;
+
+-- Refresh every 30 seconds
+CREATE OR REPLACE FUNCTION refresh_health_metrics()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY database_health_metrics;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule health checks
+SELECT cron.schedule('health-check', '*/30 * * * *', 'SELECT refresh_health_metrics();');
+```
+
+#### **Automated Alerting System**
+```sql
+-- Alert Threshold Configuration
+CREATE TABLE alert_thresholds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    metric_name VARCHAR(100) NOT NULL,
+    warning_threshold DECIMAL(5,2),
+    critical_threshold DECIMAL(5,2),
+    action_type VARCHAR(50) CHECK (action_type IN ('log', 'email', 'sms', 'auto_action')),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO alert_thresholds VALUES
+(gen_random_uuid(), 'connection_utilization', 70.0, 85.0, 'auto_action', true),
+(gen_random_uuid(), 'memory_utilization', 80.0, 90.0, 'auto_action', true),
+(gen_random_uuid(), 'disk_usage', 75.0, 85.0, 'auto_action', true),
+(gen_random_uuid(), 'replication_lag', 10.0, 30.0, 'auto_action', true),
+(gen_random_uuid(), 'query_duration', 5000.0, 10000.0, 'log', true),
+(gen_random_uuid(), 'cache_hit_ratio', 95.0, 90.0, 'auto_action', true);
+
+-- Alert Processing Function
+CREATE OR REPLACE FUNCTION process_alerts()
+RETURNS void AS $$
+DECLARE
+    alert_record RECORD;
+    action_required BOOLEAN;
+BEGIN
+    FOR alert_record IN 
+        SELECT 
+            h.metric_type,
+            h.connection_utilization_percent as value,
+            t.warning_threshold,
+            t.critical_threshold,
+            t.action_type
+        FROM database_health_metrics h
+        CROSS JOIN alert_thresholds t
+        WHERE h.metric_type = t.metric_name 
+        AND t.is_active = true
+        AND (h.connection_utilization_percent >= t.warning_threshold OR 
+             h.connection_utilization_percent >= t.critical_threshold)
+    LOOP
+        IF alert_record.value >= alert_record.critical_threshold THEN
+            -- Critical alert - take immediate action
+            PERFORM handle_critical_alert(alert_record.metric_type, alert_record.value);
+            PERFORM log_critical_event(alert_record.metric_type, alert_record.value);
+        ELSIF alert_record.value >= alert_record.warning_threshold THEN
+            -- Warning alert - log and notify
+            PERFORM log_warning_event(alert_record.metric_type, alert_record.value);
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### **3. Automatic Failover & Recovery**
+
+#### **Multi-Master Replication Setup**
+```sql
+-- Patroni Configuration for High Availability
+-- Configuration file: patroni.yml
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 10.0.1.10:8008
+
+etcd:
+  hosts: 10.0.1.10:2379,10.0.1.11:2379,10.0.1.12:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        wal_level: hot_standby
+        hot_standby: "on"
+        max_connections: 500
+        max_prepared_transactions: 500
+        max_locks_per_transaction: 64
+        wal_log_hints: "on"
+        max_wal_senders: 5
+        wal_keep_segments: 8
+        hot_standby_feedback: "on"
+        track_commit_timestamp: "on"
+        archive_mode: "on"
+        archive_command: "cp %p /var/lib/postgresql/wal_archive/%f"
+
+  pg_hba:
+  - host replication replicator 10.0.1.0/24 md5
+  - host all all 0.0.0.0/0 md5
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: 10.0.1.10:5432
+  data_dir: /var/lib/postgresql/data
+  pgpass: /tmp/pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: rep-pass
+    superuser:
+      username: postgres
+      password: su-pass
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+```
+
+#### **Automatic Failover Logic**
+```python
+# Failover Controller Implementation
+class DatabaseFailoverController:
+    def __init__(self):
+        self.health_checker = DatabaseHealthChecker()
+        self.replication_manager = ReplicationManager()
+        self.alert_system = AlertSystem()
+        
+    def monitor_and_failover(self):
+        while True:
+            try:
+                health_status = self.health_checker.check_primary_health()
+                
+                if not health_status.is_healthy:
+                    self.initiate_failover(health_status)
+                    
+                self.check_replication_lag()
+                time.sleep(5)
+                
+            except Exception as e:
+                self.alert_system.send_critical_alert(f"Failover controller error: {str(e)}")
+                time.sleep(10)
+    
+    def initiate_failover(self, health_status):
+        # Check if failover is needed
+        if health_status.failure_type == 'primary_crash':
+            # Promote most up-to-date replica
+            best_replica = self.replication_manager.get_best_replica()
+            
+            if best_replica.lag < self.max_acceptable_lag:
+                self.replication_manager.promote_replica(best_replica)
+                self.alert_system.send_failover_notification(best_replica)
+            else:
+                self.alert_system.send_critical_alert("No suitable replica for failover")
+                
+        elif health_status.failure_type == 'network_partition':
+            # Handle network split-brain
+            self.handle_network_partition(health_status)
+    
+    def handle_network_partition(self, health_status):
+        # Implement consensus-based recovery
+        consensus = self.achieve_consensus()
+        if consensus.majority_agrees:
+            self.promote_consensus_leader(consensus.leader)
+        else:
+            self.enter_safe_mode()
+```
+
+### **4. Backup & Disaster Recovery**
+
+#### **Continuous Backup Strategy**
+```sql
+-- WAL Archiving Configuration
+ALTER SYSTEM SET wal_level = replica;
+ALTER SYSTEM SET archive_mode = on;
+ALTER SYSTEM SET archive_command = '/usr/local/bin/wal-g wal-push %p';
+ALTER SYSTEM SET archive_timeout = '60s';
+
+-- Automated Backup Script
+#!/bin/bash
+# backup_database.sh
+
+set -euo pipefail
+
+# Configuration
+BACKUP_DIR="/backups/postgresql"
+RETENTION_DAYS=30
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/assessment_engine_$TIMESTAMP.dump"
+
+# Create backup directory
+mkdir -p "$BACKUP_DIR"
+
+# Perform base backup
+pg_basebackup -h localhost -D "$BACKUP_DIR/base_$TIMESTAMP" -U postgres -v -P -W
+
+# Create compressed dump
+pg_dump -h localhost -U postgres -Fc assessment_engine > "$BACKUP_FILE"
+
+# Upload to cloud storage
+aws s3 cp "$BACKUP_FILE" s3://assessment-engine-backups/database/
+aws s3 cp "$BACKUP_DIR/base_$TIMESTAMP" s3://assessment-engine-backups/base-backups/
+
+# Clean up old backups
+find "$BACKUP_DIR" -name "*.dump" -mtime +$RETENTION_DAYS -delete
+find "$BACKUP_DIR" -name "base_*" -mtime +$RETENTION_DAYS -delete
+
+# Verify backup integrity
+pg_restore --list "$BACKUP_FILE" > /dev/null
+if [ $? -eq 0 ]; then
+    echo "Backup verification successful: $BACKUP_FILE"
+else
+    echo "Backup verification failed: $BACKUP_FILE"
+    exit 1
+fi
+
+# Log backup completion
+echo "$(date): Database backup completed successfully: $BACKUP_FILE" >> /var/log/postgresql/backups.log
+```
+
+#### **Point-in-Time Recovery (PITR)**
+```sql
+-- Recovery Configuration
+CREATE TABLE recovery_points (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    recovery_name VARCHAR(255) NOT NULL,
+    recovery_timestamp TIMESTAMP NOT NULL,
+    wal_file_name VARCHAR(255),
+    backup_file_path VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Automated Recovery Function
+CREATE OR REPLACE FUNCTION initiate_pitr_recovery(recovery_name TEXT, target_time TIMESTAMP)
+RETURNS TEXT AS $$
+DECLARE
+    recovery_point RECORD;
+    wal_file TEXT;
+    backup_file TEXT;
+BEGIN
+    -- Find appropriate recovery point
+    SELECT INTO recovery_point 
+    recovery_timestamp, wal_file_name, backup_file_path
+    FROM recovery_points 
+    WHERE recovery_name = recovery_name 
+    AND recovery_timestamp <= target_time 
+    ORDER BY recovery_timestamp DESC 
+    LIMIT 1;
+    
+    -- Initiate recovery process
+    PERFORM pg_start_backup('recovery_' || recovery_name);
+    
+    -- Restore from backup
+    PERFORM restore_from_backup(recovery_point.backup_file_path);
+    
+    -- Apply WAL files up to target time
+    PERFORM apply_wal_files(recovery_point.wal_file_name, target_time);
+    
+    -- Verify recovery
+    PERFORM verify_recovery_integrity();
+    
+    RETURN format('Recovery completed: %s to %s', recovery_name, target_time);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### **5. Performance Optimization & Load Management**
+
+#### **Query Optimization**
+```sql
+-- Automatic Query Optimization
+CREATE OR REPLACE FUNCTION optimize_slow_queries()
+RETURNS void AS $$
+DECLARE
+    slow_query RECORD;
+BEGIN
+    FOR slow_query IN 
+        SELECT query, calls, total_exec_time, mean_exec_time
+        FROM pg_stat_statements 
+        WHERE mean_exec_time > 1000 
+        ORDER BY mean_exec_time DESC 
+        LIMIT 10
+    LOOP
+        -- Analyze query plan
+        PERFORM analyze_query_plan(slow_query.query);
+        
+        -- Suggest indexes
+        PERFORM suggest_missing_indexes(slow_query.query);
+        
+        -- Log for manual review
+        INSERT INTO query_optimization_log 
+        (query, execution_time, optimization_date, status)
+        VALUES (slow_query.query, slow_query.mean_exec_time, NOW(), 'identified');
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Dynamic Connection Pool Adjustment
+CREATE OR REPLACE FUNCTION adjust_connection_pool()
+RETURNS void AS $$
+DECLARE
+    current_load FLOAT;
+    optimal_connections INTEGER;
+BEGIN
+    -- Calculate current load
+    SELECT INTO current_load 
+    (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active')::float / 
+    (SELECT setting::int FROM pg_settings WHERE name = 'max_connections');
+    
+    -- Adjust pool size based on load
+    IF current_load > 0.8 THEN
+        -- High load - increase pool size
+        optimal_connections := LEAST(600, current_setting('max_connections')::int + 100);
+        PERFORM set_config('max_connections', optimal_connections::text, false);
+        
+    ELSIF current_load < 0.3 THEN
+        -- Low load - decrease pool size
+        optimal_connections := GREATEST(200, current_setting('max_connections')::int - 50);
+        PERFORM set_config('max_connections', optimal_connections::text, false);
+    END IF;
+    
+    -- Log adjustment
+    INSERT INTO pool_adjustment_log (load_percentage, new_connections, adjustment_time)
+    VALUES (current_load * 100, optimal_connections, NOW());
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### **6. Security & Compliance**
+
+#### **Data Protection**
+```sql
+-- Transparent Data Encryption (TDE)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Column-Level Encryption
+CREATE OR REPLACE FUNCTION encrypt_sensitive_data(data TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    RETURN pgp_sym_encrypt(data, current_setting('app.encryption_key'));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Row-Level Security Enhancement
+ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY enhanced_school_isolation ON questions
+FOR ALL TO application_role
+USING (
+    school_id = current_setting('app.current_school_id')::uuid AND
+    deleted_at IS NULL
+);
+
+-- Audit Trail Enhancement
+CREATE OR REPLACE FUNCTION enhanced_audit_trigger()
+RETURNS TRIGGER AS $$
+DECLARE
+    audit_data JSONB;
+BEGIN
+    audit_data := jsonb_build_object(
+        'table_name', TG_TABLE_NAME,
+        'operation', TG_OP,
+        'old_values', row_to_json(OLD),
+        'new_values', row_to_json(NEW),
+        'user_id', current_setting('app.current_user_id')::uuid,
+        'session_id', current_setting('app.session_id'),
+        'ip_address', inet_client_addr(),
+        'user_agent', current_setting('app.user_agent'),
+        'timestamp', NOW(),
+        'transaction_id', txid_current()
+    );
+    
+    INSERT INTO enhanced_audit_logs (audit_data) VALUES (audit_data);
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### **7. Testing & Validation**
+
+#### **Chaos Engineering**
+```python
+# Chaos Testing Framework
+class DatabaseChaosTester:
+    def __init__(self):
+        self.test_scenarios = [
+            'primary_crash',
+            'network_partition',
+            'disk_full',
+            'memory_exhaustion',
+            'connection_exhaustion',
+            'replication_lag',
+            'corruption_detection'
+        ]
+    
+    def run_chaos_tests(self):
+        for scenario in self.test_scenarios:
+            try:
+                self.execute_chaos_scenario(scenario)
+                self.validate_recovery(scenario)
+            except Exception as e:
+                self.log_chaos_failure(scenario, str(e))
+    
+    def execute_chaos_scenario(self, scenario):
+        if scenario == 'primary_crash':
+            self.simulate_primary_crash()
+        elif scenario == 'network_partition':
+            self.simulate_network_partition()
+        elif scenario == 'disk_full':
+            self.simulate_disk_full()
+        # ... other scenarios
+    
+    def validate_recovery(self, scenario):
+        # Verify system recovered correctly
+        health_check = self.perform_health_check()
+        if not health_check.is_healthy:
+            raise Exception(f"Recovery validation failed for {scenario}")
+```
+
+### **8. 24/7 Monitoring Dashboard**
+
+#### **Real-Time Health Dashboard**
+```sql
+-- Dashboard Metrics View
+CREATE MATERIALIZED VIEW system_dashboard AS
+SELECT 
+    'system_health' as category,
+    (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+    (SELECT ROUND(100.0 * (blks_hit::float / (blks_read + blks_hit)), 2) 
+     FROM pg_stat_database WHERE datname = current_database()) as cache_hit_ratio,
+    (SELECT ROUND(100.0 * (xact_commit::float / (xact_commit + xact_rollback)), 2)
+     FROM pg_stat_database WHERE datname = current_database()) as transaction_success_rate,
+    (SELECT pg_size_pretty(pg_database_size(current_database()))) as database_size,
+    (SELECT pg_size_pretty(sum(pg_relation_size(schemaname||'.'||tablename)))
+     FROM pg_tables WHERE schemaname = 'public') as tables_size,
+    (SELECT pg_size_pretty(sum(pg_relation_size(schemaname||'.'||indexname)))
+     FROM pg_indexes WHERE schemaname = 'public') as indexes_size,
+    (SELECT age(datfrozenxid) FROM pg_database WHERE datname = current_database()) as transaction_id_age,
+    (SELECT max_failures FROM replication_status WHERE status = 'active') as replication_failures;
+
+-- Auto-refresh dashboard
+SELECT cron.schedule('dashboard-refresh', '*/10 * * * *', 'REFRESH MATERIALIZED VIEW system_dashboard;');
+```
+
+### **9. Emergency Response Procedures**
+
+#### **Automated Emergency Response**
+```sql
+-- Emergency Response Triggers
+CREATE OR REPLACE FUNCTION emergency_response()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- If critical threshold exceeded
+    IF NEW.connection_utilization > 95 THEN
+        -- Enable emergency mode
+        PERFORM enable_emergency_mode();
+        
+        -- Scale up resources
+        PERFORM trigger_auto_scaling();
+        
+        -- Notify all administrators
+        PERFORM send_emergency_notification('critical_connection_load');
+        
+    ELSIF NEW.memory_utilization > 95 THEN
+        -- Clear caches
+        PERFORM clear_system_caches();
+        
+        -- Restart connections
+        PERFORM restart_idle_connections();
+        
+    ELSIF NEW.replication_lag > 60 THEN
+        -- Pause writes to allow catch-up
+        PERFORM pause_write_operations();
+        
+        -- Check replica health
+        PERFORM validate_replica_health();
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create emergency response trigger
+CREATE TRIGGER emergency_response_trigger
+AFTER UPDATE ON database_health_metrics
+FOR EACH ROW
+WHEN (NEW.connection_utilization > 95 OR NEW.memory_utilization > 95 OR NEW.replication_lag > 60)
+EXECUTE FUNCTION emergency_response();
+```
+
+### **10. Zero-Downtime Deployment**
+
+#### **Blue-Green Deployment**
+```python
+# Zero-Downtime Deployment Script
+class ZeroDowntimeDeployer:
+    def __init__(self):
+        self.blue_environment = 'blue'
+        self.green_environment = 'green'
+        self.current_environment = self.blue_environment
+        
+    def deploy_schema_changes(self, migration_script):
+        # Deploy to inactive environment
+        inactive_env = self.get_inactive_environment()
+        
+        # Apply migrations to inactive environment
+        self.apply_migrations(inactive_env, migration_script)
+        
+        # Validate migrations
+        self.validate_migrations(inactive_env)
+        
+        # Switch traffic to new environment
+        self.switch_traffic(inactive_env)
+        
+        # Monitor for issues
+        self.monitor_post_deployment()
+        
+        # Keep old environment for rollback
+        self.maintain_rollback_capability()
+    
+    def switch_traffic(self, target_environment):
+        # Update load balancer configuration
+        self.update_load_balancer(target_environment)
+        
+        # Update DNS if needed
+        self.update_dns_records(target_environment)
+        
+        # Verify traffic routing
+        self.verify_traffic_routing(target_environment)
+```
+
+### **Summary of Crash Prevention Measures**
+
+✅ **Proactive Prevention**: Resource management, query optimization, connection pooling
+✅ **Real-Time Monitoring**: Health metrics, alerting, automated responses
+✅ **Automatic Failover**: Multi-master replication, consensus-based recovery
+✅ **Backup & Recovery**: Continuous backups, PITR, automated restoration
+✅ **Performance Optimization**: Dynamic scaling, query optimization, caching
+✅ **Security**: Encryption, audit trails, access control
+✅ **Testing**: Chaos engineering, recovery validation
+✅ **Emergency Response**: Automated responses, escalation procedures
+✅ **Zero-Downtime Deployment**: Blue-green deployment, traffic switching
+
+This comprehensive crash prevention strategy ensures the database remains operational 24/7 with automatic recovery from any failure scenario, maintaining the assessment engine's reliability and availability.
 
 ## Resource Management & Question Extraction
 
@@ -861,59 +1941,253 @@ db.questions.createIndex({ question_text: "text" })
 
 The Resource Management system enables schools to upload books (class-wise and subject-wise) and previous year question papers. The system uses AI/ML to automatically extract questions from these resources, making them available in the question bank for teachers to use when generating tests.
 
-### Resource Upload Flow
+### User Roles & Permissions for Resource Upload
 
+#### **Role-Based Access Control Matrix**
+
+| Role | Upload Books | Upload Question Papers | View Resources | Edit Resources | Delete Resources | Share Resources | Extract Questions |
+|------|--------------|----------------------|---------------|---------------|-----------------|---------------|------------------|
+| **School Admin** | ✅ Full Access | ✅ Full Access | ✅ All Schools | ✅ All Resources | ✅ All Resources | ✅ Cross-School | ✅ Auto-Extract |
+| **Teacher** | ✅ Assigned Classes | ✅ Assigned Classes | ✅ Own Resources | ✅ Own Resources | ✅ Own Resources | ✅ Within School | ✅ Auto-Extract |
+| **Department Head** | ✅ Department | ✅ Department | ✅ Department | ✅ Department | ✅ Department | ✅ Within School | ✅ Auto-Extract |
+| **Librarian** | ✅ All Classes | ✅ Limited | ✅ All Resources | ✅ Metadata Only | ❌ Limited | ✅ Within School | ✅ View Only |
+| **Content Manager** | ✅ All Classes | ✅ All Classes | ✅ All Resources | ✅ All Resources | ✅ All Resources | ✅ Cross-School | ✅ Auto-Extract |
+| **Student** | ❌ No Access | ❌ No Access | ✅ View Only | ❌ No Access | ❌ No Access | ❌ No Access | ❌ No Access |
+
+#### **Detailed Permission Breakdown**
+
+##### **1. School Administrator**
+- **Upload Permissions**: Can upload any type of resource for any class/subject
+- **Management**: Can manage all resources across the entire school
+- **Sharing**: Can share resources with other schools in the district
+- **Quality Control**: Can approve/reject resources uploaded by others
+- **Storage Management**: Can manage storage quotas and cleanup policies
+
+##### **2. Teacher (Class-Specific Access)**
+- **Upload Permissions**: 
+  - Can upload books for their assigned classes and subjects only
+  - Can upload previous year question papers for their subjects
+  - Cannot upload resources for classes they don't teach
+- **Resource Scope**: Limited to their assigned classes and subjects
+- **Collaboration**: Can share resources with other teachers in the same school
+- **Quality Control**: Can verify and edit extracted questions from their uploads
+
+##### **3. Department Head**
+- **Upload Permissions**: Can upload resources for entire department
+- **Oversight**: Can manage and review all department resources
+- **Coordination**: Can coordinate resource sharing among department teachers
+- **Quality Assurance**: Can set department-wide quality standards
+
+##### **4. Librarian (Support Role)**
+- **Upload Permissions**: Can upload general library books and reference materials
+- **Management**: Can manage metadata and organization of resources
+- **Access**: Full viewing access but limited editing capabilities
+- **Support**: Can assist teachers with resource organization and cataloging
+
+##### **5. Content Manager (Advanced Role)**
+- **Upload Permissions**: Can upload any type of educational content
+- **Cross-School**: Can share resources across multiple schools
+- **Quality Control**: Can set extraction quality thresholds and validation rules
+- **Advanced Features**: Access to advanced AI/ML extraction settings
+
+#### **Upload Workflow by Role**
+
+##### **Teacher Upload Process**
 ```
-┌─────────────┐     ┌──────────────┐     ┌───────────────┐
-│   Teacher   │────▶│  File Upload │────▶│  S3 Storage   │
-│             │     │   Service    │     │               │
-└─────────────┘     └──────────────┘     └───────────────┘
-                            │
-                            ▼
-                    ┌──────────────┐
-                    │  PostgreSQL  │
-                    │  (Metadata)  │
-                    └──────────────┘
-                            │
-                            ▼
-                    ┌──────────────┐
-                    │  Processing  │
-                    │    Queue     │
-                    └──────────────┘
-                            │
-                            ▼
-                    ┌──────────────┐
-                    │  Document    │
-                    │  Processing  │
-                    │   Service    │
-                    └──────────────┘
-                            │
-            ┌───────────────┼───────────────┐
-            │               │               │
-            ▼               ▼               ▼
-    ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-    │  PDF Parser  │ │  OCR Engine  │ │  AI/ML       │
-    │              │ │              │ │  Service     │
-    └──────────────┘ └──────────────┘ └──────────────┘
-            │               │               │
-            └───────────────┼───────────────┘
-                            │
-                            ▼
-                    ┌──────────────┐
-                    │  Question    │
-                    │  Extraction  │
-                    └──────────────┘
-                            │
-                            ▼
-                    ┌──────────────┐
-                    │  Question    │
-                    │  Bank (MongoDB)│
-                    └──────────────┘
+1. Authentication & Role Verification
+   ↓
+2. Class & Subject Assignment Check
+   ↓
+3. Upload Interface Access (Limited to assigned classes)
+   ↓
+4. Resource Upload & Validation
+   ↓
+5. AI/ML Processing (Automatic)
+   ↓
+6. Question Extraction & Verification
+   ↓
+7. Resource Publishing (Within school only)
 ```
 
-### Supported File Formats
+##### **School Admin Upload Process**
+```
+1. Authentication & Admin Verification
+   ↓
+2. Full Upload Interface Access
+   ↓
+3. Resource Upload & Validation
+   ↓
+4. AI/ML Processing (Advanced settings)
+   ↓
+5. Quality Control & Review
+   ↓
+6. Cross-School Sharing Options
+   ↓
+7. Resource Publishing (Multi-school access)
+```
 
-#### Books
+#### **Permission Implementation**
+
+##### **Database Schema for Permissions**
+```sql
+-- Resource Permissions Table
+CREATE TABLE resource_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    resource_type VARCHAR(50), -- 'book', 'question_paper', 'all'
+    permission_level VARCHAR(50), -- 'upload', 'view', 'edit', 'delete', 'share'
+    scope_type VARCHAR(50), -- 'school', 'department', 'class', 'subject'
+    scope_id UUID, -- Reference to specific scope
+    granted_by UUID REFERENCES users(id),
+    granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+
+-- Class-Subject Assignments for Teachers
+CREATE TABLE teacher_assignments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    teacher_id UUID REFERENCES users(id),
+    class_id UUID REFERENCES classes(id),
+    subject_id UUID REFERENCES subjects(id),
+    academic_year VARCHAR(50),
+    role VARCHAR(50) DEFAULT 'teacher', -- 'teacher', 'department_head'
+    assigned_by UUID REFERENCES users(id),
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+```
+
+##### **API Permission Checks**
+```python
+def check_upload_permission(user_id, resource_type, class_id, subject_id):
+    # Check user role and assignments
+    user = get_user(user_id)
+    
+    if user.role == 'school_admin':
+        return True, 'Full access granted'
+    
+    elif user.role == 'teacher':
+        # Check if teacher is assigned to this class and subject
+        assignment = get_teacher_assignment(user_id, class_id, subject_id)
+        if assignment and assignment.is_active:
+            return True, 'Class-specific access granted'
+        else:
+            return False, 'Not assigned to this class/subject'
+    
+    elif user.role == 'department_head':
+        # Check department-level permissions
+        if is_department_head(user_id, subject_id):
+            return True, 'Department access granted'
+        else:
+            return False, 'Not department head for this subject'
+    
+    # Additional role checks...
+    return False, 'Insufficient permissions'
+
+def upload_resource(user_id, resource_data, class_id, subject_id):
+    # Permission check
+    can_upload, message = check_upload_permission(user_id, resource_data['type'], class_id, subject_id)
+    if not can_upload:
+        raise PermissionError(message)
+    
+    # Proceed with upload
+    return process_resource_upload(resource_data, user_id, class_id, subject_id)
+```
+
+#### **Resource Sharing Rules**
+
+##### **Intra-School Sharing**
+- **Teachers**: Can share with other teachers in the same school
+- **Department Heads**: Can share within their department
+- **School Admins**: Can share across entire school
+
+##### **Inter-School Sharing**
+- **School Admins**: Can share with affiliated schools
+- **Content Managers**: Can share across school districts
+- **System Admins**: Can create public resource libraries
+
+#### **Quality Control Workflow**
+
+##### **Teacher Upload Quality Control**
+```
+Upload → AI Extraction → Confidence Scoring → Teacher Review → Publish
+```
+
+##### **Admin Upload Quality Control**
+```
+Upload → AI Extraction → Confidence Scoring → Admin Review → School Approval → Publish
+```
+
+#### **Audit Trail & Compliance**
+```sql
+-- Resource Upload Audit Log
+CREATE TABLE resource_upload_audit (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id),
+    resource_id UUID,
+    resource_type VARCHAR(50),
+    action VARCHAR(50), -- 'upload', 'edit', 'delete', 'share'
+    class_id UUID,
+    subject_id UUID,
+    permission_level VARCHAR(50),
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Teacher Upload Interface & Workflow
+
+        #### **Upload Dashboard Features**
+        - **Class-wise Organization**: Select class (1st-12th), subject, academic year
+        - **Subject-wise Categorization**: Automatic classification and tagging
+        - **Metadata Entry**: Title, author, publisher, ISBN, edition, year, description
+        - **File Validation**: Real-time size limits, format checks, password protection detection
+        - **Progress Tracking**: Live upload progress, processing status updates
+
+        #### **Supported File Formats**
+        - **Books**: PDF (native/scanned), EPUB, DOCX, Images (JPG/PNG) for scanned pages
+        - **Question Papers**: PDF (native/scanned), DOCX, Images (JPG/PNG) for scanned papers
+        - **File Size Limits**: 100MB for direct upload, 500MB with chunked upload
+
+        #### **Resource Upload Flow**
+
+        ```
+        ┌─────────────┐     ┌──────────────┐     ┌───────────────┐     ┌──────────────┐
+        │   Teacher   │────▶│  Upload UI   │────▶│  Validation   │────▶│  S3 Storage  │
+        │             │     │  Service     │     │   Service     │     │             │
+        └─────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+                           │                      │                   │
+                           ▼                      ▼                   ▼
+                   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+                   │  PostgreSQL  │    │  Processing  │    │  PostgreSQL  │
+                   │  (Metadata)  │    │    Queue     │    │  (Status)    │
+                   └──────────────┘    └──────────────┘    └──────────────┘
+                           │                      │                   │
+                           ▼                      ▼                   ▼
+                   ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+                   │  Document    │    │  Background  │    │  Notification│
+                   │  Processing  │    │    Jobs      │    │   Service    │
+                   │   Service    │    │             │    │             │
+                   └──────────────┘    └──────────────┘    └──────────────┘
+                           │                      │
+           ┌───────────────┼───────────────┐      │
+           │               │               │      ▼
+           ▼               ▼               ▼  ┌──────────────┐
+   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ │  Question    │
+   │  PDF Parser  │ │  OCR Engine  │ │  AI/ML       │ │  Bank (MongoDB)│
+   │              │ │              │ │  Service     │ │              │
+   └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+           │               │               │
+           └───────────────┼───────────────┘
+                           │
+                           ▼
+                   ┌──────────────┐
+                   │  Quality     │
+                   │  Control     │
+                   └──────────────┘
+        ```
 - PDF (native and scanned)
 - EPUB
 - DOCX
@@ -976,10 +2250,11 @@ The Resource Management system enables schools to upload books (class-wise and s
 - Mark questions for manual review if needed
 
 #### Step 8: Storage
-- Store questions in MongoDB with source tracking
-- Link questions to source resource
-- Index for fast search and retrieval
+- Store questions in PostgreSQL with structured schema
+- Link questions to source resource via foreign keys
+- Index for fast search and retrieval using PostgreSQL indexes
 - Update resource processing status
+- Utilize JSONB for flexible question data storage
 
 ### Question Generation from Resources
 
@@ -1714,95 +2989,345 @@ attempt-count-update
 
 ### Resource Management Edge Cases
 
-#### 1. Large File Upload
-- **Scenario**: Book/PDF file exceeds size limit
+#### **1. Large File Upload**
+- **Scenario**: Book/PDF file exceeds size limit (>500MB)
 - **Handling**: 
-  - Validate file size before upload
-  - Chunked upload for large files
-  - Progress indication
-  - Suggest compression
-- **Prevention**: Client-side validation, size limits
+  - Client-side validation with chunked upload support
+  - Progress indication with pause/resume capability
+  - Automatic compression suggestions
+  - Alternative upload methods (FTP, direct S3 upload)
+  - Email notification when upload completes
+- **Prevention**: 
+  - File size limits displayed prominently
+  - Pre-upload compression tools
+  - Bandwidth detection for upload time estimation
+- **Technical Implementation**:
+  ```javascript
+  // Chunked upload with retry logic
+  const uploadLargeFile = async (file, chunks = 10) => {
+    const chunkSize = Math.ceil(file.size / chunks);
+    for (let i = 0; i < chunks; i++) {
+      const chunk = file.slice(i * chunkSize, (i + 1) * chunkSize);
+      await uploadChunk(chunk, i, chunks);
+    }
+  };
+  ```
 
-#### 2. Corrupted Document
-- **Scenario**: Uploaded PDF is corrupted or password-protected
+#### **2. Corrupted Document**
+- **Scenario**: Uploaded PDF is corrupted, password-protected, or malformed
 - **Handling**: 
-  - Validate file integrity
-  - Detect password protection
-  - Notify user with specific error
-  - Allow re-upload
-- **Prevention**: Pre-upload validation, format checks
+  - Multi-stage validation (header check, structure validation, content verification)
+  - Password detection with user notification
+  - Automatic repair attempts for minor corruption
+  - Detailed error messages with suggested solutions
+  - Fallback processing with partial extraction
+- **Prevention**: 
+  - Pre-upload file format validation
+  - Supported format documentation
+  - File integrity checksum verification
+- **Technical Implementation**:
+  ```python
+  def validate_pdf_integrity(file_path):
+      try:
+          with open(file_path, 'rb') as f:
+              header = f.read(5)
+              if header != b'%PDF-':
+                  return False, "Invalid PDF header"
+          # Additional validation checks
+          return True, "Valid PDF"
+      except Exception as e:
+          return False, f"Corruption detected: {str(e)}"
+  ```
 
-#### 3. OCR Failure
-- **Scenario**: Scanned document has poor quality, OCR fails
+#### **3. OCR Failure**
+- **Scenario**: Scanned document has poor quality, OCR accuracy < 60%
 - **Handling**: 
-  - Image preprocessing
-  - Multiple OCR attempts with different settings
-  - Manual review queue
-  - Flag for manual processing
-- **Prevention**: Quality checks, image enhancement
+  - Multi-engine OCR approach (Tesseract + AWS Textract + Google Vision)
+  - Image preprocessing pipeline (deskewing, noise reduction, contrast enhancement)
+  - Quality scoring with confidence thresholds
+  - Manual review queue with prioritization
+  - Progressive enhancement (basic OCR → advanced OCR → manual review)
+- **Prevention**: 
+  - Upload quality guidelines
+  - Real-time quality assessment
+  - Image format recommendations
+- **Technical Implementation**:
+  ```python
+  def enhanced_ocr_pipeline(image):
+      engines = ['tesseract', 'aws_textract', 'google_vision']
+      results = []
+      
+      for engine in engines:
+          try:
+              result = ocr_with_engine(image, engine)
+              confidence = calculate_confidence(result)
+              if confidence > 0.7:
+                  return result, confidence
+              results.append((result, confidence))
+          except Exception:
+              continue
+      
+      # Fallback to best result or manual review
+      return best_result_or_manual_review(results)
+  ```
 
-#### 4. Question Extraction Accuracy
-- **Scenario**: AI extracts questions with low accuracy
+#### **4. Question Extraction Accuracy**
+- **Scenario**: AI extracts questions with low confidence or incorrect classification
 - **Handling**: 
-  - Confidence scoring
-  - Manual verification workflow
-  - Flag low-confidence extractions
-  - Provide editing interface
-- **Prevention**: Model training, quality thresholds
+  - Multi-model consensus approach (BERT + RoBERTa + custom models)
+  - Confidence scoring with uncertainty quantification
+  - Human-in-the-loop verification workflow
+  - Active learning for model improvement
+  - Context-aware validation (cross-reference with source material)
+- **Prevention**: 
+  - Model ensemble approach
+  - Continuous training with user feedback
+  - Quality thresholds and validation rules
+- **Technical Implementation**:
+  ```python
+  class QuestionExtractionPipeline:
+      def extract_with_confidence(self, text):
+          models = [BERTModel(), RoBERTaModel(), CustomModel()]
+          predictions = []
+          
+          for model in models:
+              pred = model.predict(text)
+              predictions.append(pred)
+          
+          # Ensemble prediction with confidence
+          consensus = self.calculate_consensus(predictions)
+          return consensus
+  ```
 
-#### 5. Duplicate Questions
-- **Scenario**: Same question extracted from multiple resources
+#### **5. Duplicate Questions**
+- **Scenario**: Same or similar questions extracted from multiple resources
 - **Handling**: 
-  - Duplicate detection algorithm
-  - Merge or flag duplicates
-  - Track all sources
-  - Allow manual review
-- **Prevention**: Deduplication before storage
+  - Semantic similarity detection using sentence embeddings
+  - Hash-based exact duplicate detection
+  - Fuzzy matching for near-duplicates
+  - Source tracking and attribution
+  - Merge strategies (keep best version, combine sources)
+- **Prevention**: 
+  - Pre-processing deduplication
+  - Real-time duplicate detection during extraction
+  - Source-aware question management
+- **Technical Implementation**:
+  ```python
+  def detect_duplicate_questions(new_question, existing_questions):
+      # Exact match
+      exact_matches = find_exact_matches(new_question, existing_questions)
+      
+      # Semantic similarity
+      embeddings = generate_embeddings([new_question] + existing_questions)
+      similarities = cosine_similarity(embeddings[0], embeddings[1:])
+      
+      # Fuzzy matching
+      fuzzy_matches = find_fuzzy_matches(new_question, existing_questions)
+      
+      return combine_duplicate_results(exact_matches, similarities, fuzzy_matches)
+  ```
 
-#### 6. Unsupported File Format
-- **Scenario**: User uploads unsupported file type
+#### **6. Unsupported File Format**
+- **Scenario**: User uploads unsupported or proprietary file format
 - **Handling**: 
-  - Validate file type
-  - Provide list of supported formats
-  - Suggest conversion tools
-  - Error with clear message
-- **Prevention**: File type validation, user guidance
+  - File type detection using magic bytes
+  - Automatic format conversion when possible
+  - Detailed error messages with conversion suggestions
+  - Integration with online conversion services
+  - Alternative upload methods
+- **Prevention**: 
+  - Clear format specification
+  - Client-side file type validation
+  - Drag-and-drop format checking
+- **Technical Implementation**:
+  ```python
+  def handle_unsupported_format(file):
+      file_type = detect_file_type(file)
+      if file_type in SUPPORTED_FORMATS:
+          return process_file(file)
+      
+      # Attempt conversion
+      converted_file = attempt_conversion(file)
+      if converted_file:
+          return process_file(converted_file)
+      
+      # Provide guidance
+      return suggest_conversion_options(file_type)
+  ```
 
-#### 7. Processing Timeout
-- **Scenario**: Large document takes too long to process
+#### **7. Processing Timeout**
+- **Scenario**: Large document (>1000 pages) takes too long to process
 - **Handling**: 
-  - Timeout with partial results
-  - Background job continuation
-  - Progress notifications
-  - Allow cancellation
-- **Prevention**: Time estimates, chunked processing
+  - Chunked processing with progress tracking
+  - Background job queue with priority management
+  - Real-time progress notifications
+  - Cancellation and resume capabilities
+  - Partial result delivery
+- **Prevention**: 
+  - Time estimation based on document complexity
+  - Resource allocation scaling
+  - Progressive processing strategies
+- **Technical Implementation**:
+  ```python
+  def process_large_document(document):
+      chunks = split_document_into_chunks(document, max_pages=50)
+      job_id = create_background_job()
+      
+      for i, chunk in enumerate(chunks):
+          process_chunk_async(chunk, job_id, i)
+          update_progress(job_id, i/len(chunks))
+      
+      return job_id
+  ```
 
-#### 8. Language Detection
-- **Scenario**: Document in unsupported language
+#### **8. Language Detection**
+- **Scenario**: Document in unsupported language or mixed languages
 - **Handling**: 
-  - Language detection
-  - Unsupported language notification
-  - Manual language tagging
-  - Limit processing for unsupported
-- **Prevention**: Language detection, user specification
+  - Multi-language detection with confidence scoring
+  - Language-specific OCR models
+  - Manual language tagging interface
+  - Translation integration for supported languages
+  - Fallback processing with limited features
+- **Prevention**: 
+  - Language specification during upload
+  - Supported language documentation
+  - Automatic language detection warnings
+- **Technical Implementation**:
+  ```python
+  def detect_and_handle_language(text):
+      detected_languages = detect_languages(text)
+      primary_language = max(detected_languages, key=lambda x: x['confidence'])
+      
+      if primary_language['code'] in SUPPORTED_LANGUAGES:
+          return process_with_language_model(text, primary_language['code'])
+      else:
+          return handle_unsupported_language(text, detected_languages)
+  ```
 
-#### 9. Mathematical Formulas
-- **Scenario**: Document contains complex math formulas
+#### **9. Mathematical Formulas**
+- **Scenario**: Document contains complex mathematical formulas and equations
 - **Handling**: 
-  - Formula detection
-  - LaTeX extraction
-  - MathML conversion
+  - Specialized math OCR (Mathpix, LaTeX OCR)
+  - Formula detection and extraction
+  - Multiple format output (LaTeX, MathML, image)
   - Manual review for complex formulas
-- **Prevention**: Specialized formula OCR
-
-#### 10. Table Extraction
-- **Scenario**: Questions in table format are hard to parse
-- **Handling**: 
-  - Table detection
-  - Specialized table parsing
-  - Manual review for complex tables
+  - Integration with computer algebra systems
+- **Prevention**: 
+  - Math-aware preprocessing
+  - Formula quality assessment
   - Alternative extraction methods
-- **Prevention**: Table-aware OCR, multiple strategies
+- **Technical Implementation**:
+  ```python
+  def extract_mathematical_formulas(document):
+      # Detect formula regions
+      formula_regions = detect_math_regions(document)
+      
+      extracted_formulas = []
+      for region in formula_regions:
+          # Try multiple extraction methods
+          latex_result = extract_latex_formula(region)
+          mathml_result = extract_mathml_formula(region)
+          
+          # Choose best result or flag for manual review
+          best_result = choose_best_extraction(latex_result, mathml_result)
+          extracted_formulas.append(best_result)
+      
+      return extracted_formulas
+  ```
+
+#### **10. Table Extraction**
+- **Scenario**: Questions and data presented in complex table formats
+- **Handling**: 
+  - Advanced table detection algorithms
+  - Structure analysis and reconstruction
+  - Cell content extraction with context
+  - Table-to-text conversion
+  - Manual review for complex layouts
+- **Prevention**: 
+  - Table-aware OCR models
+  - Multiple extraction strategies
+  - Layout analysis preprocessing
+- **Technical Implementation**:
+  ```python
+  def extract_table_content(image):
+      # Detect table structure
+      table_structure = detect_table_structure(image)
+      
+      # Extract cells with context
+      cells = extract_table_cells(image, table_structure)
+      
+      # Reconstruct logical flow
+      reconstructed_content = reconstruct_table_logic(cells)
+      
+      return reconstructed_content
+  ```
+
+#### **11. Storage Quota Exceeded**
+- **Scenario**: School or user exceeds storage allocation limits
+- **Handling**: 
+  - Real-time quota monitoring
+  - Graceful degradation with warnings
+  - Automatic cleanup of old/temporary files
+  - Upgrade options and recommendations
+  - Data archiving solutions
+- **Prevention**: 
+  - Quota visibility in dashboard
+  - Storage usage analytics
+  - Automated cleanup policies
+
+#### **12. Concurrent Processing Conflicts**
+- **Scenario**: Multiple users processing same resource simultaneously
+- **Handling**: 
+  - Resource locking mechanisms
+  - Distributed processing coordination
+  - Conflict resolution strategies
+  - Real-time status synchronization
+  - Queue management with priorities
+- **Prevention**: 
+  - Resource state tracking
+  - Distributed locking
+  - Processing status broadcasting
+
+#### **13. Network Interruption During Upload**
+- **Scenario**: Network connection lost during large file upload
+- **Handling**: 
+  - Resumable upload support
+  - Chunk-level retry logic
+  - Automatic reconnection
+  - Upload progress persistence
+  - Bandwidth adaptation
+- **Prevention**: 
+  - Chunked upload architecture
+  - Connection health monitoring
+  - Upload state persistence
+
+#### **14. Malicious File Upload**
+- **Scenario**: User uploads malicious files (viruses, malware, exploits)
+- **Handling**: 
+  - Multi-layer security scanning
+  - Sandboxed file processing
+  - Content sanitization
+  - Threat detection and quarantine
+  - Security incident response
+- **Prevention**: 
+  - File type restrictions
+  - Content validation
+  - Security scanning integration
+
+#### **15. Resource Version Conflicts**
+- **Scenario**: Multiple versions of same resource uploaded
+- **Handling**: 
+  - Version control system
+  - Change tracking and diff visualization
+  - Merge strategies for different versions
+  - Rollback capabilities
+  - Conflict resolution workflows
+- **Prevention**: 
+  - Version management policies
+  - Change detection
+  - Automated versioning
+
+This comprehensive edge case handling ensures robust resource management with proper error recovery, user guidance, and system resilience.
 
 ### Integration Edge Cases
 

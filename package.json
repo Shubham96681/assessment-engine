@@ -1,0 +1,16 @@
+{
+  "name": "assessment-engine",
+  "private": true,
+  "description": "Assessment Engine — run API + web UI together",
+  "scripts": {
+    "predev": "node scripts/ensure-backend-env.js",
+    "dev": "concurrently -k -n api,web -c blue,green \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "predev:tunnel": "node scripts/ensure-backend-env.js",
+    "dev:tunnel": "concurrently -k -n api,web -c blue,green \"npm run dev --prefix backend\" \"npm run dev:tunnel --prefix frontend\"",
+    "tunnel": "npx untun@latest tunnel http://localhost:5173",
+    "tunnel:api": "npx untun@latest tunnel http://localhost:3000"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
