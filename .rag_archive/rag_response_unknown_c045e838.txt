@@ -1,0 +1,30 @@
+ANSWER:
+[
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "A rectangular mango grove has length exactly twice its breadth. The planted area is 800 m². Taking breadth as x metres, form the quadratic equation, find the breadth and length, and verify the area.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "A", "position": "inside"},
+        {"shape": "point", "label": "B", "position": "inside"},
+        {"shape": "point", "label": "C", "position": "inside"},
+        {"shape": "point", "label": "D", "position": "inside"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "B", "to": "C"},
+        {"shape": "segment", "from": "C", "to": "D"},
+        {"shape": "segment", "from": "D", "to": "A"}
+      ],
+      "labels": {"A": "A", "B": "B", "C": "C", "D": "D"}
+    },
+    "correct_answer": "Given: breadth = x m, length = 2x m, area = 800 m². Step 1: Area gives x(2x) = 800, so 2x² = 800. Step 2: x² = 400, hence x = 20 (reject x = −20 as breadth cannot be negative). Step 3: Length = 2(20) = 40 m. Step 4: Check: 20 × 40 = 800 m². Hence breadth = 20 m and length = 40 m.",
+    "explanation": "HOTS area model with length = 2× breadth (distinct from hall/field linear shifts); factorisation and verification."
+  }
+]
+
+SOURCES USED:
+CONTEXT Ex 4.3 Q3 mango grove length twice breadth area 800 m²; quadratic formation from area product.

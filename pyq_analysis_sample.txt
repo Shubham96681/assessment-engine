@@ -1,0 +1,1969 @@
+=== CBSE_Class10_Maths_Standard_2023_PYQ.pdf total_pages=24 ===
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=== CBSE_Class10_Maths_Standard_2024_PYQ.pdf total_pages=18 ===
+ 
+ 
+ 
+1 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+Marking Scheme 
+Strictly Confidential 
+(For Internal and Restricted use only) 
+Secondary School Examination, 2024 
+MATHEMATICS PAPER CODE 30/1/1 
+ 
+General Instructions: - 
+ 
+1  
+You are aware that evaluation is the most important process in the actual and correct 
+assessment of the candidates. A small mistake in evaluation may lead to serious problems 
+which may affect the future of the candidates, education system and teaching profession. To 
+avoid mistakes, it is requested that before starting evaluation, you must read and understand 
+the spot evaluation guidelines carefully. 
+2  
+“Evaluation policy is a confidential policy as it is related to the confidentiality of the 
+examinations conducted, Evaluation done and several other aspects. It’s leakage to 
+public in any manner could lead to derailment of the examination system and affect the 
+life and future of millions of candidates. Sharing this policy/document to anyone, 
+publishing in any magazine and printing in News Paper/Website etc. may invite action 
+under various rules of the Board and IPC.” 
+3  
+Evaluation is to be done as per instructions provided in the Marking Scheme. It should not 
+be done according to one’s own interpretation or any other consideration. Marking Scheme 
+should be strictly adhered to and religiously followed. However, while evaluating, answers 
+which are based on latest information or knowledge and/or are innovative, they may be 
+assessed for their correctness otherwise and due marks be awarded to them.  In class -
+X, while evaluating two competency-based questions, please try to understand given 
+answer and even if reply is not from marking scheme but correct competency is 
+enumerated by the candidate, due marks should be awarded. 
+4  
+The Marking scheme carries only suggested value points for the answers. 
+These are in the nature of Guidelines only and do not constitute the complete answer. The 
+students can have their own expression and if the expression is correct, the due marks should 
+be awarded accordingly. 
+5  
+The Head-Examiner must go through the first five answer books evaluated by each evaluator 
+on the first day, to ensure that evaluation has been carried out as per the instructions given 
+in the Marking Scheme. If there is any variation, the same should be zero after deliberation 
+and discussion. The remaining answer books meant for evaluation shall be given only after 
+ensuring that there is no significant variation in the marking of individual evaluators. 
+6  
+Evaluators will mark (✓) wherever answer is correct. For wrong answer CROSS ‘X” be 
+marked. Evaluators will not put right (✓) while evaluating which gives an impression that 
+answer is correct and no marks are awarded. This is most common mistake which 
+evaluators are committing. 
+7  
+If a question has parts, please award marks on the right-hand side for each part. Marks 
+awarded for different parts of the question should then be totalled up and written on the left-
+hand margin and encircled. This may be followed strictly. 
+8  
+If a question does not have any parts, marks must be awarded on the left-hand margin and 
+encircled. This may also be followed strictly. 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+2 
+9  
+ 
+In Q1-Q20, if a candidate attempts the question more than once (without cancelling the 
+previous attempt), marks shall be awarded for the first attempt only and the other answer 
+scored out with a note “Extra Question”. 
+10  
+In Q21-Q38, if a student has attempted an extra question, answer of the question deserving 
+more marks should be retained and the other answer scored out with a note “Extra Question”. 
+11  
+No marks to be deducted for the cumulative effect of an error. It should be penalized only once. 
+12  
+A full scale of marks __________ (example 0 to 80/70/60/50/40/30 marks as given in 
+Question Paper) has to be used. Please do not hesitate to award full marks if the answer 
+deserves it. 
+13  
+Every examiner has to necessarily do evaluation work for full working hours i.e., 8 hours 
+every day and evaluate 20 answer books per day in main subjects and 25 answer books per 
+day in other subjects (Details are given in Spot Guidelines). This is in view of the reduced 
+syllabus and number of questions in question paper. 
+14  
+Ensure that you do not make the following common types of errors committed by the 
+Examiner in the past:- 
+● 
+Leaving answer or part thereof unassessed in an answer book. 
+● 
+Giving more marks for an answer than assigned to it. 
+● 
+Wrong totalling of marks awarded to an answer. 
+● 
+Wrong transfer of marks from the inside pages of the answer book to the title page. 
+● 
+Wrong question wise totalling on the title page. 
+● 
+Wrong totalling of marks of the two columns on the title page. 
+● 
+Wrong grand total. 
+● 
+Marks in words and figures not tallying/not same. 
+● 
+Wrong transfer of marks from the answer book to online award list. 
+● 
+Answers marked as correct, but marks not awarded. (Ensure that the right tick mark is 
+correctly and clearly indicated. It should merely be a line. Same is with the X for 
+incorrect answer.) 
+● 
+Half or a part of answer marked correct and the rest as wrong, but no marks awarded.  
+15  
+While evaluating the answer books if the answer is found to be totally incorrect, it should be 
+marked as cross (X) and awarded zero (0) Marks. 
+16  
+Any un assessed portion, non-carrying over of marks to the title page, or totaling error 
+detected by the candidate shall damage the prestige of all the personnel engaged in the 
+evaluation work as also of the Board. Hence, in order to uphold the prestige of all concerned, 
+it is again reiterated that the instructions be followed meticulously and judiciously. 
+17  
+The Examiners should acquaint themselves with the guidelines given in the “Guidelines for 
+spot Evaluation” before starting the actual evaluation. 
+18  
+Every Examiner shall also ensure that all the answers are evaluated, marks carried over to 
+the title page, correctly totalled and written in figures and words. 
+19  
+The candidates are entitled to obtain photocopy of the Answer Book on request on payment 
+of the prescribed processing fee. All Examiners/Additional Head Examiners/Head 
+Examiners are once again reminded that they must ensure that evaluation is carried out 
+strictly as per value points for each answer as given in the Marking Scheme. 
+
+ 
+ 
+ 
+3 
+MS_X_Mathematics_041_30/1/1_2023-24 
+MARKING SCHEME 
+MATHEMATICS (Subject Code–041) 
+(PAPER CODE: 30/1/1) 
+ 
+Q. No. 
+EXPECTED OUTCOMES/VALUE POINTS 
+Marks 
+ 
+SECTION A  
+This section consists of 20 questions of 1 mark each. 
+ 
+1. 
+ 
+ 
+ 
+ 
+Sol. 
+(b) 2  
+1 
+2.  
+ 
+ 
+ 
+ 
+Sol. 
+(d) 0.21 
+1 
+3.  
+ 
+ 
+ 
+ 
+Sol. 
+(c) ac = 
+𝑏2
+4  
+ 
+1 
+4.  
+ 
+ 
+ 
+ 
+Sol. 
+(c) 23  
+1 
+5.  
+ 
+ 
+ 
+ 
+Sol. 
+(d) 180 a3b4 
+1 
+ 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+4 
+6.  
+ 
+ 
+ 
+ 
+Sol. 
+(a) √68 units 
+1 
+7.  
+ 
+ 
+ 
+ 
+Sol. 
+(c) 
+1
+𝑚 
+ 
+1 
+8.  
+ 
+ 
+ 
+ 
+Sol. 
+(b) 
+1
+5 
+ 
+1 
+9.  
+ 
+ 
+ 
+ 
+Sol. 
+(d) 0 
+1 
+10. 
+ 
+ 
+ 
+ 
+Sol. 
+(a) −
+5
+2 
+ 
+1 
+11.  
+ 
+ 
+ 
+ 
+Sol. 
+(b)  – 12, 18 
+1 
+ 
+
+ 
+ 
+ 
+5 
+MS_X_Mathematics_041_30/1/1_2023-24 
+12.  
+ 
+ 
+ 
+ 
+Sol. 
+(a) 
+1
+√2 
+ 
+1 
+13.  
+ 
+ 
+ 
+ 
+Sol. 
+(c) 2 : 3 
+1 
+14.  
+ 
+ 
+ 
+ 
+Sol. 
+(b) median 
+1 
+15.  
+ 
+ 
+ 
+ 
+Sol. 
+(d) 
+2𝜋
+3  cu cm  
+ 
+1 
+16.  
+ 
+ 
+ 
+ 
+Sol. 
+(a) 
+7
+36 
+ 
+1 
+17.  
+ 
+ 
+ 
+ 
+Sol. 
+(c) (– 2, 0)  
+1 
+ 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+6 
+18.  
+ 
+ 
+ 
+ 
+Sol. 
+(a) consistent with unique solution  
+1 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+19.  
+ 
+ 
+ 
+ 
+Sol. 
+(b) Both Assertion (A) and Reason (R) are true but Reason (R) is not the 
+correct explanation for Assertion (A).  
+1 
+20.  
+ 
+ 
+ 
+ 
+Sol. 
+(d) Assertion (A) is false but Reason (R) is true. 
+1 
+
+ 
+ 
+ 
+7 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+                                                  SECTION B 
+This section consists of 5 questions of 2 marks each. 
+ 
+21. 
+ 
+ 
+ 
+ 
+Sol. 
+7x – 2y = 5   ----- (i) 
+8x + 7y = 15   ----- (ii) 
+Solving equation (i) and (ii), we get 
+x = 1 , y = 1 
+Verification of answer 
+ 
+ 
+ 
+1 + ½  
+½  
+22. 
+ 
+ 
+ 
+ 
+Sol. 
+Total number of remaining cards = 51 
+P (getting queen of heart) = 
+1
+51 
+1 
+ 
+1  
+23. (A) 
+ 
+ 
+ 
+ 
+Sol. 
+ 
+2√2 × 
+1
+√2 × 
+1
+2 +  2√3 × √3
+2    
+=  4  
+ 
+½+½ + ½   
+ 
+½ 
+ 
+                                                       OR 
+ 
+23. (B) 
+ 
+ 
+ 
+ 
+Sol. 
+LHS = sin (60° + 30°) = sin 90° = 1 
+RHS = sin 60° cos 30° + cos 60° sin 30° 
+        = √3
+2  × √3
+2 +
+1
+2 ×
+1
+2 = 1 
+∴ LHS = RHS 
+1 
+ 
+ 
+1  
+ 
+ 
+ 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+8 
+24. 
+ 
+ 
+ 
+ 
+Sol. 
+(i) In ∆ABD & ∆CBD 
+   ∠ 3 = ∠ 4 
+   ∠1 = ∠ 2 
+∴ ∆ABD ∼ ∆CBD  
+(ii) ∆ABD ≅ ∆CBD  
+∴ AB = BC 
+ 
+ 
+ 
+ 
+1 
+ 
+1  
+25. (A) 
+ 
+ 
+ 
+ 
+Sol. 
+Assuming 5 – 2√3 to be a rational number. 
+Let 5 – 2√3 =
+𝑎
+𝑏 where a and b are integers & b≠0 
+⟹ √3 =
+5𝑏−𝑎
+2𝑏 
+Here RHS is rational but LHS is irrational. 
+Therefore our assumption is wrong. 
+Hence, 5 – 2√3 is an irrational number.  
+ 
+ 
+½  
+ 
+½ 
+ 
+½  
+½   
+ 
+                                           OR 
+ 
+25. (B)  
+ 
+ 
+ 
+ 
+Sol. 
+5  11  17 + 3  11 = 11  (5  17 + 3)  
+                                  = 11 88 or 11  11  23 
+It means the number can be expressed as a product of two factors other than 
+1, therefore the given number is a composite number. 
+1 
+½  
+ 
+½  
+
+ 
+ 
+ 
+9 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+                                                       SECTION C 
+This section consists of 6 questions of 3 marks each. 
+ 
+26. (A)  
+ 
+ 
+ 
+ 
+Sol. 
+Let AP: PB = k : 1 
+∴ 
+2𝑘+1
+𝑘+1  = 
+8
+5 
+⟹ k = 
+3
+2 
+∴ required ratio is 3: 2. 
+𝑦 =  
+3×3+2×2
+3+2
+  = 
+13
+5   
+ 
+1 
+ 
+½  
+ 
+½  
+ 
+1 
+ 
+                                                      OR 
+ 
+26. (B) 
+ 
+ 
+ 
+ 
+Sol. 
+Co-ordinates of point P are (
+−1−1
+2
+,
+−1+6
+2 ) i.e. (−1,
+5
+2) 
+Co-ordinates of point Q are (
+−1+3
+2
+,
+6+6
+2 ) i.e. (1, 6) 
+Co-ordinates of point R are (
+3+3
+2 ,
+6−1
+2 ) i.e. (3,
+5
+2) 
+Co-ordinates of point S are (
+−1+3
+2
+,
+−1−1
+2 ) i.e. (1, −1) 
+Co-ordinates of mid point of diagonal QS are (
+1+1
+2 ,
+6−1
+2 ) i.e. (1,
+5
+2) 
+Co-ordinates of mid point of diagonal PR are (
+−1+3
+2
+,
+5
+2+5
+2
+2 ) i.e. (1,
+5
+2) 
+Since coordinates of mid point of QS = coordinates of mid point of PR 
+Therefore, diagonals PR and QS bisect each other. 
+ 
+ 
+½ 
+ 
+½  
+ 
+½  
+ 
+½   
+ 
+½  
+ 
+½  
+ 
+ 
+ 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+10 
+27.  
+ 
+ 
+ 
+ 
+Sol. 
+Minimum number of rooms required means there should be maximum 
+number of teachers in a room. We have to find HCF of 48, 80 and 144. 
+48 = 24  3 
+80 = 24  5 
+144 = 24  32 
+HCF (48, 80, 144) = 24 = 16 
+Therefore, total number of rooms required = 
+48
+16 + 
+80
+16 + 
+144
+16   = 17 
+ 
+ 
+½ 
+ 
+½ 
+ 
+½  
+ 
+½ 
+ 
+1 
+28.  
+ 
+ 
+ 
+ 
+Sol. 
+LHS = 
+𝑠𝑖𝑛𝜃
+𝑐𝑜𝑠𝜃
+(sinθ − 𝑐𝑜𝑠𝜃)
+𝑠𝑖𝑛𝜃
++
+𝑐𝑜𝑠𝜃
+𝑠𝑖𝑛𝜃
+(cosθ − 𝑠𝑖𝑛𝜃)
+𝑐𝑜𝑠𝜃
+ 
+         = 
+1
+(𝑠𝑖𝑛𝜃−𝑐𝑜𝑠𝜃) [
+𝑠𝑖𝑛2𝜃
+𝑐𝑜𝑠𝜃−
+𝑐𝑜𝑠2𝜃
+𝑠𝑖𝑛𝜃] 
+         = 
+1
+(𝑠𝑖𝑛𝜃−𝑐𝑜𝑠𝜃) ×
+(𝑠𝑖𝑛𝜃−𝑐𝑜𝑠𝜃)(𝑠𝑖𝑛2𝜃+ 𝑐𝑜𝑠2𝜃+ 𝑠𝑖𝑛𝜃𝑐𝑜𝑠𝜃)
+𝑠𝑖𝑛𝜃𝑐𝑜𝑠𝜃
+ 
+         = 
+1
+𝑠𝑖𝑛𝜃𝑐𝑜𝑠𝜃 + 1 
+         = 1 + 𝑠𝑒𝑐𝜃 𝑐𝑜𝑠𝑒𝑐𝜃 = RHS 
+ 
+½  
+ 
+1 
+ 
+1 
+ 
+½ 
+ 
+ 
+ 
+ 
+ 
+  
+
+ 
+ 
+ 
+11 
+MS_X_Mathematics_041_30/1/1_2023-24 
+29.  
+ 
+ 
+ 
+ 
+Sol. 
+Let present age of Rashmi and Nazma be x years and y years respectively. 
+Therefore,  x – 3 = 3 (y – 3) 
+         or       x – 3y + 6 = 0 
+    and         x + 10 = 2 (y + 10) 
+        or       x – 2y – 10 = 0 
+Solving equations to get x = 42, y = 16 
+∴ Present age of Rashmi is 42 years and that of Nazma is 16 years. 
+ 
+1 
+ 
+1 
+ 
+1 
+30. (A) 
+ 
+ 
+ 
+ 
+Sol. 
+ 
+ 
+Join OR. 
+∆AOQ ≅ ∆ROQ ⟹ ∠AOQ = ∠ROQ    ----- (i) 
+∆BOP ≅ ∆ROP ⟹ ∠BOP = ∠ROP    ----- (ii) 
+Since ∠AOR + ∠ROB = 180° 
+⟹ 2∠QOR + 2∠ROP = 180° 
+⟹ ∠QOR + ∠ROP = ∠POQ = 90° 
+ 
+ 
+ 
+ 
+ 
+ 
+½  
+1 
+½  
+½  
+ 
+½  
+ 
+OR 
+  
+ 
+ 
+
+ 
+ 
+ 
+ 
+MS_X_Mathematics_041_30/1/1_2023-24 
+ 
+ 
+ 
+12 
+30. (B) 
+ 
+ 
+ 
+ 
+Sol. 
+Join OP and OQ. 
+BR = BS = 24 cm 
+∴ CR = 6 cm 
+⟹ CQ = 6 cm 
+Also, DQ = OP = 8 cm 
+Hence, DC = 8 + 6 = 14 cm 
+ 
+½ 
+½ 
+½  
+½  
+1  
+31. 
+ 
+ 
+ 
+ 
+Sol. 
+Let outer radius be r2 cm and inner radius be r1 cm. 
+∴ r2 – r1 = 1 ---- (i) 
+Volume of metal used = 176 cm3 
+⟹ 
+22
+7 × 14 × (r22 – r12) = 176 
+⟹ r2 + r1= 4 ---- (ii) 
+Solving (i) and
+
+=== CBSE_Class10_Maths_Standard_2025_PYQ.pdf total_pages=27 ===
+ 
+30/1/1                       #                  
+1| P a g e 
+P.T.O. 
+-
+-
+-
+ 
+Candidates must write the Q.P. Code 
+on the title page of the answer-book. 
+Series : GE1FH  
+SET~1  
+ 
+ 
+.  
+-
+>       
+Roll No. 
+Q.P. Code  
+ 
+ 
+ 
+ 
+ 
+> 
+ 
+NOTE 
+(I) 
+-
+27
+ 
+(I) 
+Please check that this question paper 
+contains 27 printed pages. 
+(II) 
+-
+-
+-
+-
+ 
+(II) Q.P. Code given on the right hand side 
+of the question paper should be written 
+on the title page of the answer-book by 
+the candidate. 
+(III) 
+-
+38
+ 
+(III) Please check that this question paper 
+contains 38 questions. 
+(IV) 
+, 
+-
+ 
+ 
+(IV) Please write down the Serial Number of 
+the question in the answer-book at the 
+given place before attempting it. 
+(V) 
+-
+15
+-
+10.15 
+10.15
+10.30
+-
+ 
+-
+ 
+(V) 15 minute time has been allotted to read 
+this question paper. The question paper 
+will  be  distributed at 10.15 a.m. From 
+10.15 a.m. to 10.30 a.m., the candidates 
+will read the question paper only and 
+will not write any answer on the 
+answer-book during this period. 
+J{UV (_mZH$)  
+MATHEMATICS (STANDARD) 
+ 
+ 3 
+ 80 
+ Time allowed : 3 hours 
+Maximum Marks : 80 
+ 
+30/1/1 
+ 
+ 
+   # 
+   
+
+ 
+30/1/1                       #                  
+2| P a g e 
+ 
+ 
+ 
+(i) 
+-
+38
+ 
+(ii) 
+-
+,
+, ,
+ 
+(iii) 
+1
+18
+(MCQ) 
+19
+20
+1
+ 
+(iv) 
+21
+25
+-
+(VSA) 
+2
+ 
+(v) 
+26
+31
+-
+(SA)
+3
+ 
+(vi) 
+32
+35
+-
+(LA)
+5
+ 
+(vii) 
+36
+38
+4
+2
+ 
+(viii) 
+-
+,
+2 
+,
+2
+,
+2
+3
+ 
+(ix) 
+ = 
+ 
+,
+ 
+(x) 
+ 
+ 
+ 20 
+(MCQ) ,
+ 1
+ 
+20 1=20 
+1. 
+,
+ 3x2 + 6x + k
+ +  + 
+ =  
+ ,
+k
+ 
+(A) 
+ 8 
+ 
+(B) 
+8 
+(C) 
+ 4 
+ 
+(D) 
+4 
+
+ 
+30/1/1                       #                  
+3| P a g e 
+P.T.O. 
+General Instructions : 
+Read the following instructions very carefully and strictly follow them : 
+(i) 
+This question paper contains 38 questions. All questions are compulsory.  
+(ii) 
+This question paper is divided into five Sections  A, B, C, D and E.  
+(iii) 
+In Section A, Questions no. 1 to 18 are multiple choice questions (MCQs) 
+and questions number 19 and 20 are Assertion-Reason based questions of 
+1 mark each.  
+(iv) 
+In Section B, Questions no. 21 to 25 are very short answer (VSA) type 
+questions, carrying 2 marks each.  
+(v) 
+In Section C, Questions no. 26 to 31 are short answer (SA) type 
+questions, carrying 3 marks each. 
+(vi) 
+In Section D, Questions no. 32 to 35 are long answer (LA) type questions 
+carrying 5 marks each.  
+(vii) 
+In Section E, Questions no. 36 to 38 are case study based questions 
+carrying 4 marks each. Internal choice is provided in 2 marks questions in 
+each case study. 
+(viii) There is no overall choice. However, an internal choice has been provided 
+in 2 questions in Section B, 2 questions in Section C, 2 questions in 
+Section D and 3 questions in Section E. 
+(ix) 
+Draw neat diagrams wherever required. Take  = 
+ wherever required, 
+if not stated. 
+(x) 
+Use of calculator is not allowed. 
+ 
+SECTION A 
+This section has 20 Multiple Choice Questions (MCQs) carrying 1 mark each. 
+20 1=20 
+1. 
+If 
+ and 
+ are the zeroes of polynomial 3x2 + 6x + k such that  
+ +  + 
+ =  
+, then the value of k is : 
+(A) 
+ 8 
+ 
+(B) 
+8 
+(C) 
+ 4 
+ 
+(D) 
+4 
+
+ 
+30/1/1                       #                  
+4| P a g e 
+2. 
+ x = 1 
+ y = 2, 
+ 2x  3y + a = 0 
+2x + 3y  b = 0 
+,
+ 
+(A) 
+a = 2b 
+ 
+(B) 
+2a = b 
+(C) 
+a + 2b = 0 
+ 
+(D) 
+2a + b = 0 
+3. 
+P(  4, 5) 
+ Q(4, 6)
+-
+ 
+(A) 
+x-
+ 
+(B) 
+y-
+ 
+(C) 
+-
+ 
+ 
+(D) 
+ x-
+ y-
+ 
+4. 
+  
+7 + 4 sin  = 9 ,
+ 
+ : 
+(A) 
+90  
+ 
+(B) 
+30  
+(C) 
+45  
+ 
+(D) 
+60  
+5. 
+tan2   
+ : 
+(A) 
+1 
+ 
+(B) 
+0 
+(C) 
+ 1 
+ 
+(D) 
+2 
+6. 
+HCF(98, 28) = m 
+ LCM(98, 28) = n , 
+n  7 m 
+ : 
+(A) 
+0 
+ 
+(B) 
+28 
+(C) 
+98 
+ 
+(D) 
+198 
+
+ 
+30/1/1                       #                  
+5| P a g e 
+P.T.O. 
+2. 
+If x = 1 and y = 2 is a solution of the pair of linear equations 2x  3y + a = 0 
+and 2x + 3y  b = 0, then : 
+(A) 
+a = 2b 
+ 
+(B) 
+2a = b 
+(C) 
+a + 2b = 0 
+ 
+(D) 
+2a + b = 0 
+3. 
+The mid-point of the line segment joining the points P(  4, 5) and Q(4, 6) 
+lies on : 
+(A) 
+x-axis 
+ 
+(B) 
+y-axis 
+(C) 
+origin 
+ 
+(D) 
+neither x-axis nor y-axis 
+4. 
+If  is an acute angle and  7 + 4 sin  = 9,  then the value of  is : 
+(A) 
+90  
+ 
+(B) 
+30  
+(C) 
+45  
+ 
+(D) 
+60  
+5. 
+The value of  tan2   
+  is : 
+(A) 
+1 
+ 
+(B) 
+0 
+(C) 
+ 1 
+ 
+(D) 
+2 
+6. 
+If HCF(98, 28) = m and LCM(98, 28) = n, then the value of  n  7 m  is : 
+(A) 
+0 
+ 
+(B) 
+28 
+(C) 
+98 
+ 
+(D) 
+198 
+
+ 
+30/1/1                       #                  
+6| P a g e 
+7. 
+-
+ 
+(A) 
+ 
+ 
+(B) 
+ 
+(C) 
+ 
+ 
+(D) 
+ 
+8. 
+ABC 
+DEF ,  B =  E,  F =  C 
+AB = 3 DE ,
+ 
+(A) 
+ 
+(B) 
+ 
+(C) 
+ 
+(D) 
+ 
+9. 
+( 1)n + ( 1)8 = 0 , 
+n :  
+(A) 
+ 
+(B) 
+ 
+(C) 
+ 
+(D) 
+ 
+10. 
+,
+ 
+ 
+ 
+(A) 
+3 
+(B) 
+5 
+(C) 
+2 
+(D) 
+4 
+
+ 
+30/1/1                       #                  
+7| P a g e 
+P.T.O. 
+7. 
+The tangents drawn at the extremities of the diameter of a circle are 
+always : 
+(A) 
+parallel 
+ 
+(B) 
+perpendicular 
+(C) 
+equal 
+ 
+(D) 
+intersecting 
+8. 
+In triangles ABC and DEF, 
+ B = 
+ E, 
+ F = 
+ C and AB = 3 DE. Then, 
+the two triangles are : 
+(A) 
+congruent but not similar 
+(B) 
+congruent as well as similar 
+(C) 
+neither congruent nor similar 
+(D) 
+similar but not congruent 
+9. 
+If ( 1)n + ( 1)8 = 0, then n is : 
+(A) 
+any positive integer 
+ 
+(B) 
+any negative integer 
+(C) 
+any odd number 
+ 
+(D) 
+any even number 
+10. 
+Two polynomials are shown in the graph below. The number of distinct 
+zeroes of both the polynomials is : 
+ 
+ 
+(A) 
+3 
+(B) 
+5 
+(C) 
+2 
+(D) 
+4 
+
+ 
+30/1/1                       #                  
+8| P a g e 
+11. 
+ m
+2m2 + 3m
+ 
+(A) 
+10 
+ 
+(B) 
+9 
+(C) 
+12 
+ 
+(D) 
+4 
+12. 
+15x 
+ 18x
+  
+(A) 
+x 
+(B) 
+11x 
+(C) 
+17x 
+ 
+(D) 
+34x 
+13. 
+52
+ 
+(A) 
+ 
+ 
+(B) 
+ 
+(C) 
+ 
+ 
+(D) 
+ 
+14. 
+-
+ 
+ 
+ ? 
+(A) 
+1·4142387954012 .... 
+ 
+(B) 
+ 
+(C) 
+ 
+ 
+(D) 
+1·857142 
+
+ 
+30/1/1                       #                  
+9| P a g e 
+P.T.O. 
+11. 
+If the sum of first m terms of an AP is 2m2 + 3m, then its second term is : 
+(A) 
+10 
+ 
+(B) 
+9 
+(C) 
+12 
+ 
+(D) 
+4 
+12. 
+Mode and Mean of a data are 15x and 18x, respectively. Then the median 
+of the data is :  
+(A) 
+x 
+ 
+(B) 
+11x 
+(C) 
+17x 
+ 
+(D) 
+34x 
+13. 
+A card is selected at random from a deck of 52 playing cards. The 
+probability of it being a red face card is : 
+(A) 
+ 
+ 
+(B) 
+ 
+(C) 
+ 
+ 
+(D) 
+ 
+14. 
+Which of the following is a rational number between 
+3  and 
+ ? 
+(A) 
+1·4142387954012 .... 
+ 
+(B) 
+ 
+(C) 
+ 
+ 
+(D) 
+1·857142 
+
+ 
+30/1/1                       #                  
+10| P a g e 
+15. 
+40
+72
+,
+ 
+(A) 
+200 
+ 
+(B) 
+100 
+ 
+(C) 
+20 
+ 
+(D) 
+10
+ 
+ 
+16. 
+,
+O
+P
+-
+PA 
+  
+ POB = 115
+,
+  APO 
+ : 
+ 
+ 
+(A) 
+25  
+ 
+(B) 
+65  
+(C) 
+90  
+ 
+(D) 
+35  
+17. 
+150 m
+30
+: 
+(A) 
+100
+ m 
+(B) 
+300 m 
+(C) 
+150
+ m 
+(D) 
+150
+ m 
+
+ 
+30/1/1                       #                  
+11| P a g e 
+P.T.O. 
+15. 
+If a sector of a circle has an area of 40  sq. units and a central angle of 
+72 , the radius of the circle is : 
+(A) 
+200 units 
+ 
+(B) 
+100 units 
+(C) 
+20 units 
+ 
+(D) 
+10 2  units 
+16. 
+In the given figure, PA is a tangent from an external point P to a circle 
+with centre O. If  POB = 115 , then  APO is equal to : 
+ 
+ 
+(A) 
+25  
+ 
+(B) 
+65  
+(C) 
+90  
+ 
+(D) 
+35  
+17. 
+A kite is flying at a height of 150 m from the ground. It is attached to a 
+string inclined at an angle of 30  to the horizontal. The length of the 
+string is : 
+(A) 
+100
+ m 
+ 
+(B) 
+300 m 
+(C) 
+150
+ m 
+ 
+(D) 
+150
+ m 
+
+ 
+30/1/1                       #                  
+12| P a g e 
+18. 
+20 cm
+ 
+60  cm
+: 
+(A) 
+30  
+ 
+(B) 
+60  
+(C) 
+90  
+ 
+(D) 
+50  
+19
+20
+(A) 
+(R) 
+(A), (B), 
+(C)
+(D)
+ 
+(A) 
+(A) 
+(R)
+(R),
+(A) 
+ 
+(B) 
+(A) 
+(R)
+,
+(R),
+(A) 
+ 
+(C) 
+(A) 
+,
+(R)
+ 
+(D) 
+(A) 
+,
+(R)
+ 
+19. 
+(A)  
+1  20 
+1
+ 
+(R)  
+E
+,
+P(E) = 1 , 
+ E 
+ 
+20. 
+(A)  
+,
+ 
+(R)  
+r
+3 r2
+ 
+
+ 
+30/1/1                       #                  
+13| P a g e 
+P.T.O. 
+18. 
+A piece of wire 20 cm long is bent into the form of an arc of a circle of 
+radius 
+ cm. The angle subtended by the arc at the centre of the circle 
+is : 
+(A) 
+30  
+ 
+(B) 
+60  
+(C) 
+90  
+ 
+(D) 
+50  
+Questions number 19 and 20 are Assertion and Reason based questions. Two 
+statements are given, one labelled as Assertion (A) and the other is labelled as 
+Reason (R). Select the correct answer to these questions from the codes (A), (B), 
+(C) and (D) as given below.  
+(A) 
+Both Assertion (A) and Reason (R) are true and Reason (R) is the 
+correct explanation of the Assertion (A). 
+(B) 
+Both Assertion (A) and Reason (R) are true, but Reason (R) is not 
+the correct explanation of the Assertion (A). 
+(C) 
+Assertion (A) is true, but Reason (R) is false.  
+(D) 
+Assertion (A) is false, but Reason (R) is true.  
+19. 
+Assertion (A) : The probability of selecting a number at random from the 
+numbers 1 to 20 is 1. 
+Reason (R): 
+For any event E, if P(E) = 1, then E is called a sure event. 
+20. 
+Assertion (A) : If we join two hemispheres of same radius along their 
+bases, then we get a sphere. 
+Reason (R): 
+Total Surface Area of a sphere of radius r is 3 r2. 
+
+ 
+30/1/1                       #                  
+14| P a g e 
+ 
+5
+-
+(VSA)
+ 
+,
+2
+ 
+5 2=10 
+21. 
+ 
+ x cos 60  + y cos 0  + sin 30   cot 45  = 5
+, 
+ x + 2y
+ 
+ 
+ 
+ 
+ 
+22. 
+p(x) = x2 +  
+x  
+ 
+23. 
+(2a, a  7)
+(11,  9)
+10
+ 
+,
+ 
+24. 
+ 
+ ABC   PQR 
+AB = 6 cm, BC = 4 cm, AC = 8 cm 
+ 
+PR = 6 cm ,
+(PQ + QR)
+ 
+ 
+ 
+ 
+,
+ = 
+ 
+  1 =  2  ,
+ PQS   TQR. 
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
+30/1/1                       #                  
+15| P a g e 
+P.T.O. 
+SECTION B 
+This section has 5 Very Short Answer (VSA) type questions carrying 2 marks  
+each.  
+ 
+ 
+ 
+ 
+ 
+ 
+5 2=10 
+21. 
+(a) 
+If  x cos 60  + y cos 0  + sin 30   cot 45  = 5,  then find the value of 
+x + 2y.  
+ 
+ 
+ 
+OR 
+(b) 
+Evaluate : 
+ 
+22. 
+Find the zeroes of the polynomial  p(x) = x2 +  
+x  
+. 
+23. 
+The coordinates of the centre of a circle are (2a, a  7). Find the value(s) 
+ 9) and has diameter 
+10
+ units. 
+24. 
+(a) 
+If  ABC   PQR in which AB = 6 cm, BC = 4 cm, AC = 8 cm and 
+PR = 6 cm, then find the length of (PQ + QR). 
+ 
+ 
+ 
+OR 
+ 
+(b) 
+In the given figure, 
+ = 
+ and 
+ 1 =  2, show that  
+ PQS   TQR. 
+ 
+ 
+ 
+
+ 
+30/1/1                       #                  
+16| P a g e 
+25. 
+26 m 
+ P
+A
+B
+10 m
+PA
+PB
+ 
+-
+ 
+ 
+ 
+ 
+ 
+ 
+6
+-
+(SA)
+ 
+,
+3 
+ 
+6 3=18 
+26. 
+ 
+, O 
+BCD 
+C
+-
+ BAC +  ACD = 90 . 
+ 
+ 
+ 
+ 
+ 
+-
+ 
+
+ 
+30/1/1                       #                  
+17| P a g e 
+P.T.O. 
+25. 
+A person is standing at P outside a circular ground at a distance of 26 m 
+from the centre of the ground. He found that his distances from the 
+points A and B on the ground are 10 m (PA and PB are tangents to the 
+circle). Find the radius of the circular ground. 
+ 
+ 
+ 
+SECTION C 
+This section has 6 Short Answer (SA) type questions carrying 3 marks each. 
+6 3=18 
+26. 
+(a) 
+In the given figure, O is the centre of the circle and BCD is tangent 
+to it at C. Prove that  BAC +  ACD = 90 . 
+ 
+ 
+ 
+ 
+ 
+OR 
+(b) 
+Prove that opposite sides of a quadrilateral circumscribing a circle 
+subtend supplementary angles at the centre of the circle. 
+
+ 
+30/1/1                       #                  
+18| P a g e 
+27. 
+ 
+ : 
+tan
+ + 
+ = 1 + sec  cosec  
+ 
+ 
+ 
+ : 
+ + 
+ = 
+ 
+28. 
+y-
+(5,  6) 
+ (  1,  4)
+ 
+29. 
+ 
+ 
+30. 
+, 
+ m3
+,
+(  = 
+) 
+31. 
+2
+ 
+ 
+4
+-
+(LA)
+,
+5
+ 
+4 5=20 
+32. 
+A 
+ B ,
+8% 
+9% 
+,
+ 
+-
+ 1,860 
+,
+,
+ 20 
+ 
+
+ 
+30/1/1                       #                  
+19| P a g e 
+P.T.O. 
+27. 
+(a) 
+Prove that : 
+ + 
+ = 1 + sec  cosec  
+ 
+ 
+ 
+OR 
+(b) 
+Prove that : 
+ + 
+ = 
+ 
+28. 
+Find the ratio in which the y-axis divides the line segment joining the 
+points (5,  6) and (  1,  4). Also find the point of intersection. 
+29. 
+Prove that 
+ is an irrational number. 
+30. 
+A room is in the form of a cylinder surmounted by a hemispherical dome. 
+The base radius of the hemisphere is half of the height of the cylindrical 
+part. If the room contains 
+m3 of air, find the height of the 
+cylindrical part. (Use  = 
+).   
+31. 
+Two dice are thrown at the same time. Determine the probability that the 
+difference of the numbers on the two dice is 2. 
+SECTION D 
+This section has 4 Long Answer (LA) type questions carrying 5 marks each. 
+4 5=20 
+32. 
+Vijay invested certain amounts of money in two schemes A and B, which 
+offer interest at the rate of 8% per annum and 9% per annum, 
+respectively. He received  1,860 as the total annual interest. However, 
+had he inter

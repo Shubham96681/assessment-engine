@@ -1,0 +1,93 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "Solve 6x² − 7x − 20 = 0 by factorisation. The expression is shown beside the diagram as a reference for the two linear factors you must obtain before writing the roots.",
+    "marks": 4,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "P", "position": "inside"},
+        {"shape": "point", "label": "Q", "position": "inside"},
+        {"shape": "segment", "from": "P", "to": "Q", "label": "6x² − 7x − 20"}
+      ],
+      "labels": {"P": "P", "Q": "Q"}
+    },
+    "correct_answer": "Given: 6x² − 7x − 20 = 0. Step 1: 6x² + 8x − 15x − 20. Step 2: 2x(3x + 4) − 5(3x + 4) = (2x − 5)(3x + 4). Step 3: 2x − 5 = 0 or 3x + 4 = 0, so x = 5/2 or x = −4/3. Hence the roots are 5/2 and −4/3."
+  },
+  {
+    "id": "2",
+    "type": "FigureBased",
+    "question": "For 4x² − 28x + 49 = 0, find the discriminant Δ and state whether the roots are distinct real, equal real, or non-real. If they are real, write both roots in simplest form.",
+    "marks": 5,
+    "figure_type": "table",
+    "figure_spec": {
+      "type": "table",
+      "title": "Diagram",
+      "headers": ["a", "b", "c", "Δ = b² − 4ac"],
+      "rows": [["4", "−28", "49", "to be found"]]
+    },
+    "correct_answer": "Given: 4x² − 28x + 49 = 0, so a = 4, b = −28, c = 49. Step 1: Δ = (−28)² − 4(4)(49) = 784 − 784 = 0. Step 2: Δ = 0 implies two equal real roots. Step 3: x = −b/(2a) = 28/8 = 7/2. Hence equal roots x = 7/2 (repeated)."
+  },
+  {
+    "id": "3",
+    "type": "FigureBased",
+    "question": "The equation kx² − 10x + 25 = 0 involves a positive real parameter k. (i) Write Δ in terms of k. (ii) Find k so that the equation has two equal real roots. (iii) For that k, find the repeated root and verify substitution. **OR** (iii′) For k = 2, state the nature of the roots without solving fully.",
+    "marks": 6,
+    "figure_type": "table",
+    "figure_spec": {
+      "type": "table",
+      "title": "Diagram",
+      "headers": ["k (>0)", "Equation", "Condition"],
+      "rows": [["k", "kx² − 10x + 25 = 0", "Δ = 0"]]
+    },
+    "correct_answer": "Given: kx² − 10x + 25 = 0, k > 0. Step 1: Δ = 100 − 100k = 100(1 − k). Step 2: Equal roots when Δ = 0, so k = 1. Step 3: Equation x² − 10x + 25 = 0 ⇒ (x − 5)² = 0, repeated root x = 5; check 25 − 50 + 25 = 0. Hence k = 1, root 5. OR (iii′): k = 2 gives Δ = 100 − 200 = −100 < 0, so no real roots."
+  },
+  {
+    "id": "4",
+    "type": "FigureBased",
+    "question": "Cities A and B are 90 km apart on a straight highway. A car travels from A to B at (k + 12) km/h and returns at k km/h, where k is a positive constant. The return trip takes 45 minutes longer than the outward trip. Form an equation in k, reduce it to a quadratic, and find the outward speed.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "A", "position": "inside"},
+        {"shape": "point", "label": "B", "position": "inside"},
+        {"shape": "segment", "from": "A", "to": "B", "label": "90 km"}
+      ],
+      "labels": {"A": "A", "B": "B"}
+    },
+    "correct_answer": "Given: distance 90 km, outward speed (k+12), return speed k, extra return time 3/4 h. Step 1: 90/k − 90/(k+12) = 3/4. Step 2: Multiply by 4k(k+12): 360(k+12) − 360k = 3k(k+12) ⇒ 4320 = 3k² + 36k ⇒ k² + 12k − 1440 = 0. Step 3: Δ = 144 + 5760 = 5904; k = (−12 + √5904)/2 = (−12 + 12√41)/2 = −6 + 6√41 (reject negative k). Step 4: Outward speed k+12 = 6 + 6√41 km/h ≈ 44.4 km/h; check times if needed. Hence outward speed 6 + 6√41 km/h."
+  },
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "A rectangular plot PQRS has breadth PQ = x m and length QR = (x + 23) m, with planted area 420 m². (i) Form the quadratic in x. (ii) Find both roots and select the positive breadth. (iii) State the length and verify the area. **OR** (iii′) Two numbers have sum 29 and product 204; form the quadratic whose roots are the numbers and find them.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "P", "position": "inside"},
+        {"shape": "point", "label": "Q", "position": "inside"},
+        {"shape": "point", "label": "R", "position": "inside"},
+        {"shape": "point", "label": "S", "position": "inside"},
+        {"shape": "segment", "from": "P", "to": "Q", "label": "x m"},
+        {"shape": "segment", "from": "Q", "to": "R", "label": "(x + 23) m"},
+        {"shape": "segment", "from": "R", "to": "S"},
+        {"shape": "segment", "from": "S", "to": "P"}
+      ],
+      "labels": {"P": "P", "Q": "Q", "R": "R", "S": "S"}
+    },
+    "correct_answer": "Given: breadth x m, length (x + 23) m, area 420 m². Step 1: x(x + 23) = 420 ⇒ x² + 23x − 420 = 0. Step 2: (x + 35)(x − 12) = 0, so x = 12 or x = −35. Step 3: Reject x = −35; breadth 12 m, length 35 m. Step 4: Check 12 × 35 = 420 m². Hence breadth 12 m and length 35 m. OR (iii′): t² − 29t + 204 = 0 ⇒ (t − 12)(t − 17) = 0, so the numbers are 12 and 17."
+  }
+]
+
+SOURCES USED:
+CONTEXT Ex 4.2 factorisation (6x²−x−2 style), Ex 4.3 discriminant and equal roots k, quadratic formula summary, sum/product and consecutive integers patterns; word models from hall area and speed contexts — all new numerics distinct from PRIOR QUESTIONS list.

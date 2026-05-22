@@ -1,0 +1,580 @@
+LOCKED CHAPTER: circles (source: filename, confidence: 0.92)
+document_id: fc567974-4f28-412f-b7f6-81e75469280b
+PRIMARY TOPIC: 1. The meaning of a tangent to a circle
+LOCKED SUBTOPICS (cover these from CONTEXT only):
+  - 1. The meaning of a tangent to a circle
+  - 2. The tangent to a circle is perpendicular to the radius t
+  - 3. The lengths of the two tangents from an external point t
+  - 1. By theorem above, we can also conclude that at any point
+  - 2. The line containing the radius through the point of cont
+  - EXERCISE 10.1
+  - 1. How many tangents can a circle have
+  - 2. Fill in the blanks :
+  - Theorem 10.2 : The lengths of tangents drawn
+  - 1. The theorem can also be proved by using the Pythagoras T
+  - 2. Note also that  OPQ   OPR. Therefore, OP is the angle
+  - 11. Prove that the parallelogram circumscribing a
+
+SELECTED DOCUMENT:
+document_id: fc567974-4f28-412f-b7f6-81e75469280b
+filename: Class_10_Maths_Chapter_10_Circles.pdf
+
+RETRIEVAL QUERY:
+Circles Class 10 Maths Chapter 10 Circles tangent perpendicular to radius equal tangents from external point secant and tangent length concentric circles chord angle between tangents power of a point tangent secant chord touching smaller circle tangent radius perpendicular tangent lengths equal secant tangent power concentric chord angle in alternate segment
+
+PRIOR QUESTIONS — DO NOT REPEAT OR PARAPHRASE:
+- From N, tangent NP = 14 cm touches a circle at P. Secant NQS meets the circle at Q and S with NQ = 9 cm. Find NS using the tangent–secant relation from the chapter.
+- Two concentric circles have centre O and radii 5 cm and 3 cm. Find the length of the chord of the larger circle that touches the smaller circle.
+- Tangent LM touches a circle with centre O at M. Prove that OM is perpendicular to LM.
+- In a circle with centre O, Y is the midpoint of chord LZ. Prove that OY is perpendicular to LZ.
+- From a point P, two tangents PA and PB are drawn to a circle with centre O. If OP = 8 cm and the radius of the circle is 3 cm, find the length of the tangent from P.
+- From a point P, two tangents PA and PB are drawn to a circle with centre O. If OP = 10 cm and the radius of the circle is 6 cm, find the length of the tangent from P to the circle. OR If the length of the tangent from P 
+- If a tangent is drawn from a point P to a circle with centre O and radius 4 cm, and OP = 5 cm, then the length of the tangent is
+- From a point T, tangents TE and TF are drawn to a circle with centre O. If angle EOT = 120°, find angle ETF.
+- Two concentric circles have centre O and radii 7 cm and 4 cm. A chord AB of the larger circle touches the smaller circle at M. Find the length of AB.
+- From T, tangents TA and TB touch a circle with centre O. If angle AOB = 100 degrees, find angle ATB. OR Prove that TA = TB and hence find TA when OT = 17 cm and the radius is 8 cm.
+- The length of the chord of the larger circle which touches the smaller circle in two concentric circles of radii 5 cm and 3 cm is
+- Two concentric circles have centre O and radii 5 cm and 3 cm. A chord ST of the larger circle touches the smaller circle at N. Find the length of ST.
+- Two concentric circles have centre O and radii 11 cm and 7 cm. A chord EF of the larger circle touches the smaller circle at G. Find the length EF.
+- From an external point P, tangents PA and PB are drawn to a circle with centre O. If angle APB = 50 degrees, find angle AOB.
+- The quadratic equation 7x² − 2kx + 8 = 0 is recorded in the adjoining table with coefficients a = 7, b = −2k, and c = 8. A student must choose the real constant k so that the equation has two coincident real roots, then 
+- From H, tangents HK and HL are drawn to a circle with centre O. Point M lies on the major arc KL. If angle KHL = 70°, find angle KOL and angle KML.
+- From V, tangents VN and VM touch a circle with centre O. If angle NVM = 44°, find angle NOM.
+- In the adjoining figure, a circle with centre O has radius 3 cm. From an external point T, tangents TP and TA are drawn to the circle (P and A are points of contact). Given TA = 5 cm and using properties of circle geomet
+- From external point K, tangents KX and KY touch a circle with centre O at X and Y. Radii OX and OY are drawn. If angle XOY = 92°, find angle XKY between the tangents.
+- If two concentric circles have radii 8 cm and 3 cm, then the length of the chord of the larger circle which touches the smaller circle is
+- A circle has centre O. Tangents from T touch the circle at A and B. A secant through T meets the circle at C and D with TC = 6 cm and TD = 15 cm. If TA = 9 cm, show that TA^2 = TC.TD.
+- From P, tangents PA and PB touch a circle at A and B. Prove that OP bisects angle APB.
+- Two concentric circles have centre O and radii 13 cm and 5 cm. A chord KL of the larger circle touches the smaller circle at N. Find the length of KL.
+- Two circles have centres O and P, radii 8 cm and 3 cm, and OP = 13 cm. Find the length of a common external tangent between the circles. OR From external point E, tangent EF = 20 cm and secant EGH has EG = 16 cm and EH =
+- From W, tangents WT and WU touch a circle with centre O. If angle TWU = 48 degrees, find angle TOW. OR If OW = 13 cm and WT = 12 cm, find the radius of the circle.
+
+CONTEXT:
+152
+MATHEMATICS
+4. Prove that the tangents drawn at the ends of a diameter of a circle are parallel.
+5. Prove that the perpendicular at the point of contact to the tangent to a circle passes
+through the centre.
+6. The length of a tangent from a point A at distance 5 cm from the centre of the circle is 4
+cm. Find the radius of the circle.
+7. Two concentric circles are of radii 5 cm and 3 cm. Find the length of the chord of the
+larger circle which touches the smaller circle.
+
+---
+
+Example 1 : Prove that in two concentric circles,
+the chord of the larger circle, which touches the
+smaller circle, is bisected at the point of contact.
+Solution : We are given two concentric circles
+C1 and C2 with centre O and a chord AB of the
+larger circle C1 which touches the smaller circle
+C2 at the point P (see Fig. 10.8). We need to prove
+that AP = BP.
+Let us join OP. Then, AB is a tangent to C2 at P
+and OP is its radius. Therefore, by Theorem 10.1,
+OP ⊥AB
+Fig. 10.7
+Fig. 10.8
+Reprint 2026-27
+
+---
+
+.
+(iii) A circle can have 
+ parallel tangents at the most.
+(iv) The common point of a tangent to a circle and the circle is called 
+ .
+3. A tangent PQ at a point P of a circle of radius 5 cm meets a line through the centre O at
+a point Q so that OQ = 12 cm. Length PQ is :
+(A) 12 cm
+(B) 13 cm
+(C) 8.5 cm
+(D)
+119  cm.
+4. Draw a circle and two lines parallel to a given line such that one is a tangent and the
+other, a secant to the circle.
+10.3 Number of Tangents from a Point on a Circle
+
+---
+
+another case, it becomes zero on the other side
+of the secant. See the positions PQ and PQ
+of the secant in Fig. 10.3 (ii). These are the
+tangents to the circle parallel to the given secant
+PQ. This also helps you to see that there cannot
+be more than two tangents parallel to a given
+secant.
+This activity also establishes, what you must have observed, while doing
+Activity 1, namely, a tangent is the secant when both of the end points of the
+corresponding chord coincide.
+
+---
+
+circle gradually comes nearer and nearer to the common point P. Ultimately, it coincides
+with the point P in the position AB of AB. Again note, what happens if ‘AB’ is
+rotated rightwards about P? The common point R3 gradually comes nearer and nearer
+to P and ultimately coincides with P. So, what we see is:
+The tangent to a circle is a special case of the secant, when the two end
+points of its corresponding chord coincide.
+Fig. 10.3 (i)
+Fig. 10.2
+
+---
+
+CIRCLES
+153
+10.4
+Summary
+In this chapter, you have studied the following points :
+1.
+The meaning of a tangent to a circle.
+2.
+The tangent to a circle is perpendicular to the radius through the point of contact.
+3.
+The lengths of the two tangents from an external point to a circle are equal.
+Reprint 2026-27
+
+---
+
+150
+MATHEMATICS
+Now AB is a chord of the circle C1 and OP  AB. Therefore, OP is the bisector of the
+chord AB, as the perpendicular from the centre bisects the chord,
+i.e.,
+AP = BP
+Example 2 : Two tangents TP and TQ are drawn
+to a circle with centre O from an external point T.
+Prove that  PTQ = 2  OPQ.
+Solution : We are given a circle with centre O,
+an external point T and two tangents TP and TQ
+to the circle, where P, Q are the points of contact
+(see Fig. 10.9). We need to prove that
+ PTQ = 2  OPQ
+Let
+
+---
+
+16
+6
+3
+
+Therefore,
+x2 =
+2
+16
+16
+16
+25
+16
+(16
+9)
+3
+9
+9
+
+
+
+
+
+
+
+
+
+
+[From (1)]
+or
+x = 20
+3
+EXERCISE
+10.2
+In Q.1 to 3, choose the correct option and give justification.
+1. From a point Q, the length of the tangent to a circle is 24 cm and the distance of Q from
+the centre is 25 cm. The radius of the circle is
+(A) 7 cm
+(B) 12 cm
+(C)
+15 cm
+(D) 24.5 cm
+2. In Fig. 10.11, if TP and TQ are the two tangents
+to a circle with centre O so that  POQ = 110°,
+then PTQ is equal to
+(A) 60°
+(B) 70°
+(C)
+80°
+
+QUESTION:
+SYSTEM: 10 Mathematics author (Board textbook RD Sharma / RS Aggarwal exercise depth).
+LOCKED CHAPTER: Circles (key=circles).
+Exam track: board. Round #22.
+You must generate ONLY Circles content — no other chapter templates.
+
+DIFFICULTY CALIBRATION: HARD (board_hard).
+  • REGIME: board_hard — NCERT/RD Sharma Class 10 Circles depth.
+  • Target 3–5 inference steps per L4/L5 item; ONE sparse proof slot; no olympiad fusion.
+  • HOTS = disguised reuse + OR with separate givens — not unnamed advanced theorems.
+  • tangent–secant fusion
+  • cyclic angle chase
+  • power of a point
+  • concentric reasoning
+
+PREFERRED QUESTION TYPES (Circles): FigureBased, FigureBased, ShortAnswer, LongAnswer, FigureBased.
+- FigureBased is primary for Circles (up to 5 items): labeled_diagram with centre, radii (dashed), tangents (solid), angles marked.
+- ShortAnswer/LongAnswer for proofs and numeric finds without over-drawing.
+
+AUTHOR STYLE: compressed stems; dashed radii; symmetric tangents TA, TB; uneven marks; exercise memory teach→reuse on last slot.
+
+AUTHOR IMPERFECTION — circles (controlled realism — not errors):
+- Proof habit: Often uses RHS congruence in tangent proofs; 'Hence' chains in answers.
+- Closing: Algebra inside geometry; longer Hence chains than RS.
+- May repeat patterns: tangent perpendicular to radius, equal tangents from external point
+- Sparse hard at Q3: Sparse hard: minimal stem (e.g. 'Prove that PA = PB.') — answer needs 6+ steps via congruence / angles; no hints in stem.
+- Imperfect compression: ~1 in 4 stems may keep slight redundancy (human, not AI-perfect).
+- Visual style: dashed OA, OB from centre O; external point left or above circle
+- Figure habits: show_right_angle at point of contact; dashed radii to contacts
+- Q2 teaches; Q5 reuses disguised (different labels, same inference).
+
+CHAPTER RULES — Circles ONLY:
+Do NOT use in any stem, figure, or answer: discriminant, quadratic equation, parallelogram, rhombus, nature of roots, trapezium.
+Allowed figure types: labeled_diagram.
+
+Allowed archetype ids (exclusive pool):
+| Archetype id | Use |
+|--------------|-----|
+| length_find | allowed |
+| angle_theorem | allowed |
+| hidden_theorem | allowed |
+| concentric | allowed |
+| chord_tangent | allowed |
+| secant_tangent | allowed |
+| hots_mixed | allowed |
+| cyclic_angle | allowed |
+| converse_identify | allowed |
+| direct_theorem | allowed |
+| common_tangent | allowed |
+| tangent_similarity | allowed |
+
+HARD MODE — Circles (mandatory when UI difficulty is hard):
+- NOT an easy exercise set — minimum reasoning depth per slot band below.
+- BAN as Q1/Q2: single-step Pythagoras after radius ⟂ tangent only.
+- BAN: "Name the secant and tangent" unless slot explicitly allows ONE cooldown (max 1 per paper).
+- MAX ONE paper item with reasoning graph: tangent_pair → quadrilateral → central/between angle.
+- Tangent-pair angle finds: central angle at O between contact points (TOU), NOT angle TOW with W at centre.
+- REQUIRE for L4/L5 slots: 3+ inference steps in model answer (Given → Step 1 → Step 2 → Hence).
+- Q5 HOTS: disguised reuse, OR with proof branch, or multi-concept angle chase.
+- Numeric: TA² = TC·TD, OT² − r² = TA², angle APB + angle AOB = 180° when radii ⟂ tangents.
+
+REASONING GRAPH DIVERSITY — Circles:
+- Max ONE item: external tangents → quadrilateral angle sum → central angle.
+- Spread: concentric chord, chord ⟂ radius proof, secant–tangent power, similarity, cyclic chase.
+- L4/L5: 3+ dependent theorem steps — not a single quadrilateral angle sum.
+
+NUMERIC CONSISTENCY — Circles:
+- Tangent–secant: TA² = TC × TD.
+- Tangent length: TA² = OT² − radius².
+- Tangent pair + centre: angle APB + angle AOB = 180° when radii ⟂ tangents at A, B.
+- Concentric chord: AB = 2√(R² − r²) with R > r.
+
+IDIOMATIC GEOMETRY (Circles):
+- Tangent ⟂ radius: 'Prove that OT is perpendicular to tangent TR at T.'
+- Angle find: name full angle (PTQ, AOB) AND give a numeric given.
+
+COGNITIVE BLUEPRINT — Circles:
+  Q1 [L3] hidden length / concentric / chord | archetype=length_find | type=FigureBased | graph: radius ⟂ tangent at contact → right triangle centre–contact–external → Pythagoras on tangent length
+  Q2 [L4] theorem chain — chord–tangent or cyclic | archetype=cyclic_angle | type=FigureBased | graph: radius ⟂ tangents → angle between tangents ↔ arc/central angle → cyclic quadrilateral angle chase
+  Q3 [L5] sparse hard proof | archetype=secant_tangent | type=FigureBased | graph: radius ⟂ tangent → tangent–secant power EA² = EB·EC → optional Pythagoras check in OAE
+  Q4 [L3] multi-concept secant+tangent | archetype=hidden_theorem | type=FigureBased | graph: equal tangents from external point → radius ⟂ tangent → Pythagoras (trap invisible in stem)
+  Q5 [L5] HOTS fusion / disguised reuse | archetype=hots_mixed | type=FigureBased | graph: reuse slot-2 pattern with new labels → OR: prove branch + numeric branch (same archetype family)
+
+THEOREM GRAPH PLAN — circles (realize these chains in answers):
+  Q1: [length_find] radius ⟂ tangent at contact → right triangle centre–contact–external → Pythagoras on tangent length
+  Q2: [cyclic_angle] radius ⟂ tangents → angle between tangents ↔ arc/central angle → cyclic quadrilateral angle chase
+  Q3: [secant_tangent] radius ⟂ tangent → tangent–secant power EA² = EB·EC → optional Pythagoras check in OAE
+  Q4: [hidden_theorem] equal tangents from external point → radius ⟂ tangent → Pythagoras (trap invisible in stem)
+  Q5: [hots_mixed] reuse slot-2 pattern with new labels → OR: prove branch + numeric branch (same archetype family)
+
+EXERCISE BLUEPRINT — Circles (ids 1..N):
+Chapter fingerprint: circles (ONLY these archetypes).
+Hardness = chapter patterns below (not geometry-global).
+  id "1": [length_find] band L3 | hidden length / concentric / chord | figure: simple: centre + one tangent
+  id "2": [cyclic_angle] band L4 | theorem chain — chord–tangent or cyclic | figure: add second radius or external point
+  id "3": [secant_tangent] band L5 | sparse hard proof | figure: angle marking ATB or AOB
+  id "4": [hidden_theorem] band L3 | multi-concept secant+tangent | figure: secant + tangent or interior point
+  id "5": [hots_mixed] band L5 | HOTS fusion / disguised reuse | figure: dense: concentric + chord + right angle
+
+STEM LENGTH: L1 12–25 | L2–L3 20–40 | L5 HOTS 35–60 words.
+TRAPS: invisible in stem; theorems named only in answers.
+
+FEW-SHOT STYLE (chapter-scoped; do not copy verbatim):
+- Example: PQ is a tangent at P. O is centre, OP = 5 cm, OQ = 12 cm. Find PQ.
+- Match tangent/secant exercise style in SOURCE — vary labels and numbers only.
+- BAN: Use the diagram; Show your working; Students often; Using theorem.
+
+RAG STYLE (not content copy): match SOURCE compression, step depth, cognitive rhythm.
+Retrieval confidence 0.86 — invent new numbers/labels.
+
+SOURCE CONTENT:
+---
+152
+MATHEMATICS
+4. Prove that the tangents drawn at the ends of a diameter of a circle are parallel.
+5. Prove that the perpendicular at the point of contact to the tangent to a circle passes
+through the centre.
+6. The length of a tangent from a point A at distance 5 cm from the centre of the circle is 4
+cm. Find the radius of the circle.
+7. Two concentric circles are of radii 5 cm and 3 cm. Find the length of the chord of the
+larger circle which touches the smaller circle.
+
+---
+
+Example 1 : Prove that in two concentric circles,
+the chord of the larger circle, which touches the
+smaller circle, is bisected at the point of contact.
+Solution : We are given two concentric circles
+C1 and C2 with centre O and a chord AB of the
+larger circle C1 which touches the smaller circle
+C2 at the point P (see Fig. 10.8). We need to prove
+that AP = BP.
+Let us join OP. Then, AB is a tangent to C2 at P
+and OP is its radius. Therefore, by Theorem 10.1,
+OP ⊥AB
+Fig. 10.7
+Fig. 10.8
+Reprint 2026-27
+
+---
+
+.
+(iii) A circle can have 
+ parallel tangents at the most.
+(iv) The common point of a tangent to a circle and the circle is called 
+ .
+3. A tangent PQ at a point P of a circle of radius 5 cm meets a line through the centre O at
+a point Q so that OQ = 12 cm. Length PQ is :
+(A) 12 cm
+(B) 13 cm
+(C) 8.5 cm
+(D)
+119  cm.
+4. Draw a circle and two lines parallel to a given line such that one is a tangent and the
+other, a secant to the circle.
+10.3 Number of Tangents from a Point on a Circle
+
+---
+
+another case, it becomes zero on the other side
+of the secant. See the positions PQ and PQ
+of the secant in Fig. 10.3 (ii). These are the
+tangents to the circle parallel to the given secant
+PQ. This also helps you to see that there cannot
+be more than two tangents parallel to a given
+secant.
+This activity also establishes, what you must have observed, while doing
+Activity 1, namely, a tangent is the secant when both of the end points of the
+corresponding chord coincide.
+
+---
+
+circle gradually comes nearer and nearer to the common point P. Ultimately, it coincides
+with the point P in the position AB of AB. Again note, what happens if ‘AB’ is
+rotated rightwards about P? The common point R3 gradually comes nearer and nearer
+to P and ultimately coincides with P. So, what we see is:
+The tangent to a circle is a special case of the secant, when the two end
+points of its corresponding chord coincide.
+Fig. 10.3 (i)
+Fig. 10.2
+
+---
+
+CIRCLES
+153
+10.4
+Summary
+In this chapter, you have studied the following points :
+1.
+The meaning of a tangent to a circle.
+2.
+The tangent to a circle is perpendicular to the radius through the point of contact.
+3.
+The lengths of the two tangents from an external point to a circle are equal.
+Reprint 2026-27
+
+---
+
+150
+MATHEMATICS
+Now AB is a chord of the circle C1 and OP  AB. Therefore, OP is the bisector of the
+chord AB, as the perpendicular from the centre bisects the chord,
+i.e.,
+AP = BP
+Example 2 : Two tangents TP and TQ are drawn
+to a circle with centre O from an external point T.
+Prove that  PTQ = 2  OPQ.
+Solution : We are given a circle with centre O,
+an external point T and two tangents TP and TQ
+to the circle, where P, Q are the points of contact
+(see Fig. 10.9). We need to prove that
+ PTQ = 2  OPQ
+Let
+
+---
+
+16
+6
+3
+
+Therefore,
+x2 =
+2
+16
+16
+16
+25
+16
+(16
+9)
+3
+9
+9
+
+
+
+
+
+
+
+
+
+
+[From (1)]
+or
+x = 20
+3
+EXERCISE
+10.2
+In Q.1 to 3, choose the correct option and give justification.
+1. From a point Q, the length of the tangent to a circle is 24 cm and the distance of Q from
+the centre is 25 cm. The radius of the circle is
+(A) 7 cm
+(B) 12 cm
+(C)
+15 cm
+(D) 24.5 cm
+2. In Fig. 10.11, if TP and TQ are the two tangents
+to a circle with centre O so that  POQ = 110°,
+then PTQ is equal to
+(A) 60°
+(B) 70°
+(C)
+80°
+---
+
+VALIDATION — Circles:
+FORBIDDEN:
+  - discriminant
+  - quadratic equation
+  - parallelogram
+  - rhombus
+  - nature of roots
+  - trapezium
+SEMANTIC COMPLETENESS (circles):
+- Find angle: full angle symbol + numeric given.
+- Tangent length: name point of contact, centre, segments.
+- Prove equal tangents: name external point and both tangents.
+
+OUTPUT CONTRACT:
+- JSON array only; exactly 5 objects; ids "1".." 5"
+- Chapter-native type mix (see per-slot types below):
+  id "1": type=FigureBased
+  id "2": type=FigureBased
+  id "3": type=FigureBased
+  id "4": type=FigureBased
+  id "5": type=FigureBased
+- Allowed types this paper: FigureBased, FigureBased, FigureBased, FigureBased, FigureBased
+- Keys: id, type, question, marks, correct_answer
+- MCQ: options[4], correct_answer label
+- FigureBased: only when diagram/table required; figure_type in (labeled_diagram); figure_spec; correct_answer
+- Max FigureBased count: 5
+- Optional: explanation, theorem_tags, cognitive_type
+
+CHAPTER ALIGNMENT (mandatory):
+- SELECTED DOCUMENT: Class_10_Maths_Chapter_10_Circles.pdf
+- Detected chapter/topic: **Circles** (key: circles).
+- Subject: Mathematics | Level: 10 | Track: board.
+- Use ONLY facts and structures from CONTEXT above — do not switch to another chapter.
+- Circle, tangent, secant, chord geometry only.
+- HARD MODE geometry rules in this prompt apply to Circles only.
+
+## NEVER REPEAT (mandatory)
+These stems were already used for this user/chapter. Write **entirely new** questions:
+- Different numbers, point labels, construction, and archetype
+- No paraphrase of the stems below
+- From N, tangent NP = 14 cm touches a circle at P. Secant NQS meets the circle at Q and S with NQ = 9 cm. Find NS using the tangent–secant relation from the chapter.
+- Two concentric circles have centre O and radii 5 cm and 3 cm. Find the length of the chord of the larger circle that touches the smaller circle.
+- Tangent LM touches a circle with centre O at M. Prove that OM is perpendicular to LM.
+- In a circle with centre O, Y is the midpoint of chord LZ. Prove that OY is perpendicular to LZ.
+- From a point P, two tangents PA and PB are drawn to a circle with centre O. If OP = 8 cm and the radius of the circle is 3 cm, find the length of the tangent from P.
+- From a point P, two tangents PA and PB are drawn to a circle with centre O. If OP = 10 cm and the radius of the circle is 6 cm, find the length of the tangent from P to the circle. OR If the length of
+- If a tangent is drawn from a point P to a circle with centre O and radius 4 cm, and OP = 5 cm, then the length of the tangent is
+- From a point T, tangents TE and TF are drawn to a circle with centre O. If angle EOT = 120°, find angle ETF.
+- Two concentric circles have centre O and radii 7 cm and 4 cm. A chord AB of the larger circle touches the smaller circle at M. Find the length of AB.
+- From T, tangents TA and TB touch a circle with centre O. If angle AOB = 100 degrees, find angle ATB. OR Prove that TA = TB and hence find TA when OT = 17 cm and the radius is 8 cm.
+- The length of the chord of the larger circle which touches the smaller circle in two concentric circles of radii 5 cm and 3 cm is
+- Two concentric circles have centre O and radii 5 cm and 3 cm. A chord ST of the larger circle touches the smaller circle at N. Find the length of ST.
+- Two concentric circles have centre O and radii 11 cm and 7 cm. A chord EF of the larger circle touches the smaller circle at G. Find the length EF.
+- From an external point P, tangents PA and PB are drawn to a circle with centre O. If angle APB = 50 degrees, find angle AOB.
+- From H, tangents HK and HL are drawn to a circle with centre O. Point M lies on the major arc KL. If angle KHL = 70°, find angle KOL and angle KML.
+- From V, tangents VN and VM touch a circle with centre O. If angle NVM = 44°, find angle NOM.
+- In the adjoining figure, a circle with centre O has radius 3 cm. From an external point T, tangents TP and TA are drawn to the circle (P and A are points of contact). Given TA = 5 cm and using propert
+- From external point K, tangents KX and KY touch a circle with centre O at X and Y. Radii OX and OY are drawn. If angle XOY = 92°, find angle XKY between the tangents.
+- If two concentric circles have radii 8 cm and 3 cm, then the length of the chord of the larger circle which touches the smaller circle is
+- A circle has centre O. Tangents from T touch the circle at A and B. A secant through T meets the circle at C and D with TC = 6 cm and TD = 15 cm. If TA = 9 cm, show that TA^2 = TC.TD.
+- From P, tangents PA and PB touch a circle at A and B. Prove that OP bisects angle APB.
+- Two concentric circles have centre O and radii 13 cm and 5 cm. A chord KL of the larger circle touches the smaller circle at N. Find the length of KL.
+- Two circles have centres O and P, radii 8 cm and 3 cm, and OP = 13 cm. Find the length of a common external tangent between the circles. OR From external point E, tangent EF = 20 cm and secant EGH has
+- From W, tangents WT and WU touch a circle with centre O. If angle TWU = 48 degrees, find angle TOW. OR If OW = 13 cm and WT = 12 cm, find the radius of the circle.
+- Prove that tangents drawn from an external point to a circle are equal in length. Hence, if OX = 10 cm and the radius of the circle is 6 cm, find the length of the tangent from X.
+
+TYPE-SPECIFIC OUTPUT:
+
+Generate exactly 5 Figure-Based Questions (RD Sharma exercise tone).
+Available figure types: flowchart, bar_graph, labeled_diagram
+Rules:
+- ORIGINAL questions from SOURCE; figure_spec required for labeled_diagram
+- BAN: Examine/Analyze/Study the diagram/mechanical-geometric/long essay stems
+
+FIGURE-BASED — diagram drawn separately; stem = compressed maths only:
+- Words: 20–55 typical; HOTS up to 60. BAN Show your working / Use the diagram / Students often.
+- Example (Circles): "PQ is a tangent at P. O is centre, OP = 5 cm, OQ = 12 cm. Find PQ."
+- Allowed figure types: labeled_diagram — no circle diagrams unless chapter is Circles.
+- Progress figure complexity Q1 simple → Q5 dense (see blueprint).
+- Labels A–Z; figure_spec.title = "Diagram"; no over-specification of segments.
+
+
+HARD: uneven marks (4–6); (i)(ii) on some items only; OR on one; invisible trap in one numeric item.
+
+Return JSON array:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "PQ is a tangent at P. O is centre, OP = 5 cm, OQ = 12 cm. Find PQ.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "A", "position": "inside"},
+        {"shape": "point", "label": "B", "position": "inside"},
+        {"shape": "segment", "from": "A", "to": "B"}
+      ],
+      "labels": {"A": "A", "B": "B"}
+    },
+    "correct_answer": "Full model answer with steps",
+    "explanation": "Marking scheme / key steps"
+  }
+]
+
+CRITICAL: Return ONLY a valid JSON array. No markdown, no preamble, no explanation.
+Start your response with [ and end with ].

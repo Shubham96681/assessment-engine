@@ -1,0 +1,36 @@
+# Environment and secrets
+backend/.env
+.env
+.env.local
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Generated uploads and exports
+backend/uploads/
+apply_out.json
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.cursor/
+*.log
+server_err.log
+
+# Large local PDFs (regenerate from app; keep textbooks out of git)
+assessment_*.pdf
+*.pdf
+
+# Agent / temp
+agent-transcripts/

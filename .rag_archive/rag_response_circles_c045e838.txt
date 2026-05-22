@@ -1,0 +1,24 @@
+ANSWER:
+[
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "Town A and town B are 60 km apart on a straight road. A rider goes from A to B at v km/h and returns at (v − 5) km/h; the return leg takes 1 hour longer than the outward leg. Form the time equation in v, reduce it to a quadratic, and find the outward speed. **OR** Take v = 20 km/h: find both leg times and check whether the return exceeds the outward time by exactly 1 h.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "point", "label": "A", "position": "inside"},
+        {"shape": "point", "label": "B", "position": "inside"},
+        {"shape": "segment", "from": "A", "to": "B", "label": "60 km"}
+      ],
+      "labels": {"A": "A", "B": "B"}
+    },
+    "correct_answer": "Given: distance 60 km, outward speed v, return speed (v − 5), return time exceeds outward by 1 h. Step 1: Outward time 60/v h; return time 60/(v − 5) h. Step 2: 60/(v − 5) − 60/v = 1 ⇒ 300/(v² − 5v) = 1 ⇒ v² − 5v − 300 = 0. Step 3: Discriminant 25 + 1200 = 1225; roots v = 20 or v = −15. Step 4: Reject v = −15; outward 20 km/h, return 15 km/h. Step 5: Check 60/20 = 3 h and 60/15 = 4 h; difference 1 h. Hence v = 20 km/h. OR branch: 60/20 = 3 h, 60/15 = 4 h, gap 1 h — consistent."
+  }
+]
+
+SOURCES USED:
+CONTEXT Quadratic Equations — word problem on uniform motion; time-difference equation leading to quadratic, discriminant, extraneous root rejection, verification (speed–distance, not rectangular area or inset-path patterns).

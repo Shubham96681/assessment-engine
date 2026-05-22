@@ -1,0 +1,161 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "Two concentric circles have centre O with radii 5 cm and R cm (R > 5). A chord AB of the larger circle touches the smaller circle at M. A tangent from A touches the smaller circle at T. If AB = 24 cm, find R and the length AT.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.385},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "M", "position": "on_circle"},
+        {"shape": "point", "label": "T", "position": "on_circle"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "M", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "T", "style": "dashed"},
+        {"shape": "segment", "from": "A", "to": "T"},
+        {"shape": "angle_mark", "at": "M", "label": "90°"},
+        {"shape": "angle_mark", "at": "T", "label": "90°"}
+      ],
+      "labels": {"O": "O", "A": "A", "B": "B", "M": "M", "T": "T"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Given inner radius OM = 5 cm and AB = 24 cm touching the inner circle at M. Step 1: AB is tangent to the inner circle at M, so OM is perpendicular to AB and M bisects AB, hence AM = 12 cm. Step 2: In right triangle OAM, R^2 = OM^2 + AM^2 = 25 + 144 = 169, so R = 13 cm. Step 3: The tangent from A touches the inner circle at T, so OT is perpendicular to AT and OT = 5 cm. Step 4: In right triangle OAT, AT^2 = OA^2 - OT^2 = 169 - 25 = 144, so AT = 12 cm. Step 5: Hence R = 13 cm and AT = 12 cm.",
+    "archetype_id": "concentric",
+    "cognitive_type": "L5"
+  },
+  {
+    "id": "2",
+    "type": "FigureBased",
+    "question": "From an external point P, tangents PA and PB are drawn to a circle with centre O at A and B. Point C lies on the major arc AB. Chord BC is drawn. If angle APB = 64°, find angle AOB, angle ACB and the angle between tangent PB and chord BC.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "P", "position": "outside"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "C", "position": "on_circle"},
+        {"shape": "segment", "from": "P", "to": "A"},
+        {"shape": "segment", "from": "P", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "B", "style": "dashed"},
+        {"shape": "segment", "from": "C", "to": "B"},
+        {"shape": "angle_mark", "at": "A", "label": "90°"},
+        {"shape": "angle_mark", "at": "B", "label": "90°"}
+      ],
+      "labels": {"O": "O", "P": "P", "A": "A", "B": "B", "C": "C"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Given tangents PA, PB and C on the major arc AB with angle APB = 64 degrees. Step 1: OA is perpendicular to PA and OB is perpendicular to PB. Step 2: In quadrilateral OAPB, angle AOB + angle APB = 180 degrees, so angle AOB = 116 degrees. Step 3: C is on the major arc, so angle ACB subtends the minor arc AB and angle ACB = 1/2 x 116 = 58 degrees. Step 4: By the tangent-chord theorem, the angle between tangent PB and chord BC equals the angle in the alternate segment, angle BCA = 58 degrees. Step 5: Hence angle AOB = 116 degrees, angle ACB = 58 degrees and the required angle between PB and BC is 58 degrees.",
+    "archetype_id": "cyclic_angle",
+    "cognitive_type": "L5"
+  },
+  {
+    "id": "3",
+    "type": "FigureBased",
+    "question": "From an external point T, a tangent TP and a secant TAB are drawn to a circle with centre O. If TP = 12 cm, TA = 8 cm and AB = 10 cm, prove that TP^2 = TA x TB. Hence, if OP = 6 cm, find OT.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "T", "position": "outside"},
+        {"shape": "point", "label": "P", "position": "on_circle"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "segment", "from": "T", "to": "P"},
+        {"shape": "segment", "from": "T", "to": "A"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "P", "style": "dashed"},
+        {"shape": "angle_mark", "at": "P", "label": "90°"}
+      ],
+      "labels": {"O": "O", "T": "T", "P": "P", "A": "A", "B": "B"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Given TP = 12 cm, TA = 8 cm, AB = 10 cm. Step 1: TB = TA + AB = 18 cm. Step 2: TA x TB = 8 x 18 = 144 and TP^2 = 12^2 = 144, so TP^2 = TA x TB. Step 3: OP is perpendicular to TP at contact P. Step 4: In right triangle OTP, OT^2 = OP^2 + TP^2 = 36 + 144 = 180. Step 5: OT = 6 square root of 5 cm. Hence TP^2 = TA x TB and OT = 6 square root of 5 cm.",
+    "archetype_id": "secant_tangent",
+    "cognitive_type": "L5"
+  },
+  {
+    "id": "4",
+    "type": "FigureBased",
+    "question": "Two circles with centres O and P have radii 8 cm and 3 cm respectively, and OP = 13 cm. A common external tangent touches the first circle at A and the second at B. (i) Prove that OA is perpendicular to AB, PB is perpendicular to AB and OA is parallel to PB. (ii) Hence find the length of the tangent segment AB.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "P", "position": "outside"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "P", "style": "dashed"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+        {"shape": "segment", "from": "P", "to": "B", "style": "dashed"},
+        {"shape": "angle_mark", "at": "A", "label": "90°"},
+        {"shape": "angle_mark", "at": "B", "label": "90°"}
+      ],
+      "labels": {"O": "O", "P": "P", "A": "A", "B": "B"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Given OA = 8 cm, PB = 3 cm, OP = 13 cm and tangent AB. Step 1: At A, radius OA is perpendicular to tangent AB; at B, radius PB is perpendicular to tangent AB. Step 2: Both radii are perpendicular to the same line, so OA is parallel to PB. Step 3: Join A to B; the figure OABP is a right trapezium with parallel sides OA and PB. Step 4: Drop perpendicular from O to PB produced; offset between radii = 8 - 3 = 5 cm along OP. Step 5: AB^2 = OP^2 - (8 - 3)^2 = 169 - 25 = 144, so AB = 12 cm. Hence the tangent segment AB = 12 cm.",
+    "archetype_id": "common_tangent",
+    "cognitive_type": "L5"
+  },
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "From an external point X, tangents XA and XB touch a circle with centre O at A and B. A secant through X meets the circle at C and D with XC = 9 cm and XD = 25 cm. If OA = 7 cm, find XA and OX. What can you conclude about the line OX?",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "X", "position": "outside"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "C", "position": "on_circle"},
+        {"shape": "point", "label": "D", "position": "on_circle"},
+        {"shape": "segment", "from": "X", "to": "A"},
+        {"shape": "segment", "from": "X", "to": "B"},
+        {"shape": "segment", "from": "X", "to": "C"},
+        {"shape": "segment", "from": "C", "to": "D"},
+        {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "B", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "X", "style": "dashed"},
+        {"shape": "angle_mark", "at": "A", "label": "90°"},
+        {"shape": "angle_mark", "at": "B", "label": "90°"}
+      ],
+      "labels": {"O": "O", "X": "X", "A": "A", "B": "B", "C": "C", "D": "D"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Given XC = 9 cm, XD = 25 cm and OA = 7 cm. Step 1: By the tangent-secant theorem, XA^2 = XC x XD = 225, so XA = 15 cm. Step 2: Equal tangents give XB = 15 cm. Step 3: OA is perpendicular to XA, so in right triangle OXA, OX^2 = 49 + 225 = 274 and OX = square root of 274 cm. Step 4: Triangles OXA and OXB are congruent (SSS). Step 5: Hence angle AXO = angle BXO, so OX bisects angle AXB and is the line of symmetry of the tangent configuration from X.",
+    "archetype_id": "hots_mixed",
+    "cognitive_type": "L5"
+  }
+]
+
+SOURCES USED:
+Concentric chord with implicit tangent from A; tangent pair on major arc with tangent–chord angle; tangent–secant power with Hence OT; common external tangent trapezium proof; tangent–secant with inferred bisector on OX.
