@@ -2,6 +2,8 @@
 backend/.env
 .env
 .env.local
+.env.*
+!.env.example
 *.pem
 
 # Python
@@ -13,9 +15,13 @@ venv/
 .pytest_cache/
 
 # Node / Next.js
+node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
+frontend/dist/
+dist/
+dist-ssr/
 
 # Generated uploads and exports
 backend/uploads/
@@ -31,6 +37,10 @@ server_err.log
 # Large local PDFs (regenerate from app; keep textbooks out of git)
 assessment_*.pdf
 *.pdf
+
+# Local DB
+*.db
+*.db-journal
 
 # Agent / temp
 agent-transcripts/

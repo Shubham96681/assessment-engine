@@ -1,0 +1,690 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model School {
+  id                   String    @id @default(uuid())
+  name                 String
+  code                 String    @unique
+  domain               String?
+  logoUrl              String?   @map("logo_url")
+  address              String?
+  contactEmail         String?   @map("contact_email")
+  contactPhone         String?   @map("contact_phone")
+  subscriptionPlan     String    @default("basic") @map("subscription_plan")
+  subscriptionStatus   String    @default("active") @map("subscription_status")
+  subscriptionExpiry   DateTime? @map("subscription_expiry")
+  settings             Json      @default("{}")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+  users                User[]
+  classes              Class[]
+  subjects             Subject[]
+  tests                Test[]
+  books                Book[]
+  questionPapers       QuestionPaper[]
+  questions            Question[]
+  questionTags         QuestionTag[]
+  performanceMetrics   PerformanceMetric[]
+  auditLogs            AuditLog[]
+
+  @@map("schools")
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  schoolId           String?   @map("school_id")
+  email              String    @unique
+  passwordHash       String    @map("password_hash")
+  firstName          String    @map("first_name")
+  lastName           String    @map("last_name")
+  role               String
+  profilePictureUrl  String?   @map("profile_picture_url")
+  phone              String?
+  dateOfBirth        DateTime? @map("date_of_birth")
+  isActive           Boolean   @default(true) @map("is_active")
+  emailVerified      Boolean   @default(false) @map("email_verified")
+  lastLoginAt        DateTime? @map("last_login_at")
+  settings           Json      @default("{}")
+  mfaEnabled         Boolean   @default(false) @map("mfa_enabled")
+  mfaSecret          String?   @map("mfa_secret")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+  school               School?               @relation(fields: [schoolId], references: [id])
+  classesTeaching      Class[]               @relation("ClassTeacher")
+  subjectsTeaching     Subject[]             @relation("SubjectTeacher")
+  testsCreated         Test[]                @relation("TestCreator")
+  booksUploaded        Book[]                @relation("BookUploader")
+  questionPapersUploaded QuestionPaper[]     @relation("QuestionPaperUploader")
+  questionsCreated     Question[]            @relation("QuestionCreator")
+  testAttempts         TestAttempt[]
+  studentAnswersGraded StudentAnswer[]       @relation("AnswerGradedBy")
+  notifications        Notification[]
+  refreshTokens        RefreshToken[]
+  passwordResetTokens  PasswordResetToken[]
+  enrollments          StudentEnrollment[]
+  auditLogs            AuditLog[]
+  questionVerified     Question[]            @relation("QuestionVerifier")
+  extractedVerified    ExtractedQuestion[]   @relation("ExtractedVerifier")
+  tagMappingsAdded     QuestionTagMapping[]  @relation("TagMappingAddedBy")
+
+  @@index([schoolId])
+  @@index([role])
+  @@map("users")
+}
+
+model Class {
+  id           String    @id @default(uuid())
+  schoolId     String    @map("school_id")
+  name         String
+  grade        String?
+  section      String?
+  teacherId    String?   @map("teacher_id")
+  academicYear String?   @map("academic_year")
+  settings     Json      @default("{}")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  school       School              @relation(fields: [schoolId], references: [id])
+  teacher      User?               @relation("ClassTeacher", fields: [teacherId], references: [id])
+  enrollments  StudentEnrollment[]
+  books        Book[]
+  questionPapers QuestionPaper[]
+  testSchedules TestSchedule[]
+  performanceMetrics PerformanceMetric[]
+
+  @@index([schoolId])
+  @@map("classes")
+}
+
+model StudentEnrollment {
+  id             String   @id @default(uuid())
+  studentId      String   @map("student_id")
+  classId        String   @map("class_id")
+  rollNumber     String?  @map("roll_number")
+  academicYear String?  @map("academic_year")
+  enrollmentDate DateTime @default(now()) @map("enrollment_date")
+  student User  @relation(fields: [studentId], references: [id])
+  class   Class @relation(fields: [classId], references: [id])
+
+  @@unique([studentId, classId, academicYear])
+  @@index([classId])
+  @@map("student_enrollments")
+}
+
+model Subject {
+  id          String    @id @default(uuid())
+  schoolId    String    @map("school_id")
+  name        String
+  code        String?
+  description String?
+  teacherId   String?   @map("teacher_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  school       School @relation(fields: [schoolId], references: [id])
+  teacher      User?  @relation("SubjectTeacher", fields: [teacherId], references: [id])
+  tests        Test[]
+  questions    Question[]
+  books        Book[]
+  questionPapers QuestionPaper[]
+  performanceMetrics PerformanceMetric[]
+
+  @@index([schoolId])
+  @@map("subjects")
+}
+
+model Test {
+  id                     String    @id @default(uuid())
+  schoolId               String    @map("school_id")
+  createdBy              String    @map("created_by")
+  title                  String
+  description            String?
+  subjectId              String?   @map("subject_id")
+  classIds               Json      @default("[]") @map("class_ids")
+  durationMinutes        Int       @map("duration_minutes")
+  totalMarks             Int       @map("total_marks")
+  passingMarks           Int?      @map("passing_marks")
+  instructions           String?
+  questionSelectionMode  String    @default("manual") @map("question_selection_mode")
+  shuffleQuestions       Boolean   @default(false) @map("shuffle_questions")
+  shuffleOptions         Boolean   @default(false) @map("shuffle_options")
+  showResultsImmediately Boolean   @default(false) @map("show_results_immediately")
+  allowReview            Boolean   @default(true) @map("allow_review")
+  maxAttempts            Int       @default(1) @map("max_attempts")
+  showAnswersAfterTest   Boolean   @default(false) @map("show_answers_after_test")
+  negativeMarking        Boolean   @default(false) @map("negative_marking")
+  negativeMarkingValue   Decimal   @default(0.25) @map("negative_marking_value")
+  startTime              DateTime  @map("start_time")
+  endTime                DateTime  @map("end_time")
+  status                 String    @default("draft")
+  isTemplate             Boolean   @default(false) @map("is_template")
+  templateId             String?   @map("template_id")
+  settings               Json      @default("{}")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  deletedAt              DateTime? @map("deleted_at")
+  school         School         @relation(fields: [schoolId], references: [id])
+  creator        User           @relation("TestCreator", fields: [createdBy], references: [id])
+  subject        Subject?       @relation(fields: [subjectId], references: [id])
+  template       Test?          @relation("TestTemplate", fields: [templateId], references: [id])
+  derivedTests   Test[]         @relation("TestTemplate")
+  testQuestions  TestQuestion[]
+  schedules      TestSchedule[]
+  attempts       TestAttempt[]
+  questionUsage  QuestionUsageAnalytic[]
+  performanceMetrics PerformanceMetric[]
+
+  @@index([schoolId])
+  @@index([status])
+  @@map("tests")
+}
+
+model TestQuestion {
+  id            String   @id @default(uuid())
+  testId        String   @map("test_id")
+  questionId    String   @map("question_id")
+  questionOrder Int      @map("question_order")
+  marks         Decimal
+  isMandatory   Boolean  @default(true) @map("is_mandatory")
+  sectionName   String?  @map("section_name")
+  createdAt     DateTime @default(now()) @map("created_at")
+  test     Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([testId])
+  @@index([questionId])
+  @@map("test_questions")
+}
+
+model TestSchedule {
+  id                 String   @id @default(uuid())
+  testId             String   @map("test_id")
+  classId            String   @map("class_id")
+  scheduledStartTime DateTime @map("scheduled_start_time")
+  scheduledEndTime   DateTime @map("scheduled_end_time")
+  status             String   @default("scheduled")
+  createdAt          DateTime @default(now()) @map("created_at")
+  test     Test  @relation(fields: [testId], references: [id], onDelete: Cascade)
+  class    Class @relation(fields: [classId], references: [id])
+  attempts TestAttempt[]
+
+  @@index([testId])
+  @@index([classId])
+  @@map("test_schedules")
+}
+
+model TestAttempt {
+  id                 String    @id @default(uuid())
+  testId             String    @map("test_id")
+  studentId          String    @map("student_id")
+  scheduleId         String?   @map("schedule_id")
+  attemptNumber      Int       @default(1) @map("attempt_number")
+  startTime          DateTime  @default(now()) @map("start_time")
+  endTime            DateTime? @map("end_time")
+  durationUsedSeconds Int?     @map("duration_used_seconds")
+  status             String    @default("in_progress")
+  ipAddress          String?   @map("ip_address")
+  browserInfo        String?   @map("browser_info")
+  deviceInfo         String?   @map("device_info")
+  isFlagged          Boolean   @default(false) @map("is_flagged")
+  flagReason         String?   @map("flag_reason")
+  totalScore         Decimal?  @map("total_score")
+  percentage         Decimal?
+  passed             Boolean?
+  answers            Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  test        Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
+  student     User             @relation(fields: [studentId], references: [id])
+  schedule    TestSchedule?    @relation(fields: [scheduleId], references: [id])
+  studentAnswers StudentAnswer[]
+  gradingQueue GradingQueue[]
+
+  @@index([testId])
+  @@index([studentId])
+  @@index([status])
+  @@map("test_attempts")
+}
+
+model StudentAnswer {
+  id               String    @id @default(uuid())
+  attemptId        String    @map("attempt_id")
+  questionId       String    @map("question_id")
+  answer           String?
+  selectedOptions  Json      @default("[]") @map("selected_options")
+  answerFileUrl    String?   @map("answer_file_url")
+  isCorrect        Boolean?  @map("is_correct")
+  marksObtained    Decimal?  @map("marks_obtained")
+  marksAllocated   Decimal?  @map("marks_allocated")
+  gradedBy         String?   @map("graded_by")
+  gradedAt         DateTime? @map("graded_at")
+  feedback         String?
+  timeSpentSeconds Int?      @map("time_spent_seconds")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  attempt TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id])
+  grader   User?    @relation("AnswerGradedBy", fields: [gradedBy], references: [id])
+
+  @@index([attemptId])
+  @@index([questionId])
+  @@map("student_answers")
+}
+
+model GradingQueue {
+  id           String    @id @default(uuid())
+  attemptId    String    @map("attempt_id")
+  status       String    @default("pending")
+  priority     Int       @default(0)
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  attempt TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("grading_queue")
+}
+
+model PerformanceMetric {
+  id             String   @id @default(uuid())
+  schoolId       String?  @map("school_id")
+  testId         String?  @map("test_id")
+  classId        String?  @map("class_id")
+  subjectId      String?  @map("subject_id")
+  studentId      String?  @map("student_id")
+  teacherId      String?  @map("teacher_id")
+  metricType     String   @map("metric_type")
+  metricValue    Decimal? @map("metric_value")
+  additionalData Json?    @map("additional_data")
+  recordedAt     DateTime @default(now()) @map("recorded_at")
+  school  School?  @relation(fields: [schoolId], references: [id])
+  test    Test?    @relation(fields: [testId], references: [id])
+  class   Class?   @relation(fields: [classId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+
+  @@index([schoolId])
+  @@index([testId])
+  @@index([studentId])
+  @@index([recordedAt])
+  @@map("performance_metrics")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  type      String
+  title     String
+  message   String
+  data      Json      @default("{}")
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  schoolId   String?  @map("school_id")
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+  user   User?   @relation(fields: [userId], references: [id])
+  school School? @relation(fields: [schoolId], references: [id])
+
+  @@index([userId])
+  @@index([schoolId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String?
+  description String?
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model Book {
+  id                  String    @id @default(uuid())
+  schoolId            String    @map("school_id")
+  uploadedBy          String    @map("uploaded_by")
+  title               String
+  author              String?
+  publisher           String?
+  isbn                String?
+  edition             String?
+  year                Int?
+  classId             String?   @map("class_id")
+  subjectId           String?   @map("subject_id")
+  fileUrl             String    @map("file_url")
+  fileName            String    @map("file_name")
+  fileType            String    @map("file_type")
+  fileSize            BigInt?   @map("file_size")
+  pageCount           Int?      @map("page_count")
+  language            String    @default("english")
+  description         String?
+  tags                Json      @default("[]")
+  isPublic            Boolean   @default(false) @map("is_public")
+  processingStatus    String    @default("pending") @map("processing_status")
+  processingProgress  Int       @default(0) @map("processing_progress")
+  questionsExtracted  Int       @default(0) @map("questions_extracted")
+  metadata            Json      @default("{}")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+  school  School  @relation(fields: [schoolId], references: [id])
+  uploader User   @relation("BookUploader", fields: [uploadedBy], references: [id])
+  class   Class?  @relation(fields: [classId], references: [id])
+  subject Subject? @relation(fields: [subjectId], references: [id])
+
+  @@index([schoolId])
+  @@index([processingStatus])
+  @@map("books")
+}
+
+model QuestionPaper {
+  id                  String    @id @default(uuid())
+  schoolId            String    @map("school_id")
+  uploadedBy          String    @map("uploaded_by")
+  title               String
+  examName            String?   @map("exam_name")
+  examBoard           String?   @map("exam_board")
+  year                Int
+  semester            String?
+  classId             String?   @map("class_id")
+  subjectId           String?   @map("subject_id")
+  fileUrl             String    @map("file_url")
+  fileName            String    @map("file_name")
+  fileType            String    @map("file_type")
+  fileSize            BigInt?   @map("file_size")
+  pageCount           Int?      @map("page_count")
+  totalMarks          Int?      @map("total_marks")
+  durationMinutes     Int?      @map("duration_minutes")
+  description         String?
+  tags                Json      @default("[]")
+  isPublic            Boolean   @default(false) @map("is_public")
+  processingStatus    String    @default("pending") @map("processing_status")
+  processingProgress  Int       @default(0) @map("processing_progress")
+  questionsExtracted  Int       @default(0) @map("questions_extracted")
+  metadata            Json      @default("{}")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+  school   School  @relation(fields: [schoolId], references: [id])
+  uploader User    @relation("QuestionPaperUploader", fields: [uploadedBy], references: [id])
+  class    Class?  @relation(fields: [classId], references: [id])
+  subject  Subject? @relation(fields: [subjectId], references: [id])
+
+  @@index([schoolId])
+  @@map("question_papers")
+}
+
+model ResourceChapter {
+  id                 String   @id @default(uuid())
+  resourceType       String   @map("resource_type")
+  resourceId         String   @map("resource_id")
+  chapterNumber      Int?     @map("chapter_number")
+  chapterTitle       String?  @map("chapter_title")
+  pageStart          Int?     @map("page_start")
+  pageEnd            Int?     @map("page_end")
+  topics             Json      @default("[]")
+  questionsExtracted Int      @default(0) @map("questions_extracted")
+  createdAt          DateTime @default(now()) @map("created_at")
+  extractedQuestions ExtractedQuestion[]
+
+  @@index([resourceType, resourceId])
+  @@map("resource_chapters")
+}
+
+model ExtractedQuestion {
+  id                  String    @id @default(uuid())
+  resourceType        String    @map("resource_type")
+  resourceId          String    @map("resource_id")
+  chapterId           String?   @map("chapter_id")
+  questionId          String    @map("question_id")
+  pageNumber          Int?      @map("page_number")
+  extractionConfidence Decimal? @map("extraction_confidence")
+  extractionMethod    String?   @map("extraction_method")
+  isVerified          Boolean   @default(false) @map("is_verified")
+  verifiedBy          String?   @map("verified_by")
+  verifiedAt          DateTime? @map("verified_at")
+  notes               String?
+  createdAt           DateTime  @default(now()) @map("created_at")
+  chapter   ResourceChapter? @relation(fields: [chapterId], references: [id])
+  question  Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  verifier  User?            @relation("ExtractedVerifier", fields: [verifiedBy], references: [id])
+
+  @@index([resourceType, resourceId])
+  @@index([questionId])
+  @@map("extracted_questions")
+}
+
+model DocumentProcessingJob {
+  id          String    @id @default(uuid())
+  resourceType String   @map("resource_type")
+  resourceId  String    @map("resource_id")
+  jobType     String    @map("job_type")
+  status      String    @default("pending")
+  priority    Int       @default(0)
+  progress    Int       @default(0)
+  currentStep String?   @map("current_step")
+  errorMessage String?  @map("error_message")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([resourceType, resourceId])
+  @@index([status])
+  @@map("document_processing_jobs")
+}
+
+model Question {
+  id                   String    @id @default(uuid())
+  schoolId             String    @map("school_id")
+  createdBy            String    @map("created_by")
+  questionType         String    @map("question_type")
+  questionText         String    @map("question_text")
+  questionMedia        Json      @default("[]") @map("question_media")
+  explanation          String?
+  questionData         Json      @default("{}") @map("question_data")
+  difficulty           String    @default("medium")
+  marks                Decimal   @default(1)
+  negativeMarks        Decimal   @default(0) @map("negative_marks")
+  timeLimitSeconds     Int?      @map("time_limit_seconds")
+  subjectId            String?   @map("subject_id")
+  topics               Json      @default("[]")
+  chapter              String?
+  tags                 Json      @default("[]")
+  language             String    @default("en")
+  sourceType           String?   @map("source_type")
+  sourceResourceId     String?   @map("source_resource_id")
+  sourceResourceType String?   @map("source_resource_type")
+  sourceChapterId      String?   @map("source_chapter_id")
+  sourcePageNumber     Int?      @map("source_page_number")
+  extractionConfidence Decimal?  @map("extraction_confidence")
+  version              Int       @default(1)
+  parentQuestionId     String?   @map("parent_question_id")
+  usageCount           Int       @default(0) @map("usage_count")
+  averageScore         Decimal?  @map("average_score")
+  averageTimeSeconds   Int?      @map("average_time_seconds")
+  isPublic             Boolean   @default(false) @map("is_public")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  verifiedBy           String?   @map("verified_by")
+  verifiedAt           DateTime? @map("verified_at")
+  metadata             Json      @default("{}")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+  school         School @relation(fields: [schoolId], references: [id])
+  creator        User   @relation("QuestionCreator", fields: [createdBy], references: [id])
+  subject        Subject? @relation(fields: [subjectId], references: [id])
+  parent         Question?  @relation("QuestionVersion", fields: [parentQuestionId], references: [id])
+  childVersions  Question[] @relation("QuestionVersion")
+  verifier       User?      @relation("QuestionVerifier", fields: [verifiedBy], references: [id])
+  options        QuestionOption[]
+  answers        QuestionAnswer[]
+  rubrics        QuestionRubric[]
+  usageAnalytics QuestionUsageAnalytic[]
+  tagMappings    QuestionTagMapping[]
+  mediaFiles     QuestionMediaFile[]
+  testQuestions  TestQuestion[]
+  studentAnswers StudentAnswer[]
+  extractedLinks ExtractedQuestion[]
+
+  @@index([schoolId])
+  @@index([subjectId])
+  @@index([questionType])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id           String   @id @default(uuid())
+  questionId   String   @map("question_id")
+  optionText   String   @map("option_text")
+  optionMedia  Json     @default("{}") @map("option_media")
+  isCorrect    Boolean  @default(false) @map("is_correct")
+  optionOrder  Int      @map("option_order")
+  explanation  String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@map("question_options")
+}
+
+model QuestionAnswer {
+  id             String   @id @default(uuid())
+  questionId     String   @map("question_id")
+  answerText     String?  @map("answer_text")
+  answerData     Json?    @map("answer_data")
+  isSampleAnswer Boolean  @default(false) @map("is_sample_answer")
+  explanation    String?
+  marksAllocated Decimal? @map("marks_allocated")
+  createdAt      DateTime @default(now()) @map("created_at")
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_answers")
+}
+
+model QuestionRubric {
+  id                  String   @id @default(uuid())
+  questionId          String   @map("question_id")
+  criteriaName        String   @map("criteria_name")
+  criteriaDescription String?  @map("criteria_description")
+  maxMarks            Decimal  @map("max_marks")
+  weightPercentage    Decimal  @default(1) @map("weight_percentage")
+  rubricLevels        Json     @map("rubric_levels")
+  createdAt           DateTime @default(now()) @map("created_at")
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_rubrics")
+}
+
+model QuestionUsageAnalytic {
+  id               String   @id @default(uuid())
+  questionId       String   @map("question_id")
+  testId           String?  @map("test_id")
+  usageDate        DateTime @default(now()) @map("usage_date")
+  attemptsCount    Int      @default(0) @map("attempts_count")
+  correctAttempts  Int      @default(0) @map("correct_attempts")
+  averageScore     Decimal? @map("average_score")
+  averageTimeSeconds Int?   @map("average_time_seconds")
+  createdAt        DateTime @default(now()) @map("created_at")
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  test     Test?    @relation(fields: [testId], references: [id])
+
+  @@index([questionId, usageDate])
+  @@map("question_usage_analytics")
+}
+
+model QuestionTag {
+  id          String   @id @default(uuid())
+  tagName     String   @map("tag_name")
+  tagCategory String?  @map("tag_category")
+  schoolId    String?  @map("school_id")
+  usageCount  Int      @default(0) @map("usage_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  school   School?               @relation(fields: [schoolId], references: [id])
+  mappings QuestionTagMapping[]
+
+  @@unique([schoolId, tagName])
+  @@map("question_tags")
+}
+
+model QuestionTagMapping {
+  questionId String   @map("question_id")
+  tagId      String   @map("tag_id")
+  addedBy    String?  @map("added_by")
+  addedAt    DateTime @default(now()) @map("added_at")
+  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag      QuestionTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  addedByUser User?    @relation("TagMappingAddedBy", fields: [addedBy], references: [id])
+
+  @@id([questionId, tagId])
+  @@map("question_tag_mappings")
+}
+
+model QuestionMediaFile {
+  id            String   @id @default(uuid())
+  questionId    String   @map("question_id")
+  fileName      String   @map("file_name")
+  fileUrl       String   @map("file_url")
+  fileType      String   @map("file_type")
+  fileSize      BigInt?  @map("file_size")
+  mimeType      String?  @map("mime_type")
+  altText       String?  @map("alt_text")
+  displayOrder  Int      @default(0) @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_media_files")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
+}

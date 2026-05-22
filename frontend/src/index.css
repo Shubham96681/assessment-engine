@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FFFDF9;
+  --color-paper: #F4F1EA;
+  --color-ink: #1A1A1A;
+  --color-cobalt: #4361EE;
+  --color-bubble: #FF85A1;
+  --color-lemon: #FFD166;
+  --color-mint: #06D6A0;
+  --color-tang: #FF9F1C;
+  --color-grape: #9D4CDD;
+  
+  --font-display: "Bricolage Grotesque", sans-serif;
+  --font-sans: "Outfit", sans-serif;
+  --font-accent: "Caveat", cursive;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
