@@ -9,9 +9,14 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import (
+    qdrant_client,
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 from app.rag.embeddings import embed_texts
-from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +178,22 @@ class DedupEngine:
 
         await self._flush_history_points(pending_points)
 
+        if unique:
+            from app.generation.canonical_question_signature import (
+                filter_zero_duplicate_signatures,
+            )
+            from app.generation.structural_dedup import filter_structural_duplicates
+
+            unique = filter_zero_duplicate_signatures(unique)
+            post = filter_structural_duplicates(unique)
+            if len(post) < len(unique):
+                logger.info(
+                    "Structural/theorem dedup: %d → %d",
+                    len(unique),
+                    len(post),
+                )
+            unique = post
+
         dropped = len(questions) - len(unique)
         logger.info(
             "Dedup: %d → %d unique (%d rejected, skip_history=%s)",
@@ -307,3 +328,39 @@ class DedupEngine:
             logger.info("Flushed %d history points in single batch", len(points))
         except Exception as e:
             logger.error(f"Failed to batch upsert history: {e}")
+
+    async def record_questions_to_history(
+        self,
+        questions: List[Dict[str, Any]],
+        user_id: str,
+        subject: str,
+        class_level: str,
+        *,
+        document_id: Optional[str] = None,
+    ) -> None:
+        """Persist accepted questions to generation_history (post-delivery)."""
+        points: List[PointStruct] = []
+        for q in questions:
+            content = (q.get("content") or q.get("question") or "").strip()
+            if not content:
+                continue
+            content_hash = q.get("content_hash") or hashlib.sha256(
+                content.encode()
+            ).hexdigest()
+            q["content_hash"] = content_hash
+            embedding = q.get("embedding")
+            if not embedding:
+                embedding = (await embed_texts([content]))[0]
+                q["embedding"] = embedding
+            point = self._build_history_point(
+                q,
+                embedding,
+                user_id,
+                subject,
+                class_level,
+                document_id=document_id,
+                stem_normalized=_normalize_stem(content),
+            )
+            if point:
+                points.append(point)
+        await self._flush_history_points(points)

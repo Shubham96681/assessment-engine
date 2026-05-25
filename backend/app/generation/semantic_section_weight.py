@@ -177,6 +177,10 @@ def foreign_topic_ratio(prompt: str, locked_chapter: str) -> float:
     primary_terms = _CHAPTER_PRIMARY_TERMS.get(ch, _TOPIC_LEXICON["quadratic"])
     if not foreign_terms:
         dist = compute_topic_distribution(prompt, locked_chapter=ch)
+        if ch == "generic":
+            # Do not assume quadratic is primary — use dominant lexicon bucket
+            dominant = max(dist, key=lambda k: dist[k])
+            return round(1.0 - dist.get(dominant, 0.0), 4)
         primary_key = _CHAPTER_PRIMARY.get(ch, "quadratic")
         return round(1.0 - dist.get(primary_key, 0.0), 4)
 

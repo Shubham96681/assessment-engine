@@ -162,6 +162,8 @@ class QualityScorer:
             + 0.36 * q.get("authenticity_score", 0)
             + 0.16 * q.get("completeness_score", 0)
             + 0.06 * q.get("dependency_score", 1.0)
+            + 0.05 * q.get("paper_dependency_score", 1.0)
+            + 0.05 * q.get("cross_question_score", 1.0)
             + 0.06 * q.get("figure_necessity_score", 1.0)
             + 0.10 * q.get("reasoning_depth_score", 0.5)
             + hard_w * q.get("hard_mode_score", 1.0)
@@ -206,9 +208,7 @@ class QualityScorer:
                 q["combined_score"] = max(
                     0.0, q.get("combined_score", 0) - 0.18
                 )
-        if settings.ENABLE_SELF_ENHANCEMENT and (
-            settings.GOOGLE_GEMINI_API_KEY or settings.OPENAI_API_KEY
-        ):
+        if settings.ENABLE_SELF_ENHANCEMENT and settings.has_cloud_llm():
             try:
                 sample = questions[: min(2, len(questions))]
                 await self._llm_score_sample(sample)
@@ -239,7 +239,9 @@ class QualityScorer:
             logger.info("Paper diversity note: %s", reason)
         annotate_paper_reasoning(curated, ui_difficulty=ui)
         from app.generation.topic_isolation import get_current_topic_state
+        from app.generation.theorem_variety_engine import mark_theorem_equivalence_duplicates
 
+        mark_theorem_equivalence_duplicates(curated)
         locked = (get_current_topic_state() or {}).get("locked_chapter", "")
         r_ok, r_reason = reasoning_diversity_ok(
             curated, ui_difficulty=ui, locked_chapter=locked
@@ -273,6 +275,18 @@ class QualityScorer:
             q
         ):
             return True
+        if settings.ENABLE_PAPER_DEPENDENCY_GRAPH:
+            from app.generation.paper_dependency_graph import should_reject_paper_dependency
+
+            if should_reject_paper_dependency(q, ui_difficulty=ui_difficulty):
+                return True
+        if settings.ENABLE_CROSS_QUESTION_CONSISTENCY:
+            from app.generation.cross_question_consistency import (
+                should_reject_cross_question_inconsistency,
+            )
+
+            if should_reject_cross_question_inconsistency(q, ui_difficulty=ui_difficulty):
+                return True
         if settings.ENABLE_FIGURE_NECESSITY_VALIDATION and should_reject_decorative_figure(
             q
         ):
@@ -287,6 +301,34 @@ class QualityScorer:
             return True
         if should_reject_angle_target(q):
             return True
+        if q.get("theorem_equivalent_duplicate"):
+            return True
+        from app.core.config import settings
+
+        if settings.ENABLE_HARDNESS_SCORER and ui_difficulty.lower() in (
+            "hard",
+            "difficult",
+        ):
+            from app.generation.hardness_scorer import should_reject_hardness
+
+            if should_reject_hardness(
+                q, slot_band=band, ui_difficulty=ui_difficulty
+            ):
+                return True
+        if settings.ENABLE_EXAMINER_SIMULATION and ui_difficulty.lower() in (
+            "hard",
+            "difficult",
+        ):
+            from app.generation.examiner_simulation import should_reject_examiner
+
+            if should_reject_examiner(
+                q,
+                index=int(q.get("order_index") or q.get("slot_number") or 0),
+                total=10,
+                slot_band=band,
+                ui_difficulty=ui_difficulty,
+            ):
+                return True
         if should_reject_reasoning(
             q, slot_band=band, ui_difficulty=ui_difficulty
         ):
@@ -307,6 +349,7 @@ class QualityScorer:
             ui_difficulty=ui_difficulty,
             slot_meta=slot_meta,
             locked_chapter=locked or "",
+            full_hard=bool((slot_meta or {}).get("full_hard")),
         ):
             return True
         if settings.ENABLE_COGNITIVE_GRAPH_VALIDATION:
@@ -371,7 +414,7 @@ class QualityScorer:
         return max(0.0, min(1.0, score))
 
     async def _llm_score_sample(self, sample: List[Dict]) -> None:
-        if not (settings.GOOGLE_GEMINI_API_KEY or settings.OPENAI_API_KEY):
+        if not settings.has_cloud_llm():
             return
         for q in sample:
             prompt = f"""

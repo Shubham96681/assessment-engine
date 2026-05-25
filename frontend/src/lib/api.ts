@@ -159,6 +159,15 @@ export const deleteAssessment = async (id: string) => {
   return res.data;
 };
 
+/** Whether rag_query.txt still needs rag_response.txt (Cursor agent). */
+export const getRagPending = async (): Promise<{
+  pending: boolean;
+  hint?: string;
+}> => {
+  const res = await api.get('/rag/pending', { timeout: 8000 });
+  return res.data;
+};
+
 /** Finish a stuck assessment using rag_response.txt already on disk */
 export const applyRagResponse = async (assessmentId: string) => {
   const res = await api.post(`/assessments/${assessmentId}/apply-rag-response`, null, {

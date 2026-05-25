@@ -159,7 +159,7 @@ async def get_document_topic_profile(
         logger.exception("topic-profile extract failed for %s", document_id)
         raise HTTPException(
             status_code=503,
-            detail=f"Topic extraction failed: {str(e)[:200]}. Check Qdrant and restart backend.",
+            detail=f"Topic extraction failed: {str(e)[:200]}. Upload/index the PDF first, then restart the backend.",
         ) from e
 
     from app.generation.retrieval_confidence import compute_retrieval_confidence

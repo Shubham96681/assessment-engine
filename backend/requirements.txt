@@ -9,16 +9,12 @@ pydantic-settings==2.3.0
 # Database
 sqlalchemy==2.0.30
 alembic==1.13.1
-asyncpg==0.29.0
-psycopg2-binary==2.9.9
+aiosqlite==0.20.0
+# Optional PostgreSQL (Docker): asyncpg, psycopg2-binary
 
-# Redis / Task Queue
-celery==5.4.0
-redis==5.0.4
-flower==2.0.1
-
-# Vector Store
-qdrant-client==1.9.1
+# Vector store — FAISS local (default, no Docker)
+faiss-cpu==1.8.0
+# Optional Qdrant (Docker): qdrant-client==1.9.1
 
 # LLM & AI
 openai

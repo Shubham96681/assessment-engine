@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Tuple
 
 BOARD_HARD = "board_hard"
+BOARD_FULL_HARD = "board_full_hard"
 BOARD_MEDIUM = "board_medium"
 BOARD_EASY = "board_easy"
 OLYMPIAD_INTRO = "olympiad_intro"
@@ -19,6 +20,7 @@ def resolve_difficulty_regime(
     *,
     exam_track: str = "board",
     class_level: str = "10",
+    full_hard: bool = False,
 ) -> str:
     ui = (ui_difficulty or "medium").lower()
     track = (exam_track or "board").lower()
@@ -29,6 +31,8 @@ def resolve_difficulty_regime(
             return OLYMPIAD_INTRO if "10" in cls or "9" in cls else OLYMPIAD_FULL
         return BOARD_MEDIUM
 
+    if ui in ("hard", "difficult") and full_hard:
+        return BOARD_FULL_HARD
     if ui in ("hard", "difficult"):
         return BOARD_HARD
     if ui in ("easy",):
@@ -39,6 +43,10 @@ def resolve_difficulty_regime(
 def regime_calibration_lines(regime: str, chapter: str) -> Tuple[str, ...]:
     """Short, non-duplicated difficulty guidance for the compiler."""
     ch = (chapter or "generic").strip().lower()
+    if regime == BOARD_FULL_HARD:
+        from app.generation.full_hard_mode import full_hard_calibration_lines
+
+        return full_hard_calibration_lines(ch)
     if regime == BOARD_HARD:
         if ch == "circles":
             return (

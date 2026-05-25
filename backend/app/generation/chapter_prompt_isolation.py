@@ -22,6 +22,11 @@ HARD MODE — Circles (mandatory when UI difficulty is hard):
 - REQUIRE for L4/L5 slots: 3+ inference steps in model answer (Given → Step 1 → Step 2 → Hence).
 - Q5 HOTS: disguised reuse, OR with proof branch, or multi-concept angle chase.
 - Numeric: TA² = TC·TD, OT² − r² = TA², angle APB + angle AOB = 180° when radii ⟂ tangents.
+- PROOF wording: "Prove that OT ⟂ tangent TR at T" or Theorem 10.1 idiom — NEVER "perpendicular from O to tangent at T passes through T".
+- Multi-step concentric + secant: student must FIND chord length first — do NOT give √-form chord length in the stem before tangent–secant work.
+- figure_spec: show_right_angle at point of contact; mark centre-to-contact radius dashed.
+- PAPER DEPENDENCY (hard): Q1 establishes concentric chord; Q2 MUST reference Q1 with (i) chord (ii) Hence tangent–secant; Q5 fuses Q1–Q2 — not five isolated drills.
+- FULL HARD (100%): every slot L5 — 5+ answer steps, ≥3 theorem families; reject L4/one-step items.
 """
 
 QUADRATIC_HARD_RULES = """
@@ -63,6 +68,7 @@ REASONING GRAPH DIVERSITY — Circles:
 - Max ONE item: external tangents → quadrilateral angle sum → central angle.
 - Spread: concentric chord, chord ⟂ radius proof, secant–tangent power, similarity, cyclic chase.
 - L4/L5: 3+ dependent theorem steps — not a single quadrilateral angle sum.
+- SEMANTIC UNIQUENESS: no two items may share the same theorem-equivalence graph (relabelled points forbidden).
 """
 
 QUADRATIC_REASONING_DIVERSITY = """
@@ -94,6 +100,7 @@ CIRCLES_NUMERIC_RULES = """
 NUMERIC CONSISTENCY — Circles:
 - Tangent–secant: TA² = TC × TD.
 - Tangent length: TA² = OT² − radius².
+- Secant feasibility: chord PQ = (WT²/WP) − WP must satisfy PQ ≤ 2R; require WP ≥ (−2R + √(4R²+4·WT²))/2.
 - Tangent pair + centre: angle APB + angle AOB = 180° when radii ⟂ tangents at A, B.
 - Concentric chord: AB = 2√(R² − r²) with R > r.
 """
@@ -176,8 +183,14 @@ QUADRATIC_HARD_SEQUENCE_SLOTS = [
     {"slot": 5, "band": "L5", "role": "HOTS — disguised reuse or OR fusion", "one_line_ok": False, "memory": "reuse"},
 ]
 
+from app.generation.full_hard_mode import CIRCLES_FULL_HARD_SEQUENCE_SLOTS
+
 CHAPTER_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
     "quadratic": QUADRATIC_HARD_SEQUENCE_SLOTS,
+}
+
+CHAPTER_FULL_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
+    "circles": CIRCLES_FULL_HARD_SEQUENCE_SLOTS,
 }
 
 CHAPTER_REAL_DIFFICULTY_NOTE: Dict[str, str] = {
@@ -211,10 +224,26 @@ def hard_mode_prompt_block(chapter: str = "generic") -> str:
     return CHAPTER_HARD_RULES.get(normalize_chapter(chapter), GENERIC_HARD_RULES).strip()
 
 
-def reasoning_diversity_prompt_block(chapter: str = "generic") -> str:
-    return CHAPTER_REASONING_DIVERSITY.get(
-        normalize_chapter(chapter), GENERIC_REASONING_DIVERSITY
-    ).strip()
+def reasoning_diversity_prompt_block(
+    chapter: str = "generic",
+    question_count: int = 10,
+    *,
+    paper_template_id: Optional[str] = None,
+    ui_difficulty: str = "hard",
+    full_hard: bool = False,
+) -> str:
+    ch = normalize_chapter(chapter)
+    base = CHAPTER_REASONING_DIVERSITY.get(ch, GENERIC_REASONING_DIVERSITY).strip()
+    from app.generation.theorem_variety_engine import theorem_variety_prompt_block
+
+    extra = theorem_variety_prompt_block(
+        ch,
+        question_count,
+        paper_template_id=paper_template_id,
+        ui_difficulty=ui_difficulty,
+        full_hard=full_hard,
+    )
+    return f"{base}\n{extra}".strip() if extra else base
 
 
 def numeric_prompt_block(chapter: str = "generic") -> str:
@@ -232,14 +261,22 @@ def figure_complexity_for_chapter(chapter: str, index: int) -> str:
     return hints[index] if index < len(hints) else hints[-1]
 
 
-def sequence_slots_for_chapter(chapter: str, ui_difficulty: str) -> List[Dict[str, Any]]:
+def sequence_slots_for_chapter(
+    chapter: str,
+    ui_difficulty: str,
+    *,
+    full_hard: bool = False,
+) -> List[Dict[str, Any]]:
     from app.generation.rd_archetypes import HARD_SEQUENCE_SLOTS, HUMAN_SEQUENCE_SLOTS
 
     ui = (ui_difficulty or "medium").lower()
+    ch = normalize_chapter(chapter)
     if ui in ("hard", "difficult"):
-        return CHAPTER_HARD_SEQUENCE_SLOTS.get(
-            normalize_chapter(chapter), HARD_SEQUENCE_SLOTS
-        )
+        if full_hard and ch in CHAPTER_FULL_HARD_SEQUENCE_SLOTS:
+            return CHAPTER_FULL_HARD_SEQUENCE_SLOTS[ch]
+        if ch in CHAPTER_HARD_SEQUENCE_SLOTS:
+            return CHAPTER_HARD_SEQUENCE_SLOTS[ch]
+        return HARD_SEQUENCE_SLOTS
     return HUMAN_SEQUENCE_SLOTS
 
 
@@ -253,15 +290,22 @@ def real_difficulty_mix_note(chapter: str, ui_difficulty: str) -> str:
     )
 
 
-def build_chapter_hard_prompt_stack(chapter: str, ui_difficulty: str) -> str:
+def build_chapter_hard_prompt_stack(
+    chapter: str,
+    ui_difficulty: str,
+    *,
+    full_hard: bool = False,
+) -> str:
     """Single stack: chapter hard + reasoning + numeric — no geometry bleed."""
     ui = (ui_difficulty or "medium").lower()
     if ui not in ("hard", "difficult"):
         return ""
     ch = normalize_chapter(chapter)
     from app.generation.cognitive_graph_validator import cognitive_graph_prompt_block
+    from app.generation.full_hard_mode import full_hard_prompt_block
 
     parts = [
+        full_hard_prompt_block(ch) if full_hard else "",
         hard_mode_prompt_block(ch),
         reasoning_diversity_prompt_block(ch),
         cognitive_graph_prompt_block(ch),

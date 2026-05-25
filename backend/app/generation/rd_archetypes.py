@@ -11,7 +11,10 @@ from app.generation.textbook_constants import (
     TEXTBOOK_DIFFICULTY_MIX_8,
     HARD_DIFFICULTY_MIX_5,
     HARD_DIFFICULTY_MIX_8,
+    FULL_HARD_DIFFICULTY_MIX_5,
+    FULL_HARD_DIFFICULTY_MIX_8,
 )
+from app.generation.full_hard_mode import is_full_hard_paper
 from app.generation.chapter_prompt_isolation import (
     build_chapter_hard_prompt_stack,
     filter_archetypes_to_chapter,
@@ -245,7 +248,29 @@ GENERIC_ARCHETYPES: List[Dict[str, str]] = [
 ARCHETYPES: List[Dict[str, str]] = CIRCLE_ARCHETYPES
 
 # Hard UI: bias away from one-step drills
+CHAPTER_PATTERNS_FULL_HARD: Dict[str, List[tuple[str, float]]] = {
+    "circles": [
+        ("hots_mixed", 0.24),
+        ("tangent_similarity", 0.18),
+        ("concentric", 0.16),
+        ("secant_tangent", 0.14),
+        ("chord_tangent", 0.12),
+        ("cyclic_angle", 0.10),
+        ("hidden_theorem", 0.06),
+    ],
+}
+
 CHAPTER_PATTERNS_HARD: Dict[str, List[tuple[str, float]]] = {
+    "circles": [
+        ("hidden_theorem", 0.18),
+        ("concentric", 0.16),
+        ("secant_tangent", 0.14),
+        ("tangent_similarity", 0.14),
+        ("hots_mixed", 0.14),
+        ("chord_tangent", 0.12),
+        ("cyclic_angle", 0.08),
+        ("length_find", 0.04),
+    ],
     "quadratic": [
         ("word_problem_area", 0.22),
         ("nature_of_roots", 0.20),
@@ -462,11 +487,15 @@ def pick_weighted_archetypes(
     seed: int | None = None,
     *,
     ui_difficulty: str = "medium",
+    full_hard: bool = False,
 ) -> List[Dict[str, str]]:
     ui = (ui_difficulty or "medium").lower()
     pool_ids_set = {a["id"] for a in _chapter_archetype_pool(chapter)}
     if ui in ("hard", "difficult"):
-        raw = CHAPTER_PATTERNS_HARD.get(chapter, CHAPTER_PATTERNS_HARD.get("generic", []))
+        if full_hard and chapter in CHAPTER_PATTERNS_FULL_HARD:
+            raw = CHAPTER_PATTERNS_FULL_HARD[chapter]
+        else:
+            raw = CHAPTER_PATTERNS_HARD.get(chapter, CHAPTER_PATTERNS_HARD.get("generic", []))
     else:
         raw = CHAPTER_PATTERNS.get(chapter, CHAPTER_PATTERNS.get("generic", []))
     weights = [(aid, p) for aid, p in raw if aid in pool_ids_set]
@@ -492,10 +521,24 @@ def pick_weighted_archetypes(
     return [ARCHETYPE_BY_ID[i] for i in chosen_ids if i in ARCHETYPE_BY_ID]
 
 
-def get_slot_bands(question_count: int, ui_difficulty: str = "medium") -> List[str]:
+def get_slot_bands(
+    question_count: int,
+    ui_difficulty: str = "medium",
+    *,
+    full_hard: bool = False,
+    difficulty_distribution=None,
+) -> List[str]:
     ui = (ui_difficulty or "medium").lower()
+    fh = full_hard or is_full_hard_paper(difficulty_distribution)
     if ui in ("hard", "difficult"):
-        mix = HARD_DIFFICULTY_MIX_5 if question_count <= 5 else HARD_DIFFICULTY_MIX_8
+        if fh:
+            mix = (
+                FULL_HARD_DIFFICULTY_MIX_5
+                if question_count <= 5
+                else FULL_HARD_DIFFICULTY_MIX_8
+            )
+        else:
+            mix = HARD_DIFFICULTY_MIX_5 if question_count <= 5 else HARD_DIFFICULTY_MIX_8
     else:
         mix = TEXTBOOK_DIFFICULTY_MIX_5 if question_count <= 5 else TEXTBOOK_DIFFICULTY_MIX_8
     return [mix[i % len(mix)]["band"] for i in range(question_count)]
@@ -572,9 +615,12 @@ def get_slot_metadata(
     ui_difficulty: str = "medium",
     *,
     locked_chapter: str = "",
+    full_hard: bool = False,
+    difficulty_distribution=None,
 ) -> List[Dict[str, Any]]:
     """Per-question slot flags for curation pipeline."""
     ui = (ui_difficulty or "medium").lower()
+    fh = full_hard or is_full_hard_paper(difficulty_distribution)
     chapter = (locked_chapter or "").strip().lower()
     if not chapter:
         from app.generation.topic_isolation import get_current_topic_state
@@ -584,8 +630,13 @@ def get_slot_metadata(
     memory = build_exercise_memory_plan(question_count, locked_chapter=chapter)
     teach_idx = memory[0]["teach_index"] if memory else -1
     reuse_idx = memory[0]["reuse_index"] if memory else -1
-    sequence_slots = sequence_slots_for_chapter(chapter, ui)
-    bands = get_slot_bands(question_count, ui_difficulty=ui)
+    sequence_slots = sequence_slots_for_chapter(chapter, ui, full_hard=fh)
+    bands = get_slot_bands(
+        question_count,
+        ui_difficulty=ui,
+        full_hard=fh,
+        difficulty_distribution=difficulty_distribution,
+    )
 
     meta: List[Dict[str, Any]] = []
     for i in range(question_count):
@@ -597,12 +648,14 @@ def get_slot_metadata(
                 "band": bands[i] if i < len(bands) else seq.get("band", "L3"),
                 "role": seq.get("role", ""),
                 "ui_difficulty": ui,
+                "full_hard": fh,
                 "sparse_hard": slot_num == profile.sparse_hard_slot or seq.get("sparse_hard"),
                 "imperfect_compression": (i % 4 == 1) and profile.imperfect_compression_rate > 0,
                 "exercise_memory_teach": i == teach_idx,
                 "exercise_memory_reuse": i == reuse_idx,
                 "one_line_ok": seq.get("one_line_ok", False),
                 "forbid_archetypes": seq.get("forbid_archetypes", ()),
+                "depends_on_slots": list(seq.get("depends_on") or []),
                 "figure_complexity": figure_complexity_for_chapter(chapter, i),
                 "locked_chapter": chapter,
                 "visual_hints": profile.visual.figure_spec_hints,

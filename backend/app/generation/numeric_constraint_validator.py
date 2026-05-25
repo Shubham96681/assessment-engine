@@ -186,6 +186,13 @@ def validate_numeric_constraints(q: Dict[str, Any]) -> Dict[str, Any]:
     flags: List[str] = []
     ok = True
 
+    from app.generation.geometric_feasibility import validate_geometric_feasibility
+
+    gf = validate_geometric_feasibility(q)
+    if not gf.get("geometric_feasibility_ok", True):
+        flags.extend(gf.get("geometric_feasibility_flags") or [])
+        ok = False
+
     for theorem in _detect_theorem_targets(stem, answer):
         if theorem == "tangent_secant":
             ok = _validate_tangent_secant(lengths, flags) and ok
@@ -219,7 +226,13 @@ def should_reject_numeric(q: Dict[str, Any]) -> bool:
     if not q.get("numeric_consistency_ok", True):
         return True
     flags = q.get("numeric_flags") or []
-    critical = ("tangent_secant_mismatch", "answer_claims_valid_but_numbers_contradict")
+    critical = (
+        "tangent_secant_mismatch",
+        "answer_claims_valid_but_numbers_contradict",
+        "secant_chord_exceeds_diameter",
+        "answer_secant_chord_exceeds_diameter",
+        "secant_near_segment_too_small",
+    )
     return any(any(c in f for c in critical) for f in flags)
 
 

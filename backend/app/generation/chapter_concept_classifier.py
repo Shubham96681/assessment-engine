@@ -26,6 +26,20 @@ _CONCEPT_PATTERNS: List[Tuple[str, str, float]] = [
     (r"\btrigonometric\s+identity|\bsin\s*\(|angle\s+of\s+elevation", "trigonometry", 2.0),
 ]
 
+# NCERT Class 10 Mathematics (jemh1XX.pdf) — chapter number suffix → rule-pack key
+_NCERT_JEMH1_CHAPTER: Dict[int, str] = {
+    4: "quadratic",
+    5: "arithmetic",
+    6: "triangles",
+    7: "coordinate",
+    8: "trigonometry",
+    9: "trigonometry",
+    10: "circles",
+    12: "circles",  # areas related to circles
+    14: "statistics",
+    15: "probability",
+}
+
 _FILENAME_CHAPTER: List[Tuple[str, str]] = [
     ("quadratic", "quadratic"),
     ("quadrilateral", "quadrilaterals"),
@@ -37,6 +51,25 @@ _FILENAME_CHAPTER: List[Tuple[str, str]] = [
     ("statistics", "statistics"),
     ("probability", "probability"),
 ]
+
+
+def _chapter_from_ncert_filename(filename: str) -> Optional[Tuple[str, float]]:
+    """
+    Map NCERT-style stems like jemh110.pdf → Class 10 Maths chapter 10 (Circles).
+    """
+    low = (filename or "").lower().rsplit(".", 1)[0]
+    if not low.startswith("jemh"):
+        return None
+    m = re.search(r"jemh1[\-_]?(\d{2})(?:\D|$)", low)
+    if not m:
+        m = re.search(r"jemh(\d{2})(?:\D|$)", low)
+    if not m:
+        return None
+    num = int(m.group(1))
+    chapter = _NCERT_JEMH1_CHAPTER.get(num)
+    if chapter:
+        return chapter, 0.88
+    return None
 
 
 def _score_text_for_chapters(text: str) -> Dict[str, float]:
@@ -68,6 +101,10 @@ def resolve_locked_chapter(
     for key, chapter in _FILENAME_CHAPTER:
         if key in low_fn:
             return chapter, "filename", 0.92
+
+    ncert = _chapter_from_ncert_filename(filename)
+    if ncert:
+        return ncert[0], "ncert_filename", ncert[1]
 
     ctx_scores = _score_text_for_chapters(context[:3000])
     if ctx_scores:

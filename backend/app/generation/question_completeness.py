@@ -7,6 +7,11 @@ import re
 from typing import Dict, Any, List, Set, Tuple
 
 from app.generation.idiomatic_geometry_patterns import detect_awkward_idiom
+from app.generation.common_tangent_values import (
+    is_common_external_tangent_stem,
+    stem_has_required_external_tangent_givens,
+    stem_has_valid_external_tangent_givens,
+)
 from app.generation.geometry_graph_validator import (
     validate_geometry_graph,
     apply_minimum_context,
@@ -163,6 +168,8 @@ def validate_completeness(q: Dict[str, Any]) -> Dict[str, Any]:
         penalty = 0.15 * len(awkward)
         if "awkward_perpendicular_wording" in awkward:
             penalty += 0.35
+        if "tautological_perp_at_contact" in awkward:
+            penalty += 0.45
         if "incomplete_angle_target" in awkward or "vague_angle_find" in awkward:
             penalty += 0.4
         score -= min(0.55, penalty)
@@ -174,6 +181,14 @@ def validate_completeness(q: Dict[str, Any]) -> Dict[str, Any]:
     if not _angle_find_complete(stem):
         flags.append("angle_find_under_specified")
         score -= 0.4
+
+    if is_common_external_tangent_stem(stem):
+        if not stem_has_required_external_tangent_givens(stem):
+            flags.append("common_external_tangent_missing_givens")
+            score -= 0.55
+        elif not stem_has_valid_external_tangent_givens(stem):
+            flags.append("common_external_tangent_impossible_geometry")
+            score -= 0.6
 
     if re.search(r"\bfind\b", stem, re.I) and not _has_numeric_givens(stem):
         if not _is_conceptual_one_liner(stem) and "prove" not in stem.lower():
@@ -230,11 +245,18 @@ def should_reject_incomplete(q: Dict[str, Any]) -> bool:
     flags = q.get("completeness_flags") or []
     if "awkward_perpendicular_wording" in flags and not q.get("idiom_fixed"):
         return True
+    if "tautological_perp_at_contact" in flags and not q.get("idiom_fixed"):
+        return True
     if "angle_find_under_specified" in flags:
         return True
     if "prove_equality_missing_tangent_setup" in flags and not q.get("geometry_repaired"):
         return True
     if "angle_center_mismatch:use_AOB_not_POQ" in flags:
+        return True
+    if (
+        "common_external_tangent_missing_givens" in flags
+        or "common_external_tangent_impossible_geometry" in flags
+    ) and not q.get("paper_repaired"):
         return True
     if not q.get("semantically_complete", True):
         return True

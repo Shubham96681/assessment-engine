@@ -174,108 +174,108 @@ _CIRCLES_FIGURE_SLOTS: List[Dict[str, Any]] = [
     },
 ]
 
-# Board-hard / RD Sharma Level-II–III (used when task difficulty is hard)
+# Board-hard — slot-indexed fallback (0=Q1 … 4=Q5) aligned with paper dependency graph
 _CIRCLES_HARD_FIGURE_SLOTS: List[Dict[str, Any]] = [
     {
         "stem": (
-            "Two concentric circles have centre O and radii 9 cm and 5 cm. "
-            "Chord RS of the larger circle touches the inner circle at T. "
-            "(i) Prove that T bisects RS. (ii) Hence find RS."
+            "Two concentric circles have centre O and radii 17 cm and 8 cm. "
+            "A chord AB of the larger circle touches the smaller circle at T. Find AB."
         ),
         "answer": (
-            "Given R = 9, r = 5. Step 1: OT ⟂ RS (radius ⟂ tangent at T). "
-            "Step 2: Perpendicular from O to chord RS bisects RS, so RT = TS. "
-            "Step 3: RT = √(81 − 25) = √56 = 2√14 cm. Step 4: RS = 4√14 cm. Hence RS = 4√14 cm."
+            "Given R = 17 cm, r = 8 cm. Step 1: OT is perpendicular to AB at T. "
+            "Step 2: T bisects AB. Step 3: AT = 15 cm. Step 4: AB = 30 cm. Hence AB = 30 cm."
         ),
-        "labels": {"O": "O", "R": "R", "S": "S", "T": "T"},
-        "positions": {"O": "centre", "R": "on_circle", "S": "on_circle", "T": "on_circle"},
+        "labels": {"O": "O", "A": "A", "B": "B", "T": "T"},
+        "positions": {"O": "centre", "A": "on_circle", "B": "on_circle", "T": "on_circle"},
         "segments": [
             {"shape": "segment", "from": "O", "to": "T", "style": "dashed"},
-            {"shape": "segment", "from": "R", "to": "S"},
+            {"shape": "segment", "from": "A", "to": "B"},
         ],
         "concentric": True,
-        "inner_radius_ratio": 5 / 9,
+        "inner_radius_ratio": 8 / 17,
         "marks": 5,
+        "archetype_id": "concentric",
     },
     {
         "stem": (
-            "From external point F, tangents FC and FD touch a circle with centre O at C and D. "
-            "Radii OC and OD are drawn. If angle COD = 110°, find angle CFD. "
-            "**OR** If OC = 7 cm and OF = 25 cm, prove FC = FD and hence find FC."
+            "In the same concentric circles as in Question 1. Hence, from external point P, "
+            "tangent PQ = 12 cm touches the outer circle at Q, and secant PRT meets the circle at "
+            "R (nearer P) and T with PR = 4 cm. Find RT and verify PQ² = PR × PT."
         ),
         "answer": (
-            "Step 1: OC ⟂ FC and OD ⟂ FD. Step 2: In quadrilateral OCDF, angle COD + angle CFD = 180°. "
-            "Step 3: angle CFD = 70°. OR branch: Step 1: Triangles OCF and ODF are congruent (RHS). "
-            "Step 2: FC = FD. Step 3: FC² = 625 − 49 = 576. Hence angle CFD = 70° or FC = 24 cm."
+            "From Question 1, OQ = 17 cm. Step 1: PQ² = PR × PT. Step 2: 144 = 4(4 + RT). "
+            "Step 3: RT = 32 cm. Step 4: PR × PT = 144. Hence RT = 32 cm."
         ),
-        "labels": {"O": "O", "F": "F", "C": "C", "D": "D"},
-        "positions": {"O": "centre", "F": "outside", "C": "on_circle", "D": "on_circle"},
-        "segments": [
-            {"shape": "segment", "from": "O", "to": "C", "style": "dashed"},
-            {"shape": "segment", "from": "O", "to": "D", "style": "dashed"},
-            {"shape": "segment", "from": "F", "to": "C"},
-            {"shape": "segment", "from": "F", "to": "D"},
-        ],
-        "marks": 6,
-    },
-    {
-        "stem": "Prove that PQ² = PA · PB.",
-        "answer": (
-            "Given tangent PQ at Q and secant PAB through external P. Step 1: OQ ⟂ PQ. "
-            "Step 2: Join QA, QB; triangles PQA and PQB are similar (AA). "
-            "Step 3: PQ/PA = PB/PQ. Step 4: Cross-multiply to PQ² = PA · PB. "
-            "Step 5: Power of point P for tangent–secant configuration. Hence PQ² = PA · PB."
-        ),
-        "labels": {"O": "O", "P": "P", "Q": "Q", "A": "A", "B": "B"},
-        "positions": {"O": "centre", "P": "outside", "Q": "on_circle", "A": "on_circle", "B": "on_circle"},
+        "labels": {"O": "O", "P": "P", "Q": "Q", "R": "R", "T": "T"},
+        "positions": {"O": "centre", "P": "outside", "Q": "on_circle", "R": "on_circle", "T": "on_circle"},
         "segments": [
             {"shape": "segment", "from": "O", "to": "Q", "style": "dashed"},
             {"shape": "segment", "from": "P", "to": "Q"},
-            {"shape": "segment", "from": "P", "to": "A"},
-            {"shape": "segment", "from": "A", "to": "B"},
+            {"shape": "segment", "from": "R", "to": "T"},
         ],
-        "marks": 5,
+        "concentric": True,
+        "inner_radius_ratio": 8 / 17,
+        "marks": 6,
+        "archetype_id": "secant_tangent",
     },
     {
         "stem": (
-            "From P, segments PA and PB touch a circle with centre O at A and B. "
-            "Radii OA and OB are drawn. If OA = 8 cm and OP = 17 cm, find AP."
+            "In a circle with centre O, a line through point S on the circle meets the circle only at S. "
+            "Given that OS is perpendicular to this line at S, prove that the line is tangent to the circle at S."
         ),
         "answer": (
-            "Step 1: OA ⟂ PA and OB ⟂ PB. Step 2: Tangents from P are equal, so PA = PB. "
-            "Step 3: In right triangle OAP, AP² = OP² − OA² = 289 − 64 = 225. "
-            "Step 4: AP = 15 cm. Step 5: Check 15² = 17² − 8². Hence AP = 15 cm."
+            "Given OS perpendicular to the line at S and the line meets the circle only at S. "
+            "Step 1: Suppose a second intersection X exists. Step 2: OS perpendicular to the line forces "
+            "OX < OS, so X is inside the circle — impossible. Step 3: Hence the line is tangent at S."
         ),
-        "labels": {"O": "O", "P": "P", "A": "A", "B": "B"},
-        "positions": {"O": "centre", "P": "outside", "A": "on_circle", "B": "on_circle"},
+        "labels": {"O": "O", "S": "S", "A": "A"},
+        "positions": {"O": "centre", "S": "on_circle", "A": "outside"},
         "segments": [
-            {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
-            {"shape": "segment", "from": "O", "to": "B", "style": "dashed"},
-            {"shape": "segment", "from": "P", "to": "A"},
-            {"shape": "segment", "from": "P", "to": "B"},
-        ],
-        "marks": 5,
-    },
-    {
-        "stem": (
-            "Tangents PM and PN are drawn to a circle with centre O from P. "
-            "If angle MPN = 50° and radii OM, ON are drawn, find angle MON. "
-            "**OR** If OM = 5 cm and OP = 13 cm, prove PM = PN and find PM."
-        ),
-        "answer": (
-            "Step 1: OM ⟂ PM, ON ⟂ PN. Step 2: In quadrilateral OMPN, angles at M,N are 90°. "
-            "Step 3: angle MPN + angle MON = 180°. Step 4: angle MON = 130°. "
-            "OR: PM² = 169 − 25 = 144, PM = PN = 12 cm. Hence angle MON = 130° or PM = 12 cm."
-        ),
-        "labels": {"O": "O", "P": "P", "M": "M", "N": "N"},
-        "positions": {"O": "centre", "P": "outside", "M": "on_circle", "N": "on_circle"},
-        "segments": [
-            {"shape": "segment", "from": "O", "to": "M", "style": "dashed"},
-            {"shape": "segment", "from": "O", "to": "N", "style": "dashed"},
-            {"shape": "segment", "from": "P", "to": "M"},
-            {"shape": "segment", "from": "P", "to": "N"},
+            {"shape": "segment", "from": "O", "to": "S", "style": "dashed"},
+            {"shape": "segment", "from": "S", "to": "A"},
         ],
         "marks": 6,
+        "archetype_id": "chord_tangent",
+    },
+    {
+        "stem": (
+            "Circles with centres G and H have radii 3 cm and 8 cm respectively. If GH = 13 cm, "
+            "find the length of a direct common external tangent EF and the acute angle between EF and GH "
+            "(give the angle as sin inverse of the appropriate ratio)."
+        ),
+        "answer": (
+            "Step 1: EF = 12 cm from 13² − 5². Step 2: sin θ = 5/13. Hence EF = 12 cm and θ = sin inverse (5/13)."
+        ),
+        "labels": {"G": "G", "H": "H", "E": "E", "F": "F"},
+        "positions": {"G": "centre", "H": "centre", "E": "on_circle", "F": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "G", "to": "H", "style": "dashed"},
+            {"shape": "segment", "from": "E", "to": "F"},
+        ],
+        "marks": 6,
+        "archetype_id": "common_tangent",
+    },
+    {
+        "stem": (
+            "Using the outer circle from Question 1 and the tangent-secant at P from Question 2 "
+            "(PQ = 12 cm, PR = 4 cm). (i) Find OP. (ii) Hence, from point W with OW = 23 cm, find the "
+            "tangent length WU to the outer circle; if a secant through W meets the circle at X (nearer) "
+            "and Y with WX = 8 cm, find WY and verify WU² = WX × WY."
+        ),
+        "answer": (
+            "From Question 1, OQ = 17 cm. From Question 2, PQ = 12 cm. (i) OP = sqrt(433) cm. "
+            "(ii) WU = sqrt(240) cm, WY = 30 cm, check 8 × 30 = 240."
+        ),
+        "labels": {"O": "O", "P": "P", "Q": "Q", "W": "W", "U": "U", "X": "X", "Y": "Y"},
+        "positions": {"O": "centre", "P": "outside", "Q": "on_circle", "W": "outside", "U": "on_circle", "X": "on_circle", "Y": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "Q", "style": "dashed"},
+            {"shape": "segment", "from": "P", "to": "Q"},
+            {"shape": "segment", "from": "W", "to": "X"},
+            {"shape": "segment", "from": "X", "to": "Y"},
+        ],
+        "marks": 7,
+        "archetype_id": "hidden_theorem",
     },
 ]
 
@@ -345,9 +345,12 @@ def _build_circles_figure(slot_index: int, difficulty: str, bloom: str) -> Dict[
         "figure_spec": spec,
         "correct_answer": tpl["answer"],
         "explanation": f"{bloom}-level circles item (slot template {slot_index + 1}).",
-        "archetype_id": ["angle_theorem", "tangent_similarity", "concentric", "secant_tangent", "length_find"][
-            slot_index % 5
-        ],
+        "archetype_id": tpl.get(
+            "archetype_id",
+            ["concentric", "secant_tangent", "chord_tangent", "common_tangent", "hidden_theorem"][
+                slot_index % 5
+            ],
+        ),
     }
 
 
@@ -412,6 +415,25 @@ def build_local_response(
             items.append(_short_item("the chapter", difficulty, bloom, _numeric_givens(slot_idx), slot_idx))
 
     return json.dumps(items, ensure_ascii=False)
+
+
+def local_slot_question_dict(
+    slot_index: int,
+    *,
+    locked_chapter: str = "circles",
+    difficulty: str = "medium",
+    bloom: str = "Apply",
+) -> Dict[str, Any]:
+    """Single slot question dict for gap-fill / integrity repair."""
+    from app.generation.question_pipeline import finalize_question_dict
+
+    if locked_chapter == "circles":
+        raw = _build_circles_figure(slot_index, difficulty, bloom)
+    elif locked_chapter == "quadratic":
+        raw = _build_quadratic_figure(slot_index, difficulty, bloom)
+    else:
+        raw = _build_circles_figure(slot_index, difficulty, bloom)
+    return finalize_question_dict(raw)
 
 
 def build_local_slot_response(

@@ -18,10 +18,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import (
+    qdrant_client,
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 from app.generation.question_regenerator import collect_rejection_feedback
 from app.rag.embeddings import embed_texts
-from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 
 logger = logging.getLogger(__name__)
 

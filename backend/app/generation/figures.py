@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 FIGURES_DIR = os.path.abspath(os.path.join(settings.LOCAL_STORAGE_PATH, "figures"))
 
 
+def _geometry_fonts() -> Dict[str, float]:
+    """Central font sizes for NCERT-style labeled diagrams."""
+    return {
+        "point_label": float(settings.FIGURE_POINT_LABEL_FONT_PT),
+        "segment_label": float(settings.FIGURE_SEGMENT_LABEL_FONT_PT),
+        "title": float(settings.FIGURE_TITLE_FONT_PT),
+        "marker": float(settings.FIGURE_POINT_MARKER_SIZE),
+    }
+
+
 def _setup_dark_fig(w=8, h=5):
     import matplotlib
     matplotlib.use("Agg")
@@ -54,10 +64,25 @@ class FigureGenerator:
             logger.error(f"Figure error ({figure_type}): {e}")
             return None
 
-    def _save(self, fig, name: str, fig_id: str, facecolor: str = "#0f172a", dpi: int = 150) -> str:
+    def _save(
+        self,
+        fig,
+        name: str,
+        fig_id: str,
+        facecolor: str = "#0f172a",
+        dpi: int | None = None,
+    ) -> str:
         import matplotlib.pyplot as plt
+
+        dpi = dpi or settings.FIGURE_EXPORT_DPI
         path = os.path.join(FIGURES_DIR, f"{name}_{fig_id}.png")
-        fig.savefig(path, dpi=dpi, bbox_inches="tight", facecolor=facecolor)
+        fig.savefig(
+            path,
+            dpi=dpi,
+            bbox_inches="tight",
+            facecolor=facecolor,
+            pad_inches=0.12,
+        )
         plt.close(fig)
         return f"/uploads/figures/{name}_{fig_id}.png"
 
@@ -217,6 +242,25 @@ class FigureGenerator:
         ax.set_title(title, color="white", fontsize=12, fontweight="bold", pad=20)
         return self._save(fig, "table", fig_id)
 
+    @staticmethod
+    def _looks_like_circle_geometry(spec: Dict) -> bool:
+        elements = spec.get("elements") or []
+        if any((el.get("shape") or "").lower() == "circle" for el in elements):
+            return True
+        point_positions = {
+            (el.get("position") or "").lower()
+            for el in elements
+            if (el.get("shape") or "").lower() == "point"
+        }
+        if point_positions & {"on_circle", "outside", "centre", "center"}:
+            return True
+        labels = {(el.get("label") or "").upper() for el in elements}
+        if "O" in labels and len(
+            [el for el in elements if (el.get("shape") or "").lower() == "segment"]
+        ) >= 2:
+            return True
+        return False
+
     def _labeled_diagram(self, spec: Dict, fig_id: str) -> str:
         import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
@@ -224,10 +268,15 @@ class FigureGenerator:
 
         elements = spec.get("elements")
         if elements:
-            has_circle = any(
-                (el.get("shape") or "").lower() == "circle" for el in elements
-            )
-            if has_circle:
+            if self._looks_like_circle_geometry(spec):
+                if not any(
+                    (el.get("shape") or "").lower() == "circle" for el in elements
+                ):
+                    spec = dict(spec)
+                    spec["elements"] = [
+                        {"shape": "circle", "label": "Circle"},
+                        *list(spec["elements"]),
+                    ]
                 return self._geometry_diagram(spec, fig_id)
             return self._rectangle_diagram(spec, fig_id)
 
@@ -328,7 +377,89 @@ class FigureGenerator:
         ax.set_xlim(-3.2, 3.2)
         ax.set_ylim(-2.8, 3.2)
         ax.set_title(title, fontsize=11, fontweight="bold", pad=8)
-        return self._save(fig, "diagram", fig_id, facecolor="#ffffff", dpi=160)
+        return self._save(fig, "diagram", fig_id, facecolor="#ffffff")
+
+    def _two_circle_external_tangent_diagram(self, spec: Dict, fig_id: str) -> str:
+        """Two separate circles with a direct common external tangent (slot Q4)."""
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+        import numpy as np
+
+        fonts = _geometry_fonts()
+        centres = spec.get("centres") or ["G", "H"]
+        c1, c2 = centres[0], centres[1] if len(centres) > 1 else "H"
+        radii_map = spec.get("radii") or {}
+        r1 = float(radii_map.get(c1, 3))
+        r2 = float(radii_map.get(c2, 8))
+        d = float(spec.get("centre_distance") or 13)
+        tan_seg = spec.get("tangent_segment") or ["E", "F"]
+        e, f = tan_seg[0], tan_seg[1] if len(tan_seg) > 1 else "F"
+        labels = spec.get("labels") or {}
+
+        # Draw proportional radii with centres separated (no nested overlap)
+        r_max = max(r1, r2, 1.0)
+        unit = 2.0 / r_max
+        r1s, r2s = r1 * unit, r2 * unit
+        gap = 0.45
+        x1 = 0.0
+        x2 = r1s + gap + r2s
+        # Stretch horizontally if real centre distance is larger than touching layout
+        min_span = (d / r_max) * 1.15
+        if x2 < min_span:
+            x2 = min_span
+            x1 = 0.0
+
+        fig, ax = plt.subplots(figsize=(11.5, 9.5), dpi=120)
+        fig.patch.set_facecolor("#ffffff")
+        ax.set_facecolor("#ffffff")
+        ax.set_aspect("equal")
+        ax.axis("off")
+
+        ax.add_patch(
+            mpatches.Circle((x1, r1s), r1s, fill=False, edgecolor="#1e293b", lw=2)
+        )
+        ax.add_patch(
+            mpatches.Circle((x2, r2s), r2s, fill=False, edgecolor="#1e293b", lw=2)
+        )
+
+        # External tangent above both circles (same side)
+        y_top1 = 2 * r1s + 0.25
+        y_top2 = 2 * r2s + 0.25
+        y_off = max(y_top1, y_top2)
+        ax.plot(
+            [x1, x2],
+            [y_off, y_off],
+            color="#000000",
+            lw=1.6,
+        )
+        ax.plot(
+            [x1, x2],
+            [r1s, r2s],
+            color="#64748b",
+            lw=1.0,
+            linestyle="--",
+        )
+
+        points = {
+            c1: (x1, r1s),
+            c2: (x2, r2s),
+            e: (x1, y_off),
+            f: (x2, y_off),
+        }
+        for name, (px, py) in points.items():
+            ax.plot(px, py, "o", color="#000000", markersize=fonts["marker"], zorder=5)
+            ax.text(
+                px + 0.22,
+                py + 0.22,
+                labels.get(name, name),
+                fontsize=fonts["point_label"],
+                fontweight="bold",
+                color="#000000",
+            )
+
+        ax.set_xlim(x1 - r1s - 0.8, x2 + r2s + 0.8)
+        ax.set_ylim(-0.5, y_off + 0.9)
+        return self._save(fig, "diagram", fig_id, facecolor="#ffffff")
 
     def _geometry_diagram(self, spec: Dict, fig_id: str) -> str:
         """Render NCERT-style geometry from figure_spec.elements (circle, point, line, segment)."""
@@ -336,11 +467,15 @@ class FigureGenerator:
         import matplotlib.patches as mpatches
         import numpy as np
 
+        if spec.get("layout") == "two_circle_external_tangent":
+            return self._two_circle_external_tangent_diagram(spec, fig_id)
+
         title = spec.get("title", "Figure")
         elements = spec.get("elements", [])
         labels = spec.get("labels", {})
 
-        fig, ax = plt.subplots(figsize=(9, 7))
+        fonts = _geometry_fonts()
+        fig, ax = plt.subplots(figsize=(11.5, 9.5), dpi=120)
         fig.patch.set_facecolor("#ffffff")
         ax.set_facecolor("#ffffff")
         ax.set_aspect("equal")
@@ -449,6 +584,32 @@ class FigureGenerator:
             points[b] = (radius * np.cos(ang_b), radius * np.sin(ang_b))
             points[c] = (radius * np.cos(ang_c), radius * np.sin(ang_c))
 
+        def _apply_fusion_q5_layout(
+            p_ext: str,
+            p_contact: str,
+            g_ext: str,
+            g_contact: str,
+            secant_a: str,
+            secant_b: str,
+            centre_lbl: str,
+        ) -> None:
+            """Q5: concentric circles + P/A (Q2) on the left + G/H/J/K below — distinct from Q2."""
+            d = radius + 1.25
+            points[centre_lbl] = (0.0, 0.0)
+            points[p_ext] = (-d, 0.12)
+            alpha_p = float(np.arcsin(min(0.95, radius / d)))
+            points[p_contact] = (
+                radius * np.cos(np.pi / 2 + alpha_p * 0.82),
+                radius * np.sin(np.pi / 2 + alpha_p * 0.82),
+            )
+            points[g_ext] = (-d * 0.5, -d * 0.92)
+            points[g_contact] = (
+                radius * np.cos(-0.42),
+                radius * np.sin(-0.42),
+            )
+            points[secant_a] = (radius * np.cos(-0.82), radius * np.sin(-0.82))
+            points[secant_b] = (radius * np.cos(0.08), radius * np.sin(0.08))
+
         def _apply_concentric_chord_layout(
             centre_lbl: str,
             chord_a: str,
@@ -545,11 +706,42 @@ class FigureGenerator:
                             tangent_at_contact_applied = True
                             break
 
+        fusion_q5_applied = False
+        if spec.get("layout") == "fusion_q5" and len(outside_labels) >= 2:
+            centre_lbl = next(
+                (
+                    el.get("label")
+                    for el in point_els
+                    if (el.get("position") or "").lower() in ("centre", "center")
+                ),
+                "O",
+            )
+            q2_ext, fusion_ext = outside_labels[0], outside_labels[1]
+            q2_contacts = _tangent_contacts_from_external(q2_ext)
+            fusion_contacts = _tangent_contacts_from_external(fusion_ext)
+            sec_pts = [
+                lbl
+                for lbl in on_circle_labels
+                if lbl not in q2_contacts + fusion_contacts
+            ][:2]
+            if q2_contacts and fusion_contacts and len(sec_pts) >= 2:
+                _apply_fusion_q5_layout(
+                    q2_ext,
+                    q2_contacts[0],
+                    fusion_ext,
+                    fusion_contacts[0],
+                    sec_pts[0],
+                    sec_pts[1],
+                    centre_lbl,
+                )
+                fusion_q5_applied = True
+
         tangent_pair_applied = False
         secant_tangent_applied = False
         if (
             not concentric_applied
             and not tangent_at_contact_applied
+            and not fusion_q5_applied
             and len(outside_labels) == 1
             and len(on_circle_labels) >= 2
         ):
@@ -574,6 +766,7 @@ class FigureGenerator:
                 or tangent_at_contact_applied
                 or tangent_pair_applied
                 or secant_tangent_applied
+                or fusion_q5_applied
             ) and label in points:
                 continue
             pos_hint = (el.get("position") or "").lower()
@@ -621,16 +814,35 @@ class FigureGenerator:
                 points[inl] = (x1 + 0.42 * (x2 - x1), y1 + 0.42 * (y2 - y1))
 
         for name, (x, y) in points.items():
-            ax.plot(x, y, "o", color="#000000", markersize=8, zorder=5)
+            ax.plot(
+                x,
+                y,
+                "o",
+                color="#000000",
+                markersize=fonts["marker"],
+                zorder=5,
+            )
             offset = labels.get(name, name)
+            dist = (x * x + y * y) ** 0.5
+            label_off = 0.30
+            if dist > 0.15:
+                lx, ly = x + label_off * x / dist, y + label_off * y / dist
+            else:
+                lx, ly = x + 0.26, y + 0.26
             ax.text(
-                x + 0.18,
-                y + 0.18,
+                lx,
+                ly,
                 offset,
-                fontsize=13,
+                fontsize=fonts["point_label"],
                 color="#000000",
                 fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="none", alpha=0.85),
+                bbox=dict(
+                    boxstyle="round,pad=0.22",
+                    facecolor="white",
+                    edgecolor="#94a3b8",
+                    alpha=0.92,
+                    linewidth=0.4,
+                ),
             )
 
         for el in elements:
@@ -648,7 +860,14 @@ class FigureGenerator:
                 ax.plot([x1, x2], [y1, y2], color="#000000", lw=1.6, linestyle=ls, zorder=3)
                 if label:
                     mx, my = (x1 + x2) / 2, (y1 + y2) / 2
-                    ax.text(mx, my + 0.15, labels.get(label, label), fontsize=9, color="#000000")
+                    ax.text(
+                        mx,
+                        my + 0.18,
+                        labels.get(label, label),
+                        fontsize=fonts["segment_label"],
+                        color="#000000",
+                        fontweight="bold",
+                    )
 
         def _draw_right_angle(vertex: str, leg1: str, leg2: str) -> None:
             if vertex not in points or leg1 not in points or leg2 not in points:
@@ -696,6 +915,42 @@ class FigureGenerator:
                 return legs[0], legs[1]
             return None
 
+        for tm in spec.get("tangent_marks") or []:
+            if tm in points:
+                tx, ty = points[tm]
+                ax.plot(
+                    tx,
+                    ty,
+                    marker="o",
+                    markersize=fonts["marker"] * 0.55,
+                    markerfacecolor="#ffffff",
+                    markeredgecolor="#000000",
+                    markeredgewidth=1.2,
+                    zorder=5,
+                )
+
+        bisect_at = spec.get("chord_bisect_at")
+        if bisect_at and bisect_at in points:
+            for el in elements:
+                if (el.get("shape") or "").lower() != "segment":
+                    continue
+                frm, to = el.get("from"), el.get("to")
+                if bisect_at in (frm, to) and frm in points and to in points:
+                    x1, y1 = points[frm]
+                    x2, y2 = points[to]
+                    bx, by = points[bisect_at]
+                    dx, dy = x2 - x1, y2 - y1
+                    ln = (dx ** 2 + dy ** 2) ** 0.5 or 1.0
+                    nx, ny = -dy / ln * 0.14, dx / ln * 0.14
+                    ax.plot(
+                        [bx - nx, bx + nx],
+                        [by - ny, by + ny],
+                        color="#000000",
+                        lw=1.4,
+                        zorder=4,
+                    )
+                    break
+
         if spec.get("show_right_angle"):
             ra_at = spec.get("right_angle_at")
             ra_legs = spec.get("right_angle_legs")
@@ -724,8 +979,15 @@ class FigureGenerator:
                 nx, ny = -dy / ln * 0.12, dx / ln * 0.12
                 ax.plot([mx - nx, mx + nx], [my - ny, my + ny], color="#000000", lw=1.4, zorder=4)
 
-        pad = 1.2
+        pad = 1.45
         ax.set_xlim(-radius - pad, radius + pad)
-        ax.set_ylim(-radius - pad, radius + pad + 1.5)
-        ax.set_title(title, color="#000000", fontsize=12, fontweight="bold", pad=10, loc="left")
+        ax.set_ylim(-radius - pad, radius + pad + 1.8)
+        ax.set_title(
+            title,
+            color="#000000",
+            fontsize=fonts["title"],
+            fontweight="bold",
+            pad=12,
+            loc="left",
+        )
         return self._save(fig, "diagram", fig_id, facecolor="#ffffff")

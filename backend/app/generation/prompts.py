@@ -31,6 +31,8 @@ def _format_exclude_prior_block(stems: Optional[List[str]]) -> str:
 These stems were already used for this user/chapter. Write **entirely new** questions:
 - Different numbers, point labels, construction, and archetype
 - No paraphrase of the stems below
+- **Still follow** the paper dependency graph / slot roles (Q1 anchor → Q2 Hence → … → Q5 fusion)
+- Change radii pairs, tangent lengths, and external point names every generation
 {lines}
 """
 
@@ -160,6 +162,7 @@ class PromptBuilder:
         memory_block: str = "",
         rejection_block: str = "",
         semantic_plan: Optional[SemanticGenerationPlan] = None,
+        difficulty_distribution=None,
     ) -> str:
         bloom_str = bloom_level.value if hasattr(bloom_level, "value") else str(bloom_level)
         type_str = question_type.value if hasattr(question_type, "value") else str(question_type)
@@ -196,6 +199,7 @@ class PromptBuilder:
                 instructions=instructions or "",
                 generation_num=generation_num,
                 author=author,
+                difficulty_distribution=difficulty_distribution,
             )
 
         builder = {
@@ -369,6 +373,8 @@ FIGURE-BASED — diagram drawn separately; stem = compressed maths only:
         if difficulty == "hard":
             hard_rules = """
 HARD: uneven marks (4–6); (i)(ii) on some items only; OR on one; invisible trap in one numeric item.
+FULL HARD (100% slider): NO direct Pythagoras Q1; NO standard NCERT one-shot proofs; every item needs
+3+ hidden reasoning steps, multi-theorem fusion, proof+Hence or tangent–secant power on at least one slot.
 """
         elif difficulty == "medium":
             hard_rules = """

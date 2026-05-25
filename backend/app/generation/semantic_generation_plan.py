@@ -33,6 +33,8 @@ class SlotPlan:
     role: str = ""
     question_type: str = ""
     theorem_graph: str = ""
+    depends_on_slots: List[int] = field(default_factory=list)
+    paper_derives: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -67,6 +69,9 @@ class SemanticGenerationPlan:
     filename: str = ""
     topic_focus: str = ""
     difficulty_regime: str = "board_medium"
+    full_hard: bool = False
+    paper_dependency: Any = None  # PaperDependencyPlan
+    paper_template_id: str = "chained_concentric"
 
     def cognitive_blueprint_dict(self) -> Dict[int, str]:
         return {s.slot: s.cognitive_type for s in self.slots}
@@ -135,17 +140,39 @@ def build_semantic_plan(
     instructions: str = "",
     generation_num: int = 1,
     author=None,
+    difficulty_distribution=None,
+    paper_template: Optional[str] = None,
 ) -> SemanticGenerationPlan:
     """Build plan once per run — PromptCompiler consumes this only."""
     from app.generation.archetype_registry import filter_archetype_dicts, validate_slot_archetypes
     from app.generation.author_styles import resolve_author_style
     from app.generation.difficulty_regime import resolve_difficulty_regime
+    from app.generation.full_hard_mode import is_full_hard_paper
     from app.generation.theorem_graph_planner import plan_theorem_graph
+    from app.generation.paper_dependency_graph import (
+        align_archetypes_to_dependency,
+        build_paper_dependency_plan,
+    )
+    from app.generation.paper_templates import (
+        resolve_paper_template,
+        template_slots_for_count,
+    )
 
     chapter = locked_chapter or profile.chapter_key or "generic"
     profile.chapter_key = chapter
     pack = get_chapter_rule_pack(chapter)
     ui = (difficulty or "medium").lower()
+    full_hard = is_full_hard_paper(difficulty_distribution)
+    paper_tmpl = resolve_paper_template(
+        override=paper_template,
+        chapter=chapter,
+        subject=profile.subject,
+        class_level=profile.display_class(),
+        exam_track=profile.exam_track,
+        question_count=question_count,
+        ui_difficulty=ui,
+        full_hard=full_hard,
+    )
     theorems = required_theorems or []
     author = author or resolve_author_style(instructions=instructions)
 
@@ -158,14 +185,25 @@ def build_semantic_plan(
         )
     else:
         archetypes = pick_weighted_archetypes(
-            question_count, chapter, ui_difficulty=ui
+            question_count, chapter, ui_difficulty=ui, full_hard=full_hard
         )
     archetypes = filter_archetype_dicts(archetypes, chapter)
+
+    dep_plan = build_paper_dependency_plan(
+        chapter=chapter,
+        question_count=question_count,
+        slots=[],
+        ui_difficulty=ui,
+        full_hard=full_hard,
+        paper_template_id=paper_tmpl.id,
+    )
+    archetypes = align_archetypes_to_dependency(archetypes, dep_plan)
 
     regime = resolve_difficulty_regime(
         ui,
         exam_track=profile.exam_track,
         class_level=profile.display_class(),
+        full_hard=full_hard,
     )
 
     types = [
@@ -188,18 +226,26 @@ def build_semantic_plan(
             effective_types = [types[i % len(types)] for i in range(question_count)]
 
     slot_meta = get_slot_metadata(
-        question_count, author, ui_difficulty=ui, locked_chapter=chapter
+        question_count,
+        author,
+        ui_difficulty=ui,
+        locked_chapter=chapter,
+        full_hard=full_hard,
+        difficulty_distribution=difficulty_distribution,
     )
-    seq_slots = sequence_slots_for_chapter(chapter, ui)
+    seq_slots = sequence_slots_for_chapter(chapter, ui, full_hard=full_hard)
+    tmpl_slots = template_slots_for_count(paper_tmpl, question_count)
     cognitive_defaults = list(pack.cognitive_blueprint_5)
     slots: List[SlotPlan] = []
     for i in range(question_count):
         arch = archetypes[i] if i < len(archetypes) else archetypes[-1]
         meta = slot_meta[i] if i < len(slot_meta) else {}
         seq = seq_slots[i % len(seq_slots)]
+        tmpl_slot = tmpl_slots[i] if i < len(tmpl_slots) else None
         cog = cognitive_defaults[i] if i < len(cognitive_defaults) else cognitive_defaults[-1]
         qtype = effective_types[i] if i < len(effective_types) else effective_types[-1]
         aid = arch.get("id", "")
+        slot_dep = dep_plan.slot_dep(i + 1)
         slots.append(
             SlotPlan(
                 slot=i + 1,
@@ -210,9 +256,15 @@ def build_semantic_plan(
                 theorem_id=arch.get("theorem_id", "")
                 or (theorems[i % len(theorems)].get("id", "") if theorems else ""),
                 figure_hint=meta.get("figure_complexity", ""),
-                role=seq.get("role", cog),
+                role=(
+                    tmpl_slot.role.value
+                    if tmpl_slot
+                    else seq.get("role", cog)
+                ),
                 question_type=qtype,
                 theorem_graph=plan_theorem_graph(aid, chapter),
+                depends_on_slots=list(slot_dep.depends_on_slots) if slot_dep else [],
+                paper_derives=list(slot_dep.derives) if slot_dep else [],
             )
         )
 
@@ -252,4 +304,7 @@ def build_semantic_plan(
         filename=profile.filename or "",
         topic_focus=profile.topic_focus or "",
         difficulty_regime=regime,
+        full_hard=full_hard,
+        paper_dependency=dep_plan,
+        paper_template_id=paper_tmpl.id,
     )

@@ -1,18 +1,33 @@
 """
-Embedding generation — supports OpenAI + Google Gemini
+Embedding generation — supports OpenAI + Google Gemini + local sentence-transformers
 """
 import logging
 from typing import List
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _target_embedding_dim() -> int:
+    """FAISS uses native model size; Qdrant collections expect 1536."""
+    if settings.VECTOR_STORE_BACKEND.lower() == "faiss":
+        return settings.EMBEDDING_DIMENSION
+    return 1536
+
+
+def _fit_dim(emb: List[float]) -> List[float]:
+    dim = _target_embedding_dim()
+    if len(emb) < dim:
+        return emb + [0.0] * (dim - len(emb))
+    return emb[:dim]
 
 _local_model = None
 
 
 async def preload_local_embedding_model() -> None:
     """Load sentence-transformers once at startup (avoids 1–2 min delay on first quiz)."""
-    if settings.OPENAI_API_KEY or settings.GOOGLE_GEMINI_API_KEY:
+    if settings.has_cloud_llm() and settings.VECTOR_STORE_BACKEND.lower() != "faiss":
         return
     global _local_model
     if _local_model is not None:
@@ -29,14 +44,23 @@ async def preload_local_embedding_model() -> None:
 
 
 async def embed_texts(texts: List[str]) -> List[List[float]]:
-    """Generate embeddings using configured provider."""
-    if settings.OPENAI_API_KEY:
-        return await _embed_openai(texts)
-    elif settings.GOOGLE_GEMINI_API_KEY:
-        return await _embed_gemini(texts)
-    else:
-        # Fallback: use sentence-transformers locally
+    """Generate embeddings — local model for FAISS; cloud only with real API keys."""
+    backend = (settings.VECTOR_STORE_BACKEND or "faiss").lower()
+    if backend == "faiss" or not settings.has_cloud_llm():
         return await _embed_local(texts)
+    if settings.OPENAI_API_KEY:
+        try:
+            return await _embed_openai(texts)
+        except Exception as e:
+            logger.warning("OpenAI embed failed (%s); using local model", e)
+            return await _embed_local(texts)
+    if settings.GOOGLE_GEMINI_API_KEY:
+        try:
+            return await _embed_gemini(texts)
+        except Exception as e:
+            logger.warning("Gemini embed failed (%s); using local model", e)
+            return await _embed_local(texts)
+    return await _embed_local(texts)
 
 
 async def _embed_openai(texts: List[str]) -> List[List[float]]:
@@ -65,12 +89,7 @@ async def _embed_gemini(texts: List[str]) -> List[List[float]]:
             content=text,
             task_type="retrieval_document",
         )
-        emb = result["embedding"]
-        # Pad or truncate to 1536 dimensions to match Qdrant collection
-        if len(emb) < 1536:
-            emb = emb + [0.0] * (1536 - len(emb))
-        else:
-            emb = emb[:1536]
+        emb = _fit_dim(result["embedding"])
         all_embeddings.append(emb)
     return all_embeddings
 
@@ -90,13 +109,7 @@ async def _embed_local(texts: List[str]) -> List[List[float]]:
     embeddings = await loop.run_in_executor(
         None, lambda: _local_model.encode(texts, normalize_embeddings=True).tolist()
     )
-    # Pad to 1536
-    padded = []
-    for emb in embeddings:
-        if len(emb) < 1536:
-            emb = emb + [0.0] * (1536 - len(emb))
-        padded.append(emb[:1536])
-    return padded
+    return [_fit_dim(list(emb)) for emb in embeddings]
 
 
 async def embed_query(text: str) -> List[float]:

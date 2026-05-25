@@ -16,7 +16,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.demo_user import ensure_demo_user
-from app.core.vector_store import init_qdrant_collections
+from app.core.vector_store import init_vector_store
 from app.api.router import api_router
 from app.core.logging_config import setup_logging
 
@@ -29,27 +29,33 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Assessment Engine (No-Auth Mode)...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(text(
-            "ALTER TABLE assessments ADD COLUMN IF NOT EXISTS generation_log JSONB DEFAULT '[]'::jsonb"
-        ))
-    logger.info("Database tables ready")
+        if settings.DATABASE_URL.startswith("postgresql"):
+            await conn.execute(text(
+                "ALTER TABLE assessments ADD COLUMN IF NOT EXISTS generation_log JSONB DEFAULT '[]'::jsonb"
+            ))
+    logger.info("Database tables ready (%s)", settings.DATABASE_URL.split("://", 1)[0])
     await ensure_demo_user()
     logger.info("Demo user ready")
     try:
-        await init_qdrant_collections()
-        logger.info("Qdrant collections ready")
+        await init_vector_store()
+        logger.info("Vector store ready (%s)", settings.VECTOR_STORE_BACKEND)
     except Exception as e:
-        logger.warning(f"Qdrant not available (will use local fallback): {e}")
+        logger.warning("Vector store init failed: %s", e)
     for d in ["pdfs", "figures", "exports"]:
         os.makedirs(os.path.join(settings.LOCAL_STORAGE_PATH, d), exist_ok=True)
     logger.info("Storage directories ready")
     logger.info(
-        "LLM: RAG_FILE_AGENT=%s RAG_ONLY=%s GROQ=%s model=%s",
+        "LLM: RAG_FILE_AGENT=%s RAG_ONLY=%s (no local/Ollama fallback) poll=%.2fs timeout=%ss retries=%s",
         settings.RAG_FILE_AGENT_ENABLED,
         settings.RAG_FILE_AGENT_ONLY,
-        bool(settings.GROQ_API_KEY),
-        settings.GROQ_MODEL,
+        settings.RAG_FILE_POLL_INTERVAL_SECONDS,
+        settings.RAG_FILE_TIMEOUT_SECONDS,
+        settings.RAG_FILE_MAX_RETRIES,
     )
+    if settings.RAG_FILE_AGENT_ENABLED:
+        logger.info(
+            "Cursor: enable Hooks in Settings; keep Agent chat open; rules at .cursor/rules/rag-response-agent.mdc"
+        )
 
     async def _preload_embeddings():
         try:
@@ -103,13 +109,20 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(","),
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+_cors_kwargs: dict = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if settings.DEBUG:
+    # Next.js may use 3000–3002+ when ports are busy
+    _cors_kwargs["allow_origin_regex"] = r"https?://(localhost|127\.0\.0\.1)(:\d+)?"
+    _cors_kwargs["allow_origins"] = _cors_origins
+else:
+    _cors_kwargs["allow_origins"] = _cors_origins
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 os.makedirs(settings.LOCAL_STORAGE_PATH, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.LOCAL_STORAGE_PATH), name="uploads")
@@ -118,4 +131,10 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "version": "1.0.0", "mode": "no-auth"}
+    return {
+        "status": "healthy",
+        "version": "1.0.0",
+        "mode": "no-auth",
+        "database": settings.DATABASE_URL.split("://", 1)[0],
+        "vector_store": settings.VECTOR_STORE_BACKEND,
+    }

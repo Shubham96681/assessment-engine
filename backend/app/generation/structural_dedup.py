@@ -102,8 +102,16 @@ def is_structural_duplicate(sig_a: str, sig_b: str) -> bool:
     return False
 
 
+def is_theorem_equivalent(q_a: Dict[str, Any], q_b: Dict[str, Any]) -> bool:
+    from app.generation.theorem_variety_engine import theorem_equivalence_key
+
+    return theorem_equivalence_key(q_a) == theorem_equivalence_key(q_b)
+
+
 def filter_structural_duplicates(
     questions: List[Dict[str, Any]],
+    *,
+    min_keep: int = 0,
 ) -> List[Dict[str, Any]]:
     """Keep first of each structural signature; never return all duplicates."""
     if not questions:
@@ -115,6 +123,9 @@ def filter_structural_duplicates(
         if any(is_structural_duplicate(sig, s) for s in sigs):
             q["dedup_reason"] = "structural_duplicate"
             continue
+        if any(is_theorem_equivalent(q, u) for u in unique):
+            q["dedup_reason"] = "theorem_equivalence_duplicate"
+            continue
         sigs.append(sig)
         q["structural_signature"] = sig
         unique.append(q)
@@ -123,4 +134,11 @@ def filter_structural_duplicates(
         q0 = dict(questions[0])
         q0["dedup_warning"] = "all_structural_duplicates_kept_one"
         return [q0]
+    if min_keep > 0 and len(unique) < min_keep:
+        # RAG apply / export must not drop below slot count (e.g. Q3 proof vs Q2 power)
+        by_slot = sorted(
+            questions,
+            key=lambda x: int(x.get("slot_number") or x.get("order_index", 0) or 99),
+        )
+        return by_slot[:min_keep]
     return unique

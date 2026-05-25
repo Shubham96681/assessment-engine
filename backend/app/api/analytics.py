@@ -39,9 +39,16 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
     for a in recent:
         q_preview = []
         qr = await db.execute(
-            select(Question).where(Question.assessment_id == a.id).limit(5)
+            select(Question).where(Question.assessment_id == a.id)
         )
-        for q in qr.scalars().all():
+        by_id = {q.id: q for q in qr.scalars().all()}
+        ordered = []
+        for qid in a.question_ids or []:
+            if qid in by_id:
+                ordered.append(by_id[qid])
+        if not ordered:
+            ordered = list(by_id.values())
+        for q in ordered[:5]:
             q_preview.append({
                 "id": q.id,
                 "content": (q.content or "")[:200],

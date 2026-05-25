@@ -9,15 +9,13 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import qdrant_client, Filter, FieldCondition, MatchValue
 from app.generation.chapter_concept_classifier import (
     resolve_locked_chapter,
     _score_text_for_chapters,
 )
 from app.generation.content_profile import parse_filename_hints
 from app.generation.theorem_coverage import catalog_for_chapter, infer_required_theorems
-from qdrant_client.models import Filter, FieldCondition, MatchValue
-
 # Headings / section labels common in NCERT / RD Sharma PDFs
 _HEADING_RE = re.compile(
     r"(?im)^(?:"

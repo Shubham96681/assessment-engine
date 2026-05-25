@@ -47,6 +47,27 @@ from app.generation.rd_archetypes import (
     get_slot_metadata,
 )
 from app.generation.author_styles import resolve_author_style
+
+
+_planned_paper_template_id: Optional[str] = None
+
+
+def _set_planned_paper_template_id(template_id: Optional[str]) -> None:
+    """In-process plan template (rag_topic_state.json may lag until persist)."""
+    global _planned_paper_template_id
+    _planned_paper_template_id = str(template_id).strip() if template_id else None
+
+
+def _semantic_plan_template_id() -> Optional[str]:
+    """Template locked at plan build — must match finalize/integrity checks."""
+    if _planned_paper_template_id:
+        return _planned_paper_template_id
+    from app.generation.topic_isolation import get_current_topic_state
+
+    tid = (get_current_topic_state() or {}).get("paper_template_id")
+    return str(tid).strip() if tid else None
+
+
 from app.generation.question_regenerator import (
     build_cursor_slot_regen_question,
     collect_rejection_feedback,
@@ -57,6 +78,7 @@ from app.generation.quality import QualityScorer
 from app.generation.figures import FigureGenerator
 from app.generation.local_llm import build_local_response, build_local_slot_response
 from app.generation.rag_file_bridge import (
+    RagAgentResponseMissing,
     request_rag_file_response,
     request_rag_slot_regeneration,
 )
@@ -79,6 +101,7 @@ class QuestionGenerator:
         user_id: str,
         generation_num: int = 1,
         document_meta: Optional[Dict[str, Any]] = None,
+        supplement_prior_stems: Optional[List[str]] = None,
     ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Main entry point: config → list of question dicts
@@ -92,6 +115,13 @@ class QuestionGenerator:
         generation_log: List[Dict[str, Any]] = []
 
         rag_document_meta = self._build_rag_document_meta(config, document_meta)
+        from app.generation.full_hard_mode import is_full_hard_paper
+
+        rag_document_meta["question_count"] = str(config.total_questions or 5)
+        rag_document_meta["full_hard"] = (
+            "1" if is_full_hard_paper(getattr(config, "difficulty_distribution", None)) else "0"
+        )
+        _set_planned_paper_template_id(None)
         topic_state = clear_topic_cache(
             document_id=config.document_id,
             filename=(document_meta or {}).get("filename", ""),
@@ -133,7 +163,12 @@ class QuestionGenerator:
             or topic_state.get("required_theorems")
             or []
         )
-        locked_chapter = topic_state.get("locked_chapter", "generic")
+        locked_chapter = (
+            (topic_profile or {}).get("locked_chapter")
+            or topic_state.get("locked_chapter")
+            or "generic"
+        )
+        topic_state["locked_chapter"] = locked_chapter
         weak_skills: List[str] = []
         strong_skills: List[str] = []
         gen_memory: Dict[str, Any] = {}
@@ -221,16 +256,25 @@ class QuestionGenerator:
                 memory_block=topic_state.get("memory_prompt", ""),
                 rejection_block=topic_state.get("rejection_prompt", ""),
                 instructions=config.instructions or "",
+                difficulty_distribution=config.difficulty_distribution,
+                paper_template=getattr(config, "paper_template", None),
             )
             topic_state["semantic_plan_archetypes"] = _plan.archetype_ids()
+            topic_state["paper_template_id"] = _plan.paper_template_id
             topic_state["semantic_plan_cognitive"] = _plan.cognitive_blueprint_dict()
             topic_state["prompt_compiler"] = True
+            _set_planned_paper_template_id(_plan.paper_template_id)
+            from app.generation.topic_isolation import persist_paper_template_id
+
+            persist_paper_template_id(_plan.paper_template_id)
         except Exception as e:
             logger.warning("Semantic plan preview failed: %s", e)
 
         generation_log.append(
             {
                 "step": "topic_profile",
+                "paper_template_id": topic_state.get("paper_template_id")
+                or _semantic_plan_template_id(),
                 "primary_topic": topic_state.get("primary_topic"),
                 "locked_chapter": locked_chapter,
                 "subtopics": topic_state.get("subtopics", []),
@@ -252,6 +296,12 @@ class QuestionGenerator:
             config.class_level or "10",
             document_id=config.document_id,
         )
+        if supplement_prior_stems:
+            from app.generation.prior_question_bank import merge_prior_stem_lists
+
+            prior_stems = merge_prior_stem_lists(
+                supplement_prior_stems, prior_stems, limit=50
+            )
         unique_questions: List[Dict[str, Any]] = []
         max_attempts = max(1, settings.DEDUP_MAX_REGEN_ATTEMPTS)
         last_context = ""
@@ -410,6 +460,7 @@ class QuestionGenerator:
                     student_skill_block=topic_state.get("student_skill_block", ""),
                     memory_block=topic_state.get("memory_prompt", ""),
                     rejection_block=topic_state.get("rejection_prompt", ""),
+                    difficulty_distribution=config.difficulty_distribution,
                 )
 
                 raw_questions, llm_mode = await self._generate_raw_response(
@@ -522,10 +573,22 @@ class QuestionGenerator:
 
         # 7–9. Score → curate → textbook authenticity filter
         _, dominant_diff = self._resolve_generation_profile(config)
-        slot_bands = get_slot_bands(len(unique_questions), ui_difficulty=dominant_diff)
+        slot_bands = get_slot_bands(
+            len(unique_questions),
+            ui_difficulty=dominant_diff,
+            difficulty_distribution=config.difficulty_distribution,
+        )
         author = resolve_author_style(instructions=config.instructions or "")
+        from app.generation.full_hard_mode import is_full_hard_paper
+
+        _full_hard = is_full_hard_paper(config.difficulty_distribution)
         slot_meta = get_slot_metadata(
-            len(unique_questions), author, ui_difficulty=dominant_diff
+            len(unique_questions),
+            author,
+            ui_difficulty=dominant_diff,
+            locked_chapter=locked_chapter,
+            full_hard=_full_hard,
+            difficulty_distribution=config.difficulty_distribution,
         )
         scored = await self.quality.score_batch(
             unique_questions,
@@ -538,6 +601,72 @@ class QuestionGenerator:
             author_instructions=config.instructions or "",
             ui_difficulty=dominant_diff,
         )
+
+        if settings.ENABLE_PAPER_DEPENDENCY_GRAPH and locked_chapter:
+            from app.generation.paper_dependency_graph import (
+                apply_paper_dependency_enforcement,
+                build_paper_dependency_plan,
+                merge_dependency_into_slot_meta,
+                plan_to_dict,
+                validate_paper_dependency_chain,
+            )
+            from app.generation.paper_templates import resolve_paper_template
+
+            _tmpl = resolve_paper_template(
+                override=getattr(config, "paper_template", None),
+                plan_template_id=_semantic_plan_template_id(),
+                chapter=locked_chapter,
+                subject=config.subject or "Mathematics",
+                class_level=config.class_level or "10",
+                question_count=config.total_questions,
+                ui_difficulty=dominant_diff,
+                full_hard=_full_hard,
+            )
+            dep_plan = build_paper_dependency_plan(
+                chapter=locked_chapter,
+                question_count=config.total_questions,
+                slots=[],
+                ui_difficulty=dominant_diff,
+                full_hard=_full_hard,
+                paper_template_id=_tmpl.id,
+            )
+            slot_meta = merge_dependency_into_slot_meta(slot_meta, dep_plan)
+            curated = apply_paper_dependency_enforcement(curated, dep_plan)
+            chain_report = validate_paper_dependency_chain(curated, dep_plan)
+            if settings.ENABLE_CROSS_QUESTION_CONSISTENCY:
+                from app.generation.cross_question_consistency import (
+                    validate_cross_question_consistency,
+                )
+
+                xq_report = validate_cross_question_consistency(
+                    curated, chapter=locked_chapter
+                )
+                generation_log.append({"step": "cross_question_numeric", **xq_report})
+                chain_report["cross_question_ok"] = xq_report.get("cross_question_ok")
+            generation_log.append(
+                {"step": "paper_dependency", **plan_to_dict(dep_plan), **chain_report}
+            )
+            curated = await self.quality.score_batch(
+                curated,
+                slot_bands=slot_bands,
+                ui_difficulty=dominant_diff,
+                slot_metadata=slot_meta,
+            )
+            for i, q in enumerate(curated):
+                if i < len(slot_meta):
+                    q["slot_meta"] = slot_meta[i]
+            if _full_hard:
+                l5_slots = sum(
+                    1 for m in slot_meta if (m.get("band") or "").upper() == "L5"
+                )
+                generation_log.append(
+                    {
+                        "step": "full_hard_L5_slots",
+                        "l5_slot_count": l5_slots,
+                        "required": len(curated),
+                        "all_L5": l5_slots >= len(curated),
+                    }
+                )
 
         exclude_stems_final = list(
             dict.fromkeys(
@@ -634,6 +763,16 @@ class QuestionGenerator:
             except Exception as e:
                 logger.warning("record_paper_memory failed: %s", e)
 
+        if final:
+            final = self._finalize_paper_delivery(
+                final,
+                config=config,
+                locked_chapter=locked_chapter,
+                dominant_diff=dominant_diff,
+                full_hard=_full_hard,
+                generation_log=generation_log,
+            )
+
         generation_log.append({
             "step": "finalize",
             "count_requested": config.total_questions,
@@ -645,9 +784,6 @@ class QuestionGenerator:
             "strong_in": strong_skills,
             "recent_combos_avoided": (gen_memory or {}).get("recent_combos", [])[:6],
         })
-        if settings.ENABLE_FIGURE_GENERATION and final:
-            final = self._prepare_figure_questions(final)
-
         logger.info(
             "Generated %d questions (requested %d, parsed %d)",
             len(final),
@@ -655,6 +791,112 @@ class QuestionGenerator:
             len(all_questions),
         )
         return final, generation_log
+
+    def _finalize_paper_delivery(
+        self,
+        final: List[Dict[str, Any]],
+        *,
+        config: GenerationConfig,
+        locked_chapter: str,
+        dominant_diff: str,
+        full_hard: bool,
+        generation_log: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Renumber slots, enforce dependency wording, reject broken papers."""
+        from app.generation.paper_integrity import (
+            normalize_paper_slot_order,
+            should_reject_paper_integrity,
+            validate_paper_integrity,
+        )
+
+        final = normalize_paper_slot_order(final)
+
+        from app.generation.paper_templates import resolve_paper_template
+
+        _tmpl = resolve_paper_template(
+            override=getattr(config, "paper_template", None),
+            plan_template_id=_semantic_plan_template_id(),
+            chapter=locked_chapter,
+            subject=config.subject or "Mathematics",
+            class_level=config.class_level or "10",
+            question_count=config.total_questions,
+            ui_difficulty=dominant_diff,
+            full_hard=full_hard,
+        )
+
+        from app.generation.paper_repair import fill_missing_paper_slots, repair_paper_questions
+
+        if len(final) < config.total_questions:
+            final = fill_missing_paper_slots(
+                final,
+                config.total_questions,
+                chapter=locked_chapter,
+                difficulty=dominant_diff,
+            )
+            final = normalize_paper_slot_order(final)
+
+        final = repair_paper_questions(
+            final,
+            chapter=locked_chapter,
+            re_enrich_figures=False,
+        )
+
+        if settings.ENABLE_PAPER_DEPENDENCY_GRAPH and locked_chapter:
+            from app.generation.paper_dependency_graph import (
+                apply_paper_dependency_enforcement,
+                build_paper_dependency_plan,
+            )
+            dep_plan = build_paper_dependency_plan(
+                chapter=locked_chapter,
+                question_count=config.total_questions,
+                slots=[],
+                ui_difficulty=dominant_diff,
+                full_hard=full_hard,
+                paper_template_id=_tmpl.id,
+            )
+            if dep_plan.enabled:
+                final = apply_paper_dependency_enforcement(final, dep_plan)
+                final = normalize_paper_slot_order(final)
+                final = repair_paper_questions(
+                    final,
+                    chapter=locked_chapter,
+                    re_enrich_figures=False,
+                )
+
+        if settings.ENABLE_FIGURE_GENERATION:
+            final = self._prepare_figure_questions(final)
+
+        if settings.ENABLE_CROSS_QUESTION_CONSISTENCY:
+            from app.generation.cross_question_consistency import (
+                validate_cross_question_consistency,
+            )
+
+            xq = validate_cross_question_consistency(final, chapter=locked_chapter)
+            generation_log.append({"step": "cross_question_numeric_final", **xq})
+
+        integrity = validate_paper_integrity(
+            final,
+            chapter=locked_chapter,
+            expected_count=config.total_questions,
+            paper_template_id=_tmpl.id,
+        )
+        generation_log.append(
+            {"step": "paper_integrity", "paper_template_id": _tmpl.id, **integrity}
+        )
+        if should_reject_paper_integrity(
+            final,
+            chapter=locked_chapter,
+            expected_count=config.total_questions,
+            paper_template_id=_tmpl.id,
+        ):
+            flags = integrity.get("paper_integrity_flags") or []
+            raise ValueError(
+                "Paper integrity failed — refusing to export: "
+                + "; ".join(flags[:8])
+            )
+        from app.generation.question_pipeline import finalize_questions_list
+
+        return finalize_questions_list(final)
 
     def _quality_regen_use_cursor(self) -> bool:
         return bool(
@@ -689,6 +931,10 @@ class QuestionGenerator:
             )
             if single:
                 return single, "cursor"
+            if not self._local_fallback_allowed():
+                raise RagAgentResponseMissing(
+                    f"Slot {slot_index + 1} quality regen: Cursor did not update rag_response.txt in time."
+                )
             logger.warning(
                 "Cursor slot regen timed out for slot %d — falling back to LLM",
                 slot_index + 1,
@@ -705,6 +951,13 @@ class QuestionGenerator:
     @staticmethod
     def _cloud_llm_allowed() -> bool:
         """Skip cloud APIs when file-agent-only mode is on."""
+        if settings.RAG_FILE_AGENT_ENABLED and settings.RAG_FILE_AGENT_ONLY:
+            return False
+        return True
+
+    @staticmethod
+    def _local_fallback_allowed() -> bool:
+        """Structured local templates + Ollama only when file agent is not mandatory."""
         if settings.RAG_FILE_AGENT_ENABLED and settings.RAG_FILE_AGENT_ONLY:
             return False
         return True
@@ -742,6 +995,10 @@ class QuestionGenerator:
                 out = await self._ollama_generate(prompt)
                 if out:
                     return out
+        if not self._local_fallback_allowed():
+            raise RagAgentResponseMissing(
+                f"Slot {slot_index + 1} regen requires Cursor rag_response.txt (local fallback disabled)."
+            )
         task_stub = task or {
             "type": "FigureBased",
             "difficulty": "hard",
@@ -778,11 +1035,30 @@ class QuestionGenerator:
 
         locked_chapter = (get_current_topic_state() or {}).get("locked_chapter", "generic")
         n = config.total_questions
-        bands = get_slot_bands(n, ui_difficulty=dominant_diff)
+        bands = get_slot_bands(
+            n,
+            ui_difficulty=dominant_diff,
+            difficulty_distribution=config.difficulty_distribution,
+        )
         slots: List[Optional[Dict[str, Any]]] = [None] * n
         regen_attempts = 0
         accepted_first_pass = 0
         used_stems: set[str] = set()
+
+        from app.generation.paper_integrity import question_matches_slot_role
+        from app.generation.paper_templates import resolve_paper_template
+        from app.generation.full_hard_mode import is_full_hard_paper
+
+        _slot_tmpl = resolve_paper_template(
+            override=getattr(config, "paper_template", None),
+            plan_template_id=_semantic_plan_template_id(),
+            chapter=locked_chapter,
+            subject=config.subject or "Mathematics",
+            class_level=config.class_level or "10",
+            question_count=n,
+            ui_difficulty=dominant_diff,
+            full_hard=is_full_hard_paper(config.difficulty_distribution),
+        )
 
         def _stem_key(text: str) -> str:
             return (text or "").strip().lower()[:240]
@@ -790,9 +1066,29 @@ class QuestionGenerator:
         def _slot_already_used(q: Dict[str, Any]) -> bool:
             return _stem_key(q.get("content") or "") in used_stems
 
+        def _role_ok(i: int, q: Dict[str, Any]) -> bool:
+            return question_matches_slot_role(
+                q,
+                i + 1,
+                chapter=locked_chapter,
+                paper_template_id=_slot_tmpl.id,
+            )
+
+        def _pick_for_slot(i: int, pool: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+            for j, cand in enumerate(pool):
+                if _role_ok(i, cand) and not _slot_already_used(cand):
+                    return pool.pop(j)
+            return None
+
         def _place_in_slot(i: int, q: Dict[str, Any]) -> None:
+            from app.generation.paper_repair import repair_slot_by_number
+
+            q = repair_slot_by_number(
+                q, i + 1, chapter=locked_chapter
+            )
             slots[i] = dict(q)
             slots[i]["order_index"] = i
+            slots[i]["slot_number"] = i + 1
             used_stems.add(_stem_key(q.get("content") or ""))
 
         # Place curated items by slot_number when present (not always curated[0] → slot 0)
@@ -805,9 +1101,13 @@ class QuestionGenerator:
                 if slots[idx] is not None:
                     unassigned.append(q)
                     continue
-                if not self.quality.should_reject(
-                    q, ui_difficulty=dominant_diff, slot_meta=meta
-                ) and not _slot_already_used(q):
+                if (
+                    not self.quality.should_reject(
+                        q, ui_difficulty=dominant_diff, slot_meta=meta
+                    )
+                    and not _slot_already_used(q)
+                    and _role_ok(idx, q)
+                ):
                     _place_in_slot(idx, q)
                     accepted_first_pass += 1
                 else:
@@ -831,10 +1131,12 @@ class QuestionGenerator:
             if not unassigned:
                 break
             meta = slot_meta[i] if i < len(slot_meta) else {"slot": i + 1}
-            q = unassigned.pop(0)
+            q = _pick_for_slot(i, unassigned)
+            if q is None:
+                break
             if not self.quality.should_reject(
                 q, ui_difficulty=dominant_diff, slot_meta=meta
-            ) and not _slot_already_used(q):
+            ) and not _slot_already_used(q) and _role_ok(i, q):
                 _place_in_slot(i, q)
                 accepted_first_pass += 1
             elif settings.ENABLE_REJECTION_CORPUS and q.get("content"):
@@ -915,6 +1217,14 @@ class QuestionGenerator:
                         rejected_stem=reject_stem_now,
                     )
                 except Exception as e:
+                    if not self._local_fallback_allowed():
+                        logger.error(
+                            "Slot %d regen failed (%s) — Cursor agent required",
+                            i + 1,
+                            e,
+                        )
+                        rejected = candidate
+                        continue
                     logger.warning(
                         "Slot %d regen failed (%s); using local fallback",
                         i + 1,
@@ -936,24 +1246,28 @@ class QuestionGenerator:
                     continue
                 candidate = parsed[0]
                 if _slot_already_used(candidate):
-                    logger.warning(
-                        "Slot %d: regen returned duplicate stem — trying local template",
-                        i + 1,
-                    )
-                    raw_fb = build_local_slot_response(
-                        context,
-                        task,
-                        i,
-                        locked_chapter=locked_chapter,
-                        filename=(document_meta or {}).get("filename", ""),
-                    )
-                    parsed_fb = self._parse_llm_output(
-                        raw_fb, task, config, source_chunks
-                    )
-                    if not parsed_fb or _slot_already_used(parsed_fb[0]):
+                    if self._local_fallback_allowed():
+                        logger.warning(
+                            "Slot %d: regen returned duplicate stem — trying local template",
+                            i + 1,
+                        )
+                        raw_fb = build_local_slot_response(
+                            context,
+                            task,
+                            i,
+                            locked_chapter=locked_chapter,
+                            filename=(document_meta or {}).get("filename", ""),
+                        )
+                        parsed_fb = self._parse_llm_output(
+                            raw_fb, task, config, source_chunks
+                        )
+                        if not parsed_fb or _slot_already_used(parsed_fb[0]):
+                            rejected = candidate
+                            continue
+                        candidate = parsed_fb[0]
+                    else:
                         rejected = candidate
                         continue
-                    candidate = parsed_fb[0]
                 candidate["order_index"] = i
                 if (
                     task.get("type") == QuestionType.FIGURE_BASED
@@ -973,8 +1287,11 @@ class QuestionGenerator:
                     author_instructions=config.instructions or "",
                     ui_difficulty=dominant_diff,
                 )[0]
-                if not self.quality.should_reject(
-                    candidate, ui_difficulty=dominant_diff, slot_meta=meta
+                if (
+                    not self.quality.should_reject(
+                        candidate, ui_difficulty=dominant_diff, slot_meta=meta
+                    )
+                    and _role_ok(i, candidate)
                 ):
                     candidate["quality_regen_attempts"] = attempt
                     candidate["quality_regen_source"] = regen_source
@@ -994,34 +1311,42 @@ class QuestionGenerator:
                 continue
             if i < len(curated) and curated[i].get("content"):
                 q_be = curated[i]
-                if not _slot_already_used(q_be):
+                if (
+                    not _slot_already_used(q_be)
+                    and _role_ok(i, q_be)
+                ):
                     _place_in_slot(i, q_be)
                     logger.warning(
                         "Slot %d: using best-effort curated item after max regen attempts",
                         i + 1,
                     )
                 continue
-            # Diverse local fallback — never clone slot 0 for every empty slot
-            try:
-                raw = build_local_slot_response(
-                    context,
-                    task,
-                    i,
-                    locked_chapter=locked_chapter,
-                    filename=(document_meta or {}).get("filename", ""),
-                )
-                parsed_fb = self._parse_llm_output(raw, task, config, source_chunks)
-                if parsed_fb:
-                    slots[i] = parsed_fb[0]
-                    slots[i]["order_index"] = i
-                    slots[i]["quality_regen_source"] = "local_slot_template"
-                    logger.warning(
-                        "Slot %d: filled with chapter slot template %d",
-                        i + 1,
+            if self._local_fallback_allowed():
+                try:
+                    raw = build_local_slot_response(
+                        context,
+                        task,
                         i,
+                        locked_chapter=locked_chapter,
+                        filename=(document_meta or {}).get("filename", ""),
                     )
-            except Exception as e:
-                logger.warning("Slot %d local template fallback failed: %s", i + 1, e)
+                    parsed_fb = self._parse_llm_output(raw, task, config, source_chunks)
+                    if parsed_fb:
+                        slots[i] = parsed_fb[0]
+                        slots[i]["order_index"] = i
+                        slots[i]["quality_regen_source"] = "local_slot_template"
+                        logger.warning(
+                            "Slot %d: filled with chapter slot template %d",
+                            i + 1,
+                            i,
+                        )
+                except Exception as e:
+                    logger.warning("Slot %d local template fallback failed: %s", i + 1, e)
+            else:
+                logger.error(
+                    "Slot %d empty — Cursor must supply rag_response.txt (no local fallback)",
+                    i + 1,
+                )
 
         final = [slots[i] for i in range(n) if slots[i] is not None]
         log = {
@@ -1096,7 +1421,9 @@ class QuestionGenerator:
         dd = config.difficulty_distribution
         easy, medium, hard = dd.easy, dd.medium, dd.hard
         # File-agent single batch: bias to hardest tier with meaningful weight (textbook HOTS)
-        if hard >= 25 or (hard >= easy and hard >= medium):
+        if hard >= 90 and (easy + medium) <= 10:
+            difficulty = "hard"
+        elif hard >= 25 or (hard >= easy and hard >= medium):
             difficulty = "hard"
         elif medium >= easy:
             difficulty = "medium"
@@ -1172,7 +1499,7 @@ class QuestionGenerator:
 
     @staticmethod
     def _has_llm_key() -> bool:
-        return bool(settings.GOOGLE_GEMINI_API_KEY or settings.OPENAI_API_KEY)
+        return settings.has_cloud_llm()
 
     @staticmethod
     def _can_regenerate() -> bool:
@@ -1209,10 +1536,13 @@ class QuestionGenerator:
             stale_response = not response_matches_current_topic()
             if stale_response:
                 logger.warning(
-                    "rag_response may be stale or cross-chapter — will wait for fresh file or use local fallback"
+                    "rag_response may be stale or cross-chapter — waiting for fresh Cursor response"
                 )
             meta = document_meta or {}
-            ts = get_current_topic_state() or {}
+            ts = dict(get_current_topic_state() or {})
+            meta = document_meta or {}
+            ts["question_count"] = int(meta.get("question_count") or (task or {}).get("count") or 5)
+            ts["full_hard"] = str(meta.get("full_hard", "0")).lower() in ("1", "true", "yes")
             profile = build_content_profile(
                 topic_focus=meta.get("topic_focus", ""),
                 filename=meta.get("filename", ""),
@@ -1222,25 +1552,43 @@ class QuestionGenerator:
                 instructions=meta.get("instructions", ""),
                 difficulty=task.get("difficulty", "medium"),
             )
-            chapter = (ts or {}).get("locked_chapter") or profile.chapter_key
             dynamic_retrieval = build_rag_retrieval_query(
                 task=task,
                 profile=profile,
                 config_topic_focus=meta.get("topic_focus", ""),
                 config_instructions=meta.get("instructions", ""),
             )
-            # prompt is already compiled by PromptBuilder (single hierarchical stack)
-            file_answer = await request_rag_file_response(
-                context,
-                prompt,
-                document_meta=document_meta,
-                retrieval_query=retrieval_query or dynamic_retrieval,
-                exclude_prior_stems=exclude_prior_stems,
-                topic_state=ts,
-                generation_attempt=generation_attempt,
+            max_tries = (
+                settings.RAG_FILE_MAX_RETRIES
+                if settings.RAG_FILE_AGENT_ONLY
+                else 1
             )
-            if file_answer:
-                return file_answer, "rag_file_agent"
+            file_answer = None
+            for try_num in range(1, max_tries + 1):
+                file_answer = await request_rag_file_response(
+                    context,
+                    prompt,
+                    document_meta=document_meta,
+                    retrieval_query=retrieval_query or dynamic_retrieval,
+                    exclude_prior_stems=exclude_prior_stems,
+                    topic_state=ts,
+                    generation_attempt=try_num if try_num > 1 else generation_attempt,
+                    generation_num=generation_num,
+                )
+                if file_answer:
+                    return file_answer, "rag_file_agent"
+                if try_num < max_tries:
+                    logger.warning(
+                        "RAG file agent attempt %d/%d — still waiting for rag_response.txt",
+                        try_num,
+                        max_tries,
+                    )
+            if settings.RAG_FILE_AGENT_ONLY:
+                raise RagAgentResponseMissing(
+                    "Cursor agent did not write rag_response.txt in time. "
+                    "Enable Cursor Hooks, keep an Agent chat open, and ensure "
+                    ".cursor/rules/rag-response-agent.mdc is active."
+                )
 
         if self._cloud_llm_allowed():
             if settings.GOOGLE_GEMINI_API_KEY:
@@ -1254,6 +1602,11 @@ class QuestionGenerator:
             ollama_out = await self._ollama_generate(prompt)
             if ollama_out:
                 return ollama_out, "ollama"
+
+        if not self._local_fallback_allowed():
+            raise RagAgentResponseMissing(
+                "RAG file agent is required; local question builder is disabled."
+            )
 
         logger.info("Using structured local generator (RAG context → JSON output)")
         ch = (get_current_topic_state() or {}).get("locked_chapter", "")
@@ -1407,7 +1760,11 @@ class QuestionGenerator:
                             ).strip()
                         )
                     ),
-                    "explanation": item.get("explanation", ""),
+                    "explanation": strip_markdown_bold(
+                        normalize_geometry_symbols(
+                            str(item.get("explanation", "") or "").strip()
+                        )
+                    ),
                     "marks": marks,
                     "figure_spec": item.get("figure_spec"),
                     "figure_type": item.get("figure_type"),
@@ -1418,7 +1775,9 @@ class QuestionGenerator:
                     if slot_number and slot_number >= 1
                     else order_index,
                 }
-                questions.append(q)
+                from app.generation.question_pipeline import finalize_question_dict
+
+                questions.append(finalize_question_dict(q))
         except json.JSONDecodeError as e:
             logger.error(f"JSON parse error: {e}\nRaw: {raw[:500]}")
         return questions
@@ -1593,9 +1952,13 @@ class QuestionGenerator:
                 continue
             fig_idx += 1
             content = q.get("content", "")
-            content = re.sub(r"(?i)fig\.?\s*\d+", f"Fig. {fig_idx}", content)
+            # Do not inject "Fig. N" into stems — captions are rendered in pdf_builder only.
+            content = re.sub(r"(?i)\s*fig\.?\s*\d+\s*", " ", content).strip()
             q["content"] = content
-            spec = self._sync_figure_labels(content, dict(q["figure_spec"]))
+            from app.generation.figure_spec_builder import enrich_figure_spec
+
+            spec = enrich_figure_spec(content, dict(q["figure_spec"]))
+            spec = self._sync_figure_labels(content, spec)
             spec = self._ensure_centre_to_external_segment(content, spec)
             spec["title"] = f"Fig. {fig_idx}"
             q["figure_spec"] = spec

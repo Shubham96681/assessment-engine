@@ -43,6 +43,9 @@ HARD_PAPER_MAX_PER_SIGNATURE: Dict[str, int] = {
     "direct_tangent_length:pythagoras": 1,
     "tangent_pair:quadrilateral:angle_between:angle_find": 1,
     "tangent_pair:quadrilateral:central_angle:angle_find": 1,
+    "tangent_pair:quadrilateral:angle_find": 1,
+    "secant_tangent:power_of_point": 2,
+    "concentric:chord_touching_inner": 2,
 }
 
 SHALLOW_HARD_SIGNATURES = frozenset(
@@ -93,6 +96,13 @@ def extract_reasoning_signature(
     )
     if has_external_pair or "tangents from" in low:
         sig.append("tangent_pair")
+    if re.search(
+        r"angle\s+[A-Z]{3}\s*=\s*\d+°?",
+        stem,
+        re.I,
+    ) and has_external_pair and re.search(r"find\s+angle\s+[A-Z]O[A-Z]", stem, re.I):
+        if not re.search(r"\balternate\b|\bchord\b.*\btangent\b", low):
+            sig.append("tangent_pair_angle_sum")
 
     if re.search(r"\bconcentric\b", low):
         sig.append("concentric")

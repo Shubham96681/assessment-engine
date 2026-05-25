@@ -1,8 +1,38 @@
 """
 Application Configuration — Pydantic Settings
 """
+import re
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
+
+# Substrings that mean the value is still a template from .env.example
+_PLACEHOLDER_KEY_MARKERS = (
+    "your_openai_api_key",
+    "your_gemini_api_key",
+    "your_groq_api_key",
+    "your-super-secret",
+    "changeme",
+    "replace_me",
+    "insert_key",
+    "api_key_here",
+)
+
+
+def sanitize_api_key(value: str | None) -> str:
+    """Treat .env.example placeholders as unset so RAG file agent / local embeds run."""
+    v = (value or "").strip().strip('"').strip("'")
+    if not v or len(v) < 8:
+        return ""
+    low = v.lower()
+    if low in ("false", "true", "none", "null", "undefined"):
+        return ""
+    if any(marker in low for marker in _PLACEHOLDER_KEY_MARKERS):
+        return ""
+    if re.fullmatch(r"x{6,}", low):
+        return ""
+    return v
 
 
 class Settings(BaseSettings):
@@ -14,7 +44,7 @@ class Settings(BaseSettings):
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
     DEBUG: bool = True
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002"
 
     # LLM
     OPENAI_API_KEY: str = ""
@@ -23,29 +53,32 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"
-    OLLAMA_ENABLED: bool = True
-  # RAG file bridge (rag_query.txt → rag_response.txt, e.g. Cursor agent)
+    OLLAMA_ENABLED: bool = False
+    # RAG file bridge (rag_query.txt → rag_response.txt — Cursor agent)
     RAG_FILE_AGENT_ENABLED: bool = True
-    # When true with RAG file agent: never call Groq/Gemini/OpenAI (avoids instant fail on bad API keys)
+    # Cursor agent only — never Groq/Gemini/OpenAI/Ollama/local templates
     RAG_FILE_AGENT_ONLY: bool = True
-    RAG_FILE_TIMEOUT_SECONDS: int = 180
-    # Second full-paper attempt: shorter wait when rag_response is still stale
-    RAG_FILE_RETRY_TIMEOUT_SECONDS: int = 45
-    RAG_FILE_SLOT_REGEN_TIMEOUT_SECONDS: int = 180
-    RAG_FILE_POLL_INTERVAL_SECONDS: float = 2.0
+    RAG_FILE_TIMEOUT_SECONDS: int = 300
+    RAG_FILE_RETRY_TIMEOUT_SECONDS: int = 90
+    RAG_FILE_SLOT_REGEN_TIMEOUT_SECONDS: int = 120
+    RAG_FILE_POLL_INTERVAL_SECONDS: float = 0.2
+    RAG_FILE_MAX_RETRIES: int = 6
     PRIMARY_LLM: str = "gemini"
     FAST_LLM: str = "gemini-flash"
 
-    # Vector Store
+    # Vector store: faiss (local, no Docker) | qdrant (needs Docker)
+    VECTOR_STORE_BACKEND: str = "faiss"
+    FAISS_DATA_PATH: str = "./data/faiss"
+    EMBEDDING_DIMENSION: int = 384  # all-MiniLM-L6-v2; use 1536 with OpenAI + Qdrant
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION_QUESTIONS: str = "questions"
     QDRANT_COLLECTION_HISTORY: str = "generation_history"
     QDRANT_COLLECTION_DOCUMENTS: str = "documents"
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://assessment_user:assessment_pass@localhost:5433/assessment_db"
-    DATABASE_SYNC_URL: str = "postgresql://assessment_user:assessment_pass@localhost:5433/assessment_db"
+    # Database — SQLite by default (no Docker); set postgresql+asyncpg://... for Postgres
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/assessment.db"
+    DATABASE_SYNC_URL: str = "sqlite:///./data/assessment.db"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -55,6 +88,18 @@ class Settings(BaseSettings):
     # Storage
     STORAGE_BACKEND: str = "local"
     LOCAL_STORAGE_PATH: str = "./uploads"
+
+    # PDF / figure export quality
+    FIGURE_EXPORT_DPI: int = 300
+    # Geometry diagram typography (matplotlib points — readable after PDF downscale)
+    FIGURE_POINT_LABEL_FONT_PT: int = 17
+    FIGURE_SEGMENT_LABEL_FONT_PT: int = 12
+    FIGURE_TITLE_FONT_PT: int = 14
+    FIGURE_POINT_MARKER_SIZE: float = 10.0
+    PDF_FIGURE_WIDTH_MM: float = 88
+    PDF_FIGURE_HEIGHT_MM: float = 72
+    PDF_FONT_QUESTION_PT: float = 11
+    PDF_FONT_BODY_PT: float = 10.5
     AWS_S3_BUCKET: str = ""
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
@@ -100,6 +145,8 @@ class Settings(BaseSettings):
     ENABLE_STUDENT_SKILL_TARGETING: bool = True
     ENABLE_GENERATION_MEMORY: bool = True
     ENABLE_STEM_DEPENDENCY_VALIDATION: bool = True
+    ENABLE_PAPER_DEPENDENCY_GRAPH: bool = True
+    ENABLE_CROSS_QUESTION_CONSISTENCY: bool = True
     ENABLE_THEOREM_TOPOLOGY_VALIDATION: bool = True
     ENABLE_COGNITIVE_GRAPH_VALIDATION: bool = True
     ENABLE_ARC_GEOMETRY_VALIDATION: bool = True
@@ -114,6 +161,30 @@ class Settings(BaseSettings):
     ENABLE_PROMPT_SECTION_DOMINANCE: bool = True
     PROMPT_SECTION_DOMINANCE_STRICT: bool = True
     PROMPT_FOREIGN_TOPIC_RATIO_MAX: float = 0.10
+    ENABLE_HARDNESS_SCORER: bool = True
+    ENABLE_EXAMINER_SIMULATION: bool = True
+    # Paper layout: auto | chained_concentric | mixed_independent | chained_triangle
+    DEFAULT_PAPER_TEMPLATE: str = "auto"
+
+    @model_validator(mode="after")
+    def _sanitize_secrets_and_llm_flags(self) -> "Settings":
+        object.__setattr__(
+            self, "OPENAI_API_KEY", sanitize_api_key(self.OPENAI_API_KEY)
+        )
+        object.__setattr__(
+            self,
+            "GOOGLE_GEMINI_API_KEY",
+            sanitize_api_key(self.GOOGLE_GEMINI_API_KEY),
+        )
+        object.__setattr__(self, "GROQ_API_KEY", sanitize_api_key(self.GROQ_API_KEY))
+        if self.RAG_FILE_AGENT_ONLY and not (
+            self.OPENAI_API_KEY or self.GOOGLE_GEMINI_API_KEY
+        ):
+            object.__setattr__(self, "ENABLE_SELF_ENHANCEMENT", False)
+        return self
+
+    def has_cloud_llm(self) -> bool:
+        return bool(self.OPENAI_API_KEY or self.GOOGLE_GEMINI_API_KEY or self.GROQ_API_KEY)
 
 
 settings = Settings()

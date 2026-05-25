@@ -7,6 +7,7 @@ import {
   submitFeedback,
   getApiBaseUrl,
   applyRagResponse,
+  getRagPending,
   formatApiError,
 } from "@/lib/api";
 import { useParams } from "next/navigation";
@@ -32,6 +33,12 @@ function is404(err: unknown): boolean {
   );
 }
 
+/** Changes when questions are replaced so PDFs/figures bypass browser cache. */
+function exportCacheKey(assessment: { questions?: { id?: string }[] } | null): string {
+  const ids = (assessment?.questions ?? []).map((q) => q.id).filter(Boolean).join(",");
+  return ids || "0";
+}
+
 export default function AssessmentDetails() {
   const params = useParams();
   const id = params.id as string;
@@ -40,6 +47,7 @@ export default function AssessmentDetails() {
   const [pollNote, setPollNote] = useState("");
   const [notFoundConfirmed, setNotFoundConfirmed] = useState(false);
   const [applyingRag, setApplyingRag] = useState(false);
+  const [ragPending, setRagPending] = useState(false);
 
   const loadFullAssessment = useCallback(async () => {
     const data = await getAssessment(id);
@@ -50,6 +58,11 @@ export default function AssessmentDetails() {
 
   useEffect(() => {
     if (!id) return;
+    setAssessment(null);
+    setLoading(true);
+    setNotFoundConfirmed(false);
+    setPollNote("");
+    setRagPending(false);
     let cancelled = false;
     let notFoundRetries = 0;
 
@@ -61,18 +74,28 @@ export default function AssessmentDetails() {
 
         if (status.status === "generating") {
           setAssessment((prev: any) => ({
-            ...(prev || {}),
+            ...(prev?.id === status.id ? prev : {}),
             id: status.id,
             title: status.title,
             status: "generating",
             total_marks: status.total_marks,
-            questions: prev?.questions || [],
+            questions: prev?.id === status.id ? prev?.questions || [] : [],
           }));
           setLoading(true);
           setNotFoundConfirmed(false);
-          setPollNote(
-            "Generation in progress (RAG may take up to 3 minutes). This page will update automatically."
-          );
+          try {
+            const rag = await getRagPending();
+            setRagPending(!!rag.pending);
+            setPollNote(
+              rag.pending
+                ? "Waiting for Cursor Agent: keep an Agent chat open in this repo — hooks will process rag_query.txt on agent stop. Or fill rag_response.txt and click the button below."
+                : "Generation in progress. This page will update automatically."
+            );
+          } catch {
+            setPollNote(
+              "Generation in progress (RAG may take up to 3 minutes). This page will update automatically."
+            );
+          }
           window.setTimeout(poll, 3000);
           return;
         }
@@ -145,8 +168,19 @@ export default function AssessmentDetails() {
             <p className="text-slate-300 text-sm mb-2">{assessment.title}</p>
           )}
           <p className="text-slate-400 mb-2">
-            Save <code className="text-indigo-300">rag_response.txt</code> at the project root after{" "}
-            <code className="text-indigo-300">rag_query.txt</code> updates (once per quiz).
+            {ragPending ? (
+              <>
+                <strong className="text-amber-200">Cursor Agent needed:</strong> open an Agent chat for{" "}
+                <code className="text-indigo-300">assessment-engine</code>, enable Hooks, then let it write{" "}
+                <code className="text-indigo-300">rag_response.txt</code> after{" "}
+                <code className="text-indigo-300">rag_query.txt</code> updates.
+              </>
+            ) : (
+              <>
+                Save <code className="text-indigo-300">rag_response.txt</code> at the project root after{" "}
+                <code className="text-indigo-300">rag_query.txt</code> updates (once per quiz).
+              </>
+            )}
           </p>
           {pollNote && (
             <p className="text-amber-200/90 text-sm mb-4">{pollNote}</p>
@@ -215,6 +249,8 @@ export default function AssessmentDetails() {
   }
 
   const getBaseUrl = getApiBaseUrl;
+  const cacheKey = exportCacheKey(assessment);
+  const shortId = assessment.id?.slice(0, 8);
 
   const getDifficultyColor = (diff: string) => {
     switch (diff.toLowerCase()) {
@@ -241,9 +277,19 @@ export default function AssessmentDetails() {
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-white mb-1">{assessment.title}</h1>
+            <p className="text-xs text-slate-500 font-mono mb-1" title={assessment.id}>
+              Assessment {shortId}…
+              {assessment.created_at
+                ? ` · ${new Date(assessment.created_at).toLocaleString()}`
+                : ""}
+            </p>
             <div className="flex items-center gap-3 text-sm text-slate-400">
               <span className="flex items-center gap-1">
-                <HelpCircle className="w-4 h-4" /> {assessment.questions?.length || 0} Questions
+                <HelpCircle className="w-4 h-4" />{" "}
+                {assessment.questions?.length ||
+                  (assessment.config?.total_questions as number) ||
+                  0}{" "}
+                Questions
               </span>
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="w-4 h-4" /> {assessment.total_marks} Marks
@@ -255,7 +301,7 @@ export default function AssessmentDetails() {
         <div className="flex gap-3 w-full md:w-auto">
           {assessment.pdf_url && (
             <a
-              href={`${getBaseUrl()}${assessment.pdf_url}`}
+              href={`${getBaseUrl()}${assessment.pdf_url}?v=${cacheKey}`}
               target="_blank"
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all"
             >
@@ -264,7 +310,7 @@ export default function AssessmentDetails() {
           )}
           {assessment.answer_key_url && (
             <a
-              href={`${getBaseUrl()}${assessment.answer_key_url}`}
+              href={`${getBaseUrl()}${assessment.answer_key_url}?v=${cacheKey}`}
               target="_blank"
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-indigo-500/20 border border-[#334155] hover:border-indigo-500/30 text-white px-6 py-2.5 rounded-xl font-medium transition-all"
             >
@@ -278,8 +324,10 @@ export default function AssessmentDetails() {
         <div className="bg-[#1e293b]/50 backdrop-blur-md border border-[#334155] rounded-2xl p-6 shadow-xl">
           <h2 className="text-lg font-bold text-white mb-2">RAG → LLM generation trace</h2>
           <p className="text-sm text-slate-400 mb-4">
-            Each step shows the PDF chunks retrieved, the full prompt built from RAG, the output for
-            that prompt, and the quiz questions below.
+            Shows intermediate RAG/LLM attempts during auto-generation. If the paper was fixed via{" "}
+            <code className="text-indigo-300">rag_response.txt</code>, use the{" "}
+            <strong className="text-slate-300">Generated questions</strong> section below as the
+            final paper (not old trace previews).
           </p>
           <GenerationTrace log={assessment.generation_log} />
         </div>
@@ -331,7 +379,7 @@ export default function AssessmentDetails() {
             {q.figure_url && (
               <div className="mb-6 rounded-xl overflow-hidden border border-[#334155] inline-block bg-[#0f172a] p-4">
                 <img
-                  src={`${getBaseUrl()}${q.figure_url}`}
+                  src={`${getBaseUrl()}${q.figure_url}?v=${q.id}`}
                   alt="Generated Figure"
                   className="max-w-full max-h-[300px] object-contain"
                 />

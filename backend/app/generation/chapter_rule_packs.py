@@ -6,7 +6,7 @@ Used by SemanticGenerationPlan and PromptCompiler (no global geometry DNA).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from app.generation.strict_topic_gate import CHAPTER_FORBIDDEN
 
@@ -46,23 +46,38 @@ class ChapterRulePack:
     def figure_types_block(self) -> str:
         return "Allowed figure types: " + ", ".join(self.figure_types) + "."
 
-    def hard_mode_block(self, ui_difficulty: str) -> str:
+    def hard_mode_block(self, ui_difficulty: str, *, full_hard: bool = False) -> str:
         from app.generation.chapter_prompt_isolation import build_chapter_hard_prompt_stack
 
         ui = (ui_difficulty or "medium").lower()
         if ui not in ("hard", "difficult"):
             return ""
-        return build_chapter_hard_prompt_stack(self.chapter_key, ui).strip()
+        return build_chapter_hard_prompt_stack(
+            self.chapter_key, ui, full_hard=full_hard
+        ).strip()
 
     def numeric_rules_block(self) -> str:
         from app.generation.chapter_prompt_isolation import numeric_prompt_block
 
         return numeric_prompt_block(self.chapter_key).strip()
 
-    def reasoning_diversity_block(self) -> str:
+    def reasoning_diversity_block(
+        self,
+        *,
+        question_count: int = 5,
+        paper_template_id: Optional[str] = None,
+        ui_difficulty: str = "hard",
+        full_hard: bool = False,
+    ) -> str:
         from app.generation.chapter_prompt_isolation import reasoning_diversity_prompt_block
 
-        return reasoning_diversity_prompt_block(self.chapter_key).strip()
+        return reasoning_diversity_prompt_block(
+            self.chapter_key,
+            question_count,
+            paper_template_id=paper_template_id,
+            ui_difficulty=ui_difficulty,
+            full_hard=full_hard,
+        ).strip()
 
     def idiomatic_block(self) -> str:
         from app.generation.chapter_prompt_isolation import idiomatic_prompt_block

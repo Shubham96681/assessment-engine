@@ -44,11 +44,19 @@ class PromptCompiler:
 
     def section_system_role(self) -> str:
         p = self.plan
+        tmpl_line = ""
+        if getattr(p, "paper_template_id", ""):
+            from app.generation.paper_templates import get_paper_template, template_header_for_plan
+
+            tmpl = get_paper_template(p.paper_template_id)
+            if tmpl:
+                tmpl_line = f"\n{template_header_for_plan(tmpl)}"
         return (
             f"SYSTEM: {p.class_label} {p.subject} author ({p.style_label}).\n"
             f"LOCKED CHAPTER: {p.chapter_title} (key={p.locked_chapter}).\n"
             f"Exam track: {p.exam_track}. Round #{p.generation_num}.\n"
             f"You must generate ONLY {p.chapter_title} content — no other chapter templates."
+            f"{tmpl_line}"
         )
 
     def section_difficulty_calibration(self) -> str:
@@ -56,8 +64,18 @@ class PromptCompiler:
 
         p = self.plan
         regime = getattr(p, "difficulty_regime", "") or "board_medium"
-        lines = [f"DIFFICULTY CALIBRATION: {p.difficulty.upper()} ({regime})."]
+        label = f"{p.difficulty.upper()} ({regime})"
+        if getattr(p, "full_hard", False):
+            label = f"{p.difficulty.upper()} — FULL HARD PAPER ({regime})"
+        lines = [f"DIFFICULTY CALIBRATION: {label}."]
         lines.extend(f"  • {ln}" for ln in regime_calibration_lines(regime, self._locked))
+        if getattr(p, "full_hard", False):
+            lines.append(
+                "  • FULL HARD (100%): EVERY slot is L5 (hardest) — 5+ steps, ≥3 theorem families, no L4 warm-up."
+            )
+            lines.append(
+                "  • Reject one-step Pythagoras, direct formula drills, and items solvable in ≤2 NCERT moves."
+            )
         if p.difficulty in ("hard", "difficult"):
             for pat in self.pack.hard_difficulty_patterns[:4]:
                 lines.append(f"  • {pat}")
@@ -81,13 +99,20 @@ class PromptCompiler:
         ]
         # hard_mode_block already includes reasoning + numeric + idiomatic (no duplicate blocks)
         if p.difficulty in ("hard", "difficult"):
-            hm = self.pack.hard_mode_block(p.difficulty)
+            hm = self.pack.hard_mode_block(
+                p.difficulty, full_hard=getattr(p, "full_hard", False)
+            )
             if hm:
                 parts.extend(["", hm])
         else:
             for block in (
                 self.pack.numeric_rules_block(),
-                self.pack.reasoning_diversity_block(),
+                self.pack.reasoning_diversity_block(
+                    question_count=p.question_count,
+                    paper_template_id=getattr(p, "paper_template_id", None),
+                    ui_difficulty=p.difficulty,
+                    full_hard=getattr(p, "full_hard", False),
+                ),
                 self.pack.idiomatic_block(),
             ):
                 if block:
@@ -117,6 +142,14 @@ class PromptCompiler:
         if graph_block:
             lines.extend(["", graph_block])
         return "\n".join(lines)
+
+    def _section_paper_dependency(self) -> str:
+        dep = getattr(self.plan, "paper_dependency", None)
+        if not dep or not getattr(dep, "enabled", False):
+            return ""
+        from app.generation.paper_dependency_graph import dependency_prompt_section
+
+        return dependency_prompt_section(dep)
 
     def section_exercise_blueprint(self) -> str:
         return self.pack.compact_blueprint(
@@ -236,6 +269,10 @@ OUTPUT CONTRACT:
             self._sec("author_imperfection", self.section_author_imperfection()),
             self._sec("chapter_rules", self.section_chapter_rules()),
             self._sec("cognitive_blueprint", self.section_cognitive_blueprint()),
+            self._sec(
+                "paper_dependency",
+                self._section_paper_dependency(),
+            ),
             self._sec("exercise_blueprint", self.section_exercise_blueprint()),
             self._sec("few_shot", self.section_few_shot_style()),
             self._sec("retrieval", self.section_retrieval_context()),
@@ -379,6 +416,8 @@ def build_plan_and_prompt(
     types_label: str = "",
     type_tail: str = "",
     strict_purity: bool = True,
+    difficulty_distribution=None,
+    paper_template: Optional[str] = None,
 ) -> tuple[SemanticGenerationPlan, str]:
     plan = build_semantic_plan(
         locked_chapter=locked_chapter,
@@ -397,6 +436,8 @@ def build_plan_and_prompt(
         rejection_block=rejection_block,
         instructions=instructions or "",
         generation_num=generation_num,
+        difficulty_distribution=difficulty_distribution,
+        paper_template=paper_template,
     )
     prompt = build_generation_prompt(
         plan,

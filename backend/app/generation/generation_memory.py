@@ -9,14 +9,12 @@ from collections import Counter
 from typing import Any, Dict, List, Optional, Set
 
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import qdrant_client, Filter, FieldCondition, MatchValue
 from app.generation.theorem_coverage_score import (
     CHAPTER_THEOREM_COMBOS,
     detect_cognitive_type,
     detect_theorems_in_stem,
 )
-from qdrant_client.models import Filter, FieldCondition, MatchValue
-
 logger = logging.getLogger(__name__)
 
 
@@ -219,11 +217,10 @@ async def record_paper_memory(
             else "computation"
         )
         q["archetype_id"] = q.get("archetype_id") or q.get("planned_theorem_id")
-        await dedup._add_to_history(
-            q,
-            emb,
-            user_id,
-            subject,
-            class_level,
-            document_id=document_id,
-        )
+    await dedup.record_questions_to_history(
+        questions,
+        user_id,
+        subject,
+        class_level,
+        document_id=document_id,
+    )

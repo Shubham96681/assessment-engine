@@ -95,6 +95,16 @@ def get_current_topic_state() -> dict:
     return _read_state()
 
 
+def persist_paper_template_id(template_id: str) -> None:
+    """Keep semantic-plan template id for integrity/finalize (survives save_topic_map)."""
+    tid = (template_id or "").strip()
+    if not tid:
+        return
+    state = _read_state()
+    state["paper_template_id"] = tid
+    _write_state(state)
+
+
 def save_topic_map(topic_map: dict) -> None:
     """Merge extracted topic/subtopics into rag_topic_state.json."""
     state = _read_state()
@@ -112,6 +122,8 @@ def save_topic_map(topic_map: dict) -> None:
     state["locked_chapter"] = topic_map.get(
         "locked_chapter", state.get("locked_chapter", "generic")
     )
+    if topic_map.get("paper_template_id"):
+        state["paper_template_id"] = str(topic_map["paper_template_id"]).strip()
     _write_state(state)
 
 

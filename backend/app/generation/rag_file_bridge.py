@@ -16,11 +16,17 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
+class RagAgentResponseMissing(RuntimeError):
+    """Raised when RAG file agent mode is on but rag_response.txt was not produced in time."""
+
+
 # assessment/ (repo root)
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 QUERY_FILE = PROJECT_ROOT / "rag_query.txt"
 RESPONSE_FILE = PROJECT_ROOT / "rag_response.txt"
 REGEN_PENDING_FILE = PROJECT_ROOT / "rag_regen_pending.json"
+PENDING_SIGNAL_FILE = PROJECT_ROOT / ".cursor" / "rag_pending.json"
 
 # Windows mtime can be same-second as query write
 MTIME_TOLERANCE_SEC = 2.0
@@ -46,6 +52,7 @@ def write_rag_query(
     retrieval_query: str = "",
     exclude_prior_stems: Optional[list] = None,
     topic_state: Optional[dict] = None,
+    uniqueness_block: str = "",
 ) -> None:
     """Write query file; invalidates stale rag_response when topic_state marks a chapter change."""
     t0 = time.time()
@@ -93,11 +100,42 @@ def write_rag_query(
                 parts.append("")
         except Exception:
             pass
+    if uniqueness_block and uniqueness_block.strip():
+        parts.append(uniqueness_block.strip())
+        parts.append("")
     parts.append(f"CONTEXT:\n{context.strip()}\n")
     parts.append(f"QUESTION:\n{question.strip()}\n")
     content = "\n".join(parts)
     QUERY_FILE.write_text(content, encoding="utf-8")
+    _signal_rag_pending()
     logger.info("Wrote %s in %.0f ms", QUERY_FILE.name, (time.time() - t0) * 1000)
+
+
+def _signal_rag_pending() -> None:
+    """Notify Cursor hooks / watcher that a response is required."""
+    try:
+        PENDING_SIGNAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+        PENDING_SIGNAL_FILE.write_text(
+            json.dumps(
+                {
+                    "pending": True,
+                    "query_file": str(QUERY_FILE),
+                    "written_at": time.time(),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+    except OSError as e:
+        logger.debug("Could not write rag pending signal: %s", e)
+
+
+def _clear_rag_pending() -> None:
+    try:
+        if PENDING_SIGNAL_FILE.exists():
+            PENDING_SIGNAL_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def read_rag_response() -> Optional[str]:
@@ -149,7 +187,8 @@ def _wait_for_response_sync(
             return raw
         time.sleep(poll)
 
-    if allow_stale_fallback:
+    strict = settings.RAG_FILE_AGENT_ONLY
+    if allow_stale_fallback and not strict:
         from app.generation.topic_isolation import response_matches_current_topic
 
         if response_matches_current_topic():
@@ -162,6 +201,10 @@ def _wait_for_response_sync(
                 "Stale rag_response.txt ignored — file is older than rag_query.txt; "
                 "write a new rag_response.txt after the query updates"
             )
+    elif strict:
+        logger.error(
+            "RAG file agent timeout — Cursor must write rag_response.txt (enable Hooks, keep Agent chat open)"
+        )
     return None
 
 
@@ -217,11 +260,28 @@ async def request_rag_file_response(
     exclude_prior_stems: Optional[list] = None,
     topic_state: Optional[dict] = None,
     generation_attempt: int = 1,
+    generation_num: int = 1,
+    uniqueness_block: str = "",
 ) -> Optional[str]:
     """
     Write rag_query.txt and poll rag_response.txt until the agent fills it in.
     Returns parsed JSON answer string, or None if missing/invalid.
     """
+    ub = uniqueness_block
+    if not ub and exclude_prior_stems:
+        try:
+            from app.generation.paper_uniqueness import build_rag_uniqueness_block
+
+            ts = topic_state or {}
+            ub = build_rag_uniqueness_block(
+                generation_num=generation_num,
+                prior_stems=list(exclude_prior_stems),
+                chapter=str(ts.get("locked_chapter") or "circles"),
+                question_count=int(ts.get("question_count") or 5),
+                full_hard=bool(ts.get("full_hard", True)),
+            )
+        except Exception:
+            ub = ""
     write_rag_query(
         context,
         question,
@@ -229,6 +289,7 @@ async def request_rag_file_response(
         retrieval_query=retrieval_query,
         exclude_prior_stems=exclude_prior_stems,
         topic_state=topic_state,
+        uniqueness_block=ub,
     )
     query_mtime = QUERY_FILE.stat().st_mtime
     if generation_attempt > 1:
@@ -246,8 +307,16 @@ async def request_rag_file_response(
         timeout,
         generation_attempt,
     )
-    raw = await asyncio.to_thread(_wait_for_response_sync, timeout, poll, query_mtime)
+    allow_stale = not settings.RAG_FILE_AGENT_ONLY
+    raw = await asyncio.to_thread(
+        _wait_for_response_sync,
+        timeout,
+        poll,
+        query_mtime,
+        allow_stale_fallback=allow_stale,
+    )
     if raw:
+        _clear_rag_pending()
         answer, sources = parse_rag_response(raw)
         start = answer.find("[")
         end = answer.rfind("]") + 1
@@ -266,7 +335,13 @@ async def request_rag_file_response(
         if sources:
             logger.debug("Sources: %s", sources[:200])
         return answer
-    logger.warning("No valid rag_response.txt — will use local question builder")
+    if settings.RAG_FILE_AGENT_ONLY:
+        logger.error(
+            "No valid rag_response.txt after %.0fs — Cursor agent required (no local fallback)",
+            timeout,
+        )
+    else:
+        logger.warning("No valid rag_response.txt — will use local question builder")
     return None
 
 
@@ -319,6 +394,7 @@ async def request_rag_slot_regeneration(
     if not raw:
         logger.warning("No fresh rag_response.txt for slot %d regen", slot_index + 1)
         return None
+    _clear_rag_pending()
     slot_id = str(slot_index + 1)
     single = extract_single_question_json(raw, slot_id)
     if single:

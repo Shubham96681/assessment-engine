@@ -1,5 +1,5 @@
 """
-Hybrid RAG Retriever — Dense (Qdrant) + Sparse (BM25) search
+Hybrid RAG Retriever — Dense (FAISS/Qdrant) + Sparse (BM25) search
 Returns ranked, deduplicated chunks for question generation context.
 """
 import logging
@@ -7,9 +7,8 @@ from typing import List, Dict, Any, Optional
 from rank_bm25 import BM25Okapi
 
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import qdrant_client, Filter, FieldCondition, MatchValue
 from app.rag.embeddings import embed_query
-from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
 

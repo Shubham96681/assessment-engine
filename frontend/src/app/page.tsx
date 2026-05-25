@@ -149,7 +149,7 @@ export default function Dashboard() {
                     <span className="text-xs text-slate-500">{a.question_count ?? 0} Q · {a.status}</span>
                     {a.status === "ready" && a.pdf_url && (
                       <a
-                        href={`${getApiBaseUrl()}${a.pdf_url}`}
+                        href={`${getApiBaseUrl()}${a.pdf_url}?v=${a.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg"

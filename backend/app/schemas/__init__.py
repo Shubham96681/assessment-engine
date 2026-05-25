@@ -167,6 +167,10 @@ class GenerationConfig(BaseModel):
     instructions: Optional[str] = None
     weak_in: Optional[List[str]] = None
     strong_in: Optional[List[str]] = None
+    paper_template: Optional[str] = Field(
+        default=None,
+        description="Paper template id (chained_concentric, mixed_independent, auto). Overrides DEFAULT_PAPER_TEMPLATE when set.",
+    )
 
 
 # ── MCQ Option ─────────────────────────────────────────────────────────────────

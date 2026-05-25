@@ -1,6 +1,6 @@
 """
 PDF Ingestion Pipeline — RAG Document Processing
-Handles: PDF parsing, chunking, embedding, Qdrant upsert
+Handles: PDF parsing, chunking, embedding, vector store upsert
 """
 import asyncio
 import os
@@ -13,9 +13,8 @@ import fitz  # PyMuPDF
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.core.config import settings
-from app.core.vector_store import qdrant_client
+from app.core.vector_store import qdrant_client, PointStruct
 from app.rag.embeddings import embed_texts
-from qdrant_client.models import PointStruct
 
 logger = logging.getLogger(__name__)
 

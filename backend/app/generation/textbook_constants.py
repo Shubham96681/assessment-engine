@@ -110,6 +110,26 @@ HARD_DIFFICULTY_MIX_8 = [
     {"ui": "hard", "band": "L5"},
 ]
 
+# When UI is ~100% hard — every slot L5 (hardest tier; no L3/L4 warm-up)
+FULL_HARD_DIFFICULTY_MIX_5 = [
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+]
+
+FULL_HARD_DIFFICULTY_MIX_8 = [
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+]
+
 TEXTBOOK_DIFFICULTY_MIX_8 = [
     {"ui": "easy", "band": "L1"},
     {"ui": "easy", "band": "L2"},

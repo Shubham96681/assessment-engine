@@ -1,0 +1,166 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "Two concentric circles have centre O and radii 15 cm and 6 cm. A chord AB of the larger circle touches the smaller circle at K. Find AB.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.4},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "K", "position": "on_circle"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "K", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "K": "K", "A": "A", "B": "B"},
+      "show_right_angle": true,
+      "right_angle_at": "K",
+      "right_angle_legs": ["O", "A"],
+      "tangent_marks": ["K"],
+      "chord_bisect_at": "K"
+    },
+    "correct_answer": "Given: concentric circles with OK = 6 cm, OA = 15 cm; chord AB touches the inner circle at K. Step 1: AB is tangent to the inner circle at K, so OK ⟂ AB. Step 2: A perpendicular from the centre to a chord bisects the chord, hence K is the midpoint of AB. Step 3: In right triangle OKA, AK² = 15² − 6² = 189. Step 4: Therefore AB = 2AK = 2√189 = 6√21 cm. Step 5: Hence the required chord length is 6√21 cm.",
+    "explanation": "L5 concentric; hidden ⟂ at contact then bisect then Pythagoras — paper anchor.",
+    "theorem_tags": ["concentric_chord", "tangent_radius_perpendicular"],
+    "archetype_id": "concentric",
+    "cognitive_type": "computation"
+  },
+  {
+    "id": "2",
+    "type": "FigureBased",
+    "question": "In the same concentric circles as in Question 1. (i) Find the length of chord AB of the larger circle that touches the smaller circle at K. (ii) Hence, from external point X, tangent XL = 10 cm touches the outer circle at L, and secant XUV meets the circle at U (nearer X) and V with XU = 5 cm. Find UV and verify that XL² = XU × XV.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.4},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "K", "position": "on_circle"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "X", "position": "outside"},
+        {"shape": "point", "label": "L", "position": "on_circle"},
+        {"shape": "point", "label": "U", "position": "on_circle"},
+        {"shape": "point", "label": "V", "position": "on_circle"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "K", "style": "dashed"},
+        {"shape": "segment", "from": "X", "to": "L"},
+        {"shape": "segment", "from": "U", "to": "V"},
+        {"shape": "segment", "from": "O", "to": "L", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "K": "K", "A": "A", "B": "B", "X": "X", "L": "L", "U": "U", "V": "V"},
+      "show_right_angle": true,
+      "right_angle_at": "L",
+      "right_angle_legs": ["O", "X"]
+    },
+    "correct_answer": "From Question 1, outer radius OL = 15 cm and inner radius OK = 6 cm. (i) Step 1: OK ⟂ AB at K and K bisects AB. Step 2: AK² = 15² − 6² = 189, so AB = 6√21 cm. (ii) Step 3: For tangent XL and secant XUV on the outer circle, XL² = XU × XV with XV = XU + UV. Step 4: 100 = 5 × (5 + UV), so 20 = 5 + UV and UV = 15 cm. Step 5: Check XU × XV = 5 × 20 = 100 = XL². Hence UV = 15 cm and the power relation holds.",
+    "explanation": "L5 hots_mixed; depends Q1; (i) chord (ii) Hence tangent–secant.",
+    "theorem_tags": ["concentric_chord", "secant_tangent_power", "tangent_radius_perpendicular"],
+    "archetype_id": "hots_mixed",
+    "cognitive_type": "computation"
+  },
+  {
+    "id": "3",
+    "type": "FigureBased",
+    "question": "Prove that OY is perpendicular to tangent YZ at Y.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "Y", "position": "on_circle"},
+        {"shape": "point", "label": "Z", "position": "outside"},
+        {"shape": "segment", "from": "Y", "to": "Z"},
+        {"shape": "segment", "from": "O", "to": "Y", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "Y": "Y", "Z": "Z"},
+      "show_right_angle": true,
+      "right_angle_at": "Y",
+      "right_angle_legs": ["O", "Z"]
+    },
+    "correct_answer": "Given: YZ touches the circle only at Y. Step 1: Assume the perpendicular from O to line YZ meets YZ at a point T with T ≠ Y. Step 2: Then OT < OY, so T lies inside the circle while YZ meets the circle only at Y — contradiction. Step 3: Hence the foot of the perpendicular from O to YZ is Y. Step 4: Therefore OY ⟂ YZ at the point of contact. Step 5: Hence the radius through the point of contact is perpendicular to the tangent.",
+    "explanation": "L5 sparse proof; Theorem 10.1 idiom; independent numerics.",
+    "theorem_tags": ["tangent_radius_perpendicular"],
+    "archetype_id": "chord_tangent",
+    "cognitive_type": "proof"
+  },
+  {
+    "id": "4",
+    "type": "FigureBased",
+    "question": "Circles with centres P and Q have radii 7 cm and 4 cm respectively. If PQ = 20 cm, find the length of a direct common external tangent touching the circles at E and F.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle1"},
+        {"shape": "circle", "label": "Circle2"},
+        {"shape": "point", "label": "P", "position": "centre"},
+        {"shape": "point", "label": "Q", "position": "centre"},
+        {"shape": "point", "label": "E", "position": "on_circle"},
+        {"shape": "point", "label": "F", "position": "on_circle"},
+        {"shape": "segment", "from": "P", "to": "Q", "style": "dashed"},
+        {"shape": "segment", "from": "E", "to": "F"}
+      ],
+      "labels": {"P": "P", "Q": "Q", "E": "E", "F": "F"},
+      "show_right_angle": true
+    },
+    "correct_answer": "Step 1: Join PE and QF along radii parallel to external tangent EF with PE = 7 cm and QF = 4 cm. Step 2: The offset along PQ is 20 cm and the vertical separation of radii is 7 − 4 = 3 cm. Step 3: In the right triangle formed by these offsets, EF² = 20² − 3² = 391. Step 4: Hence EF = √391 cm. Step 5: Therefore the direct common external tangent has length √391 cm.",
+    "explanation": "L5 common_tangent; parallel radii and offset Pythagoras.",
+    "theorem_tags": ["tangent_radius_perpendicular", "common_external_tangent"],
+    "archetype_id": "common_tangent",
+    "cognitive_type": "computation"
+  },
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "Using the outer circle from Question 1 and the tangent–secant at X from Question 2 (XL = 10 cm, XU = 5 cm). (i) Find OX. (ii) Hence, from point F with OF = 25 cm, find the tangent length FT to the outer circle; if a secant through F meets the circle at G (nearer) and H with FG = 5 cm, find FH and verify FT² = FG × FH.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.4},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "X", "position": "outside"},
+        {"shape": "point", "label": "L", "position": "on_circle"},
+        {"shape": "point", "label": "F", "position": "outside"},
+        {"shape": "point", "label": "G", "position": "on_circle"},
+        {"shape": "point", "label": "H", "position": "on_circle"},
+        {"shape": "segment", "from": "X", "to": "L"},
+        {"shape": "segment", "from": "F", "to": "G"},
+        {"shape": "segment", "from": "G", "to": "H"},
+        {"shape": "segment", "from": "O", "to": "L", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "F", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "X": "X", "L": "L", "F": "F", "G": "G", "H": "H"},
+      "show_right_angle": true,
+      "right_angle_at": "L",
+      "right_angle_legs": ["O", "X"]
+    },
+    "correct_answer": "From Question 1, OR = 15 cm. From Question 2, XL = 10 cm with OL ⟂ XL. (i) Step 1: In right triangle OXL, OX² = 15² + 10² = 325. Step 2: Hence OX = 5√13 cm. (ii) Step 3: For F with OF = 25 cm on the same outer circle, FT² = OF² − OR² = 625 − 225 = 400, so FT = 20 cm. Step 4: Tangent–secant gives FT² = FG × FH with FG = 5 cm, hence 400 = 5 × FH and FH = 80 cm. Step 5: Check FG × FH = 5 × 80 = 400 = FT². Hence OX = 5√13 cm, FT = 20 cm, and FH = 80 cm.",
+    "explanation": "L5 HOTS; fuses Q1 radius and Q2 tangent–secant; consistent √(OF²−R²).",
+    "theorem_tags": ["secant_tangent_power", "tangent_radius_perpendicular", "concentric_chord"],
+    "archetype_id": "hidden_theorem",
+    "cognitive_type": "computation"
+  }
+]
+
+SOURCES USED:
+NCERT Circles (jemh110): Theorem 10.1; concentric chord; tangent–secant power; common external tangent; full-hard all-L5 paper with Q1→Q2→Q5 dependency chain.

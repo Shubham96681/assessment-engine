@@ -11,6 +11,14 @@ from typing import Dict, List, Tuple, Optional
 # Phrases that sound AI-generated despite being short
 AWKWARD_PATTERNS: List[Tuple[str, str]] = [
     (r"passes through the perpendicular", "awkward_perpendicular_wording"),
+    (
+        r"perpendicular from .+ to (?:the )?tangent .+ at .+ passes through",
+        "tautological_perp_at_contact",
+    ),
+    (
+        r"perpendicular from .+ to tangent .+ at .+ passes through",
+        "tautological_perp_at_contact",
+    ),
     (r"perpendicular to the perpendicular", "double_perpendicular"),
     (r"through the foot of the perpendicular", "over_abstract_perpendicular"),
     (r"mechanical-geometric", "ai_phrase"),
@@ -50,6 +58,14 @@ IDIOMATIC_TEMPLATES: Dict[str, List[str]] = {
 # Auto-fix awkward → idiomatic (safe substitutions only)
 _STEM_FIXES: List[Tuple[str, str]] = [
     (
+        r"Prove that the perpendicular from O to (?:the )?tangent ([A-Z]{2}) at ([A-Z]) passes through \2\.?",
+        r"Prove that O\2 is perpendicular to tangent \1 at \2.",
+    ),
+    (
+        r"Prove that the perpendicular from O to tangent ([A-Z]{2}) at ([A-Z]) passes through \2\.?",
+        r"Prove that O\2 is perpendicular to tangent \1 at \2.",
+    ),
+    (
         r"Prove that OT passes through the perpendicular to TR at T\.?",
         "Prove that OT is perpendicular to tangent TR at T.",
     ),
@@ -73,6 +89,31 @@ def detect_awkward_idiom(stem: str) -> List[str]:
     return flags
 
 
+def remove_scaffolded_chord_length(stem: str) -> Tuple[str, bool]:
+    """Drop pre-derived chord length when radii are already in a concentric+secant stem."""
+    if not stem or "concentric" not in stem.lower():
+        return stem, False
+    if not re.search(r"\b(?:outer|inner)\s+radius\b|\bradii\b", stem, re.I):
+        return stem, False
+    new, n = re.subn(
+        r";\s*a chord of the outer circle touching the inner circle has length[^.;]+(?:cm)?\.?\s*",
+        "; ",
+        stem,
+        flags=re.I,
+    )
+    if not n:
+        new, n = re.subn(
+            r",\s*a chord[^,]+touching the inner circle has length[^,]+,\s*",
+            ", ",
+            stem,
+            flags=re.I,
+        )
+    if n:
+        new = re.sub(r";\s*From\b", ". From", new)
+        new = re.sub(r";\s+", ". ", new)
+    return (new.strip(), n > 0)
+
+
 def apply_idiomatic_fix(stem: str) -> Tuple[str, bool]:
     """Return (possibly fixed stem, was_changed)."""
     if not stem:
@@ -84,6 +125,15 @@ def apply_idiomatic_fix(stem: str) -> Tuple[str, bool]:
         if n:
             out = new_out
             changed = True
+    out2, sc = remove_scaffolded_chord_length(out)
+    if sc:
+        out = out2
+        changed = True
+    cleaned = re.sub(r";\s*From\b", ". From", out)
+    cleaned = re.sub(r";\s+(?=[A-Z])", ". ", cleaned)
+    if cleaned != out:
+        out = cleaned
+        changed = True
     return out.strip(), changed
 
 
