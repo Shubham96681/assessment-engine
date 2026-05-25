@@ -102,6 +102,7 @@ def should_reject_shallow_reasoning(
     *,
     slot_band: str = "L3",
     ui_difficulty: str = "medium",
+    full_hard: bool = False,
 ) -> bool:
     if "reasoning_depth_score" not in q:
         q.update(reasoning_depth_score(q, slot_band=slot_band, ui_difficulty=ui_difficulty))
@@ -115,6 +116,13 @@ def should_reject_shallow_reasoning(
         return True
     if "hots_lacks_fusion_depth" in flags:
         return True
-    if band == "L5" and q.get("reasoning_depth_score", 1) < 0.42:
+    min_score = 0.55 if full_hard else 0.42
+    if band == "L5" and q.get("reasoning_depth_score", 1) < min_score:
         return True
+    if full_hard:
+        stem = (q.get("content") or q.get("question") or "").strip()
+        if len(stem.split()) < 28 and not re.search(
+            r"\(i\)|\(ii\)|\bor\b", stem, re.I
+        ):
+            return True
     return False

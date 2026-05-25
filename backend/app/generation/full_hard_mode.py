@@ -80,11 +80,50 @@ FULL HARD (100% hard UI) — ALL SLOTS L5:
 - Model answers: 5+ steps; cite prior questions when the paper dependency graph requires it.
 """
 
+def _trigonometry_full_hard_rules() -> str:
+    from app.generation.trigonometry_hard_benchmark import benchmark_prompt_block
+
+    return (
+        """
+FULL HARD (100% hard UI) — Trigonometry — ALL SLOTS L5 (benchmark-aligned):
+- Reference paper: 20 questions × 6 marks (122 total, 3 h); deliver 10×6 (+8 on last) for board runs.
+- EVERY item: (i)(ii)(iii) or balanced OR; 5+ answer steps; marks 6 (slot 10 → 8 if count≥8).
+- BAN: bare "Find cos 255° exactly" / one-line recall; L3/L4 warm-up; duplicate reduction pair.
+- REQUIRE: section spread — compound prove+Hence → equation/identity → reduction → OR fusion.
+- REQUIRE: Q2 teaches identity chain → Q5 disguised reuse (new givens, same inference).
+- Model answers: Given → Step 1 → Step 2 → Step 3 → Hence; theorems only in answers.
+"""
+        + "\n"
+        + benchmark_prompt_block()
+    )
+
+
+TRIGONOMETRY_FULL_HARD_RULES = _trigonometry_full_hard_rules()
+
+TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS: List[Dict[str, Any]] = [
+    {"slot": 1, "band": "L5", "role": "Degree–radian + quadrant + exact surds (compound angle)", "one_line_ok": False, "memory": "teach"},
+    {"slot": 2, "band": "L5", "role": "Prove compound-angle identity (sin/cos/tan addition)", "one_line_ok": False, "memory": "teach"},
+    {"slot": 3, "band": "L5", "role": "Sparse — all ratios from one function in QII/QIII", "one_line_ok": False, "sparse_hard": True},
+    {"slot": 4, "band": "L5", "role": "Second identity proof — different formula than Q2", "one_line_ok": False},
+    {"slot": 5, "band": "L5", "role": "HOTS prove + apply OR hidden-condition ratio fusion", "one_line_ok": False, "memory": "reuse", "depends_on": [2]},
+    {"slot": 6, "band": "L5", "role": "Reciprocal ratios in another quadrant — multi-step", "one_line_ok": False},
+    {"slot": 7, "band": "L5", "role": "Prove identity then find exact value (Hence chain)", "one_line_ok": False},
+    {"slot": 8, "band": "L5", "role": "Large negative/large radian reduction — all steps", "one_line_ok": False},
+    {"slot": 9, "band": "L5", "role": "Degree reduction with reciprocal ratio", "one_line_ok": False},
+    {"slot": 10, "band": "L5", "role": "HOTS balanced OR — both branches prove+find, same difficulty", "one_line_ok": False, "memory": "reuse"},
+]
+
 CHAPTER_FULL_HARD_RULES: Dict[str, str] = {
     "circles": CIRCLES_FULL_HARD_RULES,
+    "trigonometry": TRIGONOMETRY_FULL_HARD_RULES,
     "quadratic": GENERIC_FULL_HARD_RULES
     + "\n- Quadratic L5: parameter fusion, discriminant traps, word model + Hence verify.",
     "generic": GENERIC_FULL_HARD_RULES,
+}
+
+CHAPTER_FULL_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
+    "circles": CIRCLES_FULL_HARD_SEQUENCE_SLOTS,
+    "trigonometry": TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS,
 }
 
 
@@ -129,6 +168,10 @@ def full_hard_calibration_lines(chapter: str) -> tuple[str, ...]:
             "Reject any question that could be solved in ≤2 standard NCERT moves.",
             "Paper dependency chain active — Q2/Q5 must reference earlier deductions.",
         )
+    if ch == "trigonometry":
+        from app.generation.trigonometry_hard_benchmark import benchmark_calibration_lines
+
+        return benchmark_calibration_lines()
     return (
         "FULL HARD (100%): every slot L5; 5+ reasoning steps; ban one-step and L4 drills.",
         "Require indirect givens, multi-concept fusion, and Hence chains.",

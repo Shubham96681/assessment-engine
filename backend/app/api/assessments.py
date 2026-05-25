@@ -1,6 +1,8 @@
 """Assessments API — No Auth, synchronous generation"""
+import json
 import logging
-from typing import List
+import re
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +23,94 @@ from app.export.pdf_builder import PDFExporter
 from app.core.config import settings
 from app.core.demo_user import DEMO_USER_ID
 from app.generation.generator import QuestionGenerator
+from app.generation.answer_format import ensure_answer_text
+from app.generation.question_text import ensure_plain_text
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _question_row_to_dict(q: Question, slot_number: int) -> Dict[str, Any]:
+    content = ensure_plain_text(q.content or "")
+    return {
+        "content": content,
+        "question": content,
+        "question_type": q.question_type,
+        "difficulty": q.difficulty,
+        "bloom_level": q.bloom_level,
+        "options": q.options,
+        "correct_answer": ensure_answer_text(q.correct_answer or ""),
+        "explanation": ensure_plain_text(q.explanation or ""),
+        "marks": q.marks or 1.0,
+        "figure_url": q.figure_url,
+        "figure_type": q.figure_type,
+        "figure_spec": q.figure_spec,
+        "source_chunks": q.source_chunks,
+        "content_hash": q.content_hash,
+        "quality_score": q.quality_score or 0.0,
+        "slot_number": slot_number,
+        "order_index": slot_number - 1,
+    }
+
+
+def _merge_regen_slot_into_paper(
+    existing: List[Dict[str, Any]],
+    new_q: Dict[str, Any],
+    slot_number: int,
+) -> List[Dict[str, Any]]:
+    """Replace one slot in a saved paper with a quality-regen rag_response item."""
+    sn = int(
+        new_q.get("slot_number")
+        or new_q.get("id")
+        or slot_number
+    )
+    merged: List[Dict[str, Any]] = []
+    replaced = False
+    for i, q in enumerate(existing):
+        cur_sn = int(q.get("slot_number") or i + 1)
+        if cur_sn == sn:
+            updated = dict(new_q)
+            updated["slot_number"] = sn
+            updated["order_index"] = sn - 1
+            if not updated.get("content"):
+                updated["content"] = updated.get("question") or ""
+            merged.append(updated)
+            replaced = True
+        else:
+            merged.append(dict(q))
+    if not replaced:
+        updated = dict(new_q)
+        updated["slot_number"] = sn
+        updated["order_index"] = sn - 1
+        merged.append(updated)
+    return sorted(merged, key=lambda x: int(x.get("slot_number") or 0))
+
+
+async def _assessment_out_with_questions(
+    a: Assessment, db: AsyncSession
+) -> AssessmentOut:
+    out = _to_out(a)
+    qr = await db.execute(select(Question).where(Question.assessment_id == a.id))
+    out.questions = [_q_to_out(q) for q in _ordered_questions(a, qr.scalars().all())]
+    return out
+
+
+def _read_regen_slot_number() -> Optional[int]:
+    from app.generation.rag_file_bridge import REGEN_PENDING_FILE
+
+    if not REGEN_PENDING_FILE.exists():
+        return None
+    try:
+        regen = json.loads(REGEN_PENDING_FILE.read_text(encoding="utf-8"))
+        sn = regen.get("slot_number")
+        if sn is not None:
+            return int(sn)
+        idx = regen.get("slot_index")
+        if idx is not None:
+            return int(idx) + 1
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+        return None
+    return None
 
 
 @router.post("/generate", response_model=AssessmentOut)
@@ -32,6 +119,56 @@ async def generate_assessment(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
+    from app.core.cbse_curriculum_doc import (
+        CBSE_CURRICULUM_DOCUMENT_ID,
+        ensure_cbse_curriculum_document,
+        is_cbse_curriculum_document,
+    )
+
+    locked = (config.locked_chapter or "").strip().lower()
+    user_doc_id = (config.document_id or "").strip()
+    use_pdf = bool(config.use_chapter_pdf) and bool(user_doc_id)
+
+    if not locked and not user_doc_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Select a topic or upload a PDF (document_id or locked_chapter required).",
+        )
+
+    if use_pdf:
+        r = await db.execute(select(Document).where(Document.id == user_doc_id))
+        doc = r.scalar_one_or_none()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        if doc.status != "ready":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Document not ready — status: {doc.status}",
+            )
+        config = config.model_copy(
+            update={
+                "document_id": user_doc_id,
+                "locked_chapter": locked or config.locked_chapter,
+                "use_chapter_pdf": True,
+                "source_document_id": user_doc_id,
+            }
+        )
+    elif locked:
+        curriculum_id = await ensure_cbse_curriculum_document()
+        updates: dict = {
+            "document_id": curriculum_id,
+            "locked_chapter": locked,
+            "use_chapter_pdf": False,
+        }
+        if user_doc_id and not is_cbse_curriculum_document(user_doc_id):
+            updates["source_document_id"] = user_doc_id
+        config = config.model_copy(update=updates)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Select a topic, or enable 'Use chapter PDF' with a ready document.",
+        )
+
     r = await db.execute(select(Document).where(Document.id == config.document_id))
     doc = r.scalar_one_or_none()
     if not doc:
@@ -80,6 +217,7 @@ async def _run_generation(assessment_id: str, config: GenerationConfig, gen_num:
     exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
 
     async with AsyncSessionLocal() as db:
+        generation_log: list = []
         try:
             doc_r = await db.execute(select(Document).where(Document.id == config.document_id))
             doc_row = doc_r.scalar_one_or_none()
@@ -146,18 +284,32 @@ async def _run_generation(assessment_id: str, config: GenerationConfig, gen_num:
                 total_marks += qd.get("marks", 1.0)
 
             cfg_dict["subject"] = config.subject or (doc_row.subject if doc_row else "") or "Mathematics"
-            cfg_dict["class_level"] = config.class_level or (doc_row.class_level if doc_row else "") or "10"
+            from app.generation.content_profile import parse_filename_hints
+
+            _hints = parse_filename_hints(doc_row.filename if doc_row else "")
+            _cls = (config.class_level or (doc_row.class_level if doc_row else "") or "").strip()
+            if _hints.get("class_num") and not re.search(r"\d", _cls):
+                _cls = f"Class {_hints['class_num']}"
+            cfg_dict["class_level"] = _cls or "10"
+
+            r = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
+            a = r.scalar_one()
+            a.question_ids = question_ids
+            await db.flush()
+            qr_export = await db.execute(
+                select(Question).where(Question.assessment_id == assessment_id)
+            )
+            export_payload = _questions_for_export(a, qr_export.scalars().all(), polish=True)
+            for i, qd in enumerate(export_payload):
+                qd["order_index"] = i
+                qd["slot_number"] = i + 1
             export_urls = exporter.export_assessment(
-                questions=questions_data,
+                questions=export_payload,
                 config=cfg_dict,
                 assessment_id=assessment_id,
                 teacher_name="Teacher",
                 institution="Assessment Engine",
             )
-
-            r = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
-            a = r.scalar_one()
-            a.question_ids = question_ids
             a.total_marks = total_marks
             a.generation_log = generation_log
             a.pdf_url = export_urls["pdf_url"]
@@ -172,10 +324,7 @@ async def _run_generation(assessment_id: str, config: GenerationConfig, gen_num:
                     if step.get("questions_parsed") == 0 and step.get("llm_response"):
                         fail_hint += "JSON parse may have failed. "
                 merged = dict(cfg_dict)
-                merged["failure_hint"] = fail_hint.strip() or (
-                    "Ensure rag_response.txt exists and backend was restarted. "
-                    "Or click 'finish now' after filling rag_response.txt."
-                )
+                merged["failure_detail"] = fail_hint.strip()
                 a.config = merged
                 await db.commit()
                 logger.error(f"Assessment {assessment_id}: generation produced 0 questions — {fail_hint}")
@@ -186,27 +335,97 @@ async def _run_generation(assessment_id: str, config: GenerationConfig, gen_num:
             logger.info(f"Assessment {assessment_id}: {len(question_ids)} questions, {total_marks} marks")
 
         except Exception as e:
+            from app.generation.generation_oversample import pool_question_count
+
             logger.error(f"Generation failed {assessment_id}: {e}", exc_info=True)
             r = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
             a = r.scalar_one_or_none()
             if a:
-                a.status = "failed"
                 merged = dict(a.config or {})
-                hint = (
-                    f"Generation error: {type(e).__name__}: {e}. "
-                    "Restart backend after code updates; ensure rag_response.txt has "
-                    f"{config.total_questions} questions if using the file agent."
+                merged["failure_detail"] = (
+                    f"{type(e).__name__}: {e} "
+                    f"(pool={pool_question_count(config.total_questions)}, "
+                    f"delivery={config.total_questions})"
                 )
                 from app.generation.rag_file_bridge import RagAgentResponseMissing
 
                 if isinstance(e, RagAgentResponseMissing):
-                    hint = (
-                        f"{e} "
-                        "Enable Cursor Hooks (Settings → Hooks), open an Agent chat for this repo, "
-                        "and let the stop hook write rag_response.txt when rag_query.txt updates. "
-                        "Or click 'I filled rag_response.txt — finish now' on the assessment page."
+                    merged["failure_detail"] = str(e)
+
+                a.generation_log = generation_log
+
+                draft: list = []
+                for step in reversed(generation_log or []):
+                    qs = step.get("questions")
+                    if isinstance(qs, list) and qs:
+                        draft = qs
+                        break
+                if draft:
+                    from app.generation.chapter_concept_classifier import (
+                        resolve_locked_chapter,
                     )
-                merged["failure_hint"] = hint
+                    from app.generation.question_pipeline import prepare_questions_for_storage
+
+                    locked_ch, _, _ = resolve_locked_chapter(
+                        filename=(document_meta or {}).get("filename", ""),
+                        topic_focus=config.topic_focus or "",
+                        context=(draft[0].get("content") if draft else "") or "",
+                    )
+                    draft = prepare_questions_for_storage(draft, chapter=locked_ch)
+                    question_ids, total_marks = [], 0.0
+                    for qd in draft:
+                        q = Question(
+                            document_id=config.document_id,
+                            assessment_id=assessment_id,
+                            content=qd["content"],
+                            question_type=qd.get("question_type"),
+                            difficulty=qd.get("difficulty"),
+                            bloom_level=qd.get("bloom_level"),
+                            options=qd.get("options"),
+                            correct_answer=qd.get("correct_answer"),
+                            explanation=qd.get("explanation"),
+                            marks=qd.get("marks", 1.0),
+                            figure_url=qd.get("figure_url"),
+                            figure_type=qd.get("figure_type"),
+                            figure_spec=qd.get("figure_spec"),
+                            source_chunks=qd.get("source_chunks"),
+                            content_hash=qd.get("content_hash"),
+                            embedding_id=qd.get("embedding_id"),
+                            quality_score=qd.get("quality_score", 0.0),
+                        )
+                        db.add(q)
+                        await db.flush()
+                        question_ids.append(q.id)
+                        total_marks += qd.get("marks", 1.0)
+                    a.question_ids = question_ids
+                    a.total_marks = total_marks
+                    a.generation_log = generation_log
+                    a.status = "ready"
+                    merged.pop("failure_detail", None)
+                    try:
+                        cfg_dict = dict(merged)
+                        cfg_dict["title"] = config.title or "Assessment"
+                        export_urls = exporter.export_assessment(
+                            questions=draft,
+                            config=cfg_dict,
+                            assessment_id=assessment_id,
+                            teacher_name="Teacher",
+                            institution="Assessment Engine",
+                        )
+                        a.pdf_url = export_urls.get("pdf_url")
+                        a.answer_key_url = export_urls.get("answer_key_url")
+                    except Exception as ex:
+                        logger.warning("Partial recovery PDF export failed: %s", ex)
+                    a.config = merged
+                    await db.commit()
+                    logger.info(
+                        "Assessment %s: partial recovery saved %d questions",
+                        assessment_id,
+                        len(question_ids),
+                    )
+                    return
+
+                a.status = "failed"
                 a.config = merged
                 await db.commit()
 
@@ -310,8 +529,6 @@ async def apply_rag_response(
     a = r.scalar_one_or_none()
     if not a:
         raise HTTPException(status_code=404, detail="Not found")
-    if a.status == "ready" and not force:
-        return _to_out(a)
 
     raw = read_rag_response()
     if not raw:
@@ -321,20 +538,66 @@ async def apply_rag_response(
         )
     answer, _ = parse_rag_response(raw)
     cfg = GenerationConfig(**(a.config or {}))
+    from app.generation.generation_oversample import (
+        is_oversample_active,
+        pool_question_count,
+        score_and_select_best,
+    )
+
+    delivery_n = cfg.total_questions
+    pool_n = pool_question_count(delivery_n)
     gen = QuestionGenerator()
     difficulty, bloom_level = QuestionGenerator._resolve_generation_profile(cfg)
     task = {
         "type": cfg.question_types[0] if cfg.question_types else "FigureBased",
         "difficulty": difficulty,
         "bloom_level": bloom_level,
-        "count": cfg.total_questions,
+        "count": pool_n,
+        "delivery_count": delivery_n,
     }
     parsed = gen._parse_llm_output(answer, task, cfg, [])
     if not parsed:
         raise HTTPException(status_code=400, detail="rag_response.txt has no valid JSON array")
 
+    regen_slot_number = _read_regen_slot_number()
+    if not regen_slot_number and len(parsed) == 1:
+        regen_slot_number = int(
+            parsed[0].get("slot_number") or parsed[0].get("id") or 0
+        ) or None
+
+    qr_existing = await db.execute(
+        select(Question).where(Question.assessment_id == assessment_id)
+    )
+    existing_rows = _ordered_questions(a, qr_existing.scalars().all())
+    slot_merge = bool(
+        regen_slot_number
+        and existing_rows
+        and len(parsed) < delivery_n
+        and (a.status == "ready" or force)
+    )
+
+    if a.status == "ready" and not force and not slot_merge:
+        return await _assessment_out_with_questions(a, db)
+
+    if slot_merge:
+        existing_paper = [
+            _question_row_to_dict(q, i + 1) for i, q in enumerate(existing_rows)
+        ]
+        for i, qd in enumerate(existing_paper):
+            qd["slot_number"] = int(qd.get("slot_number") or i + 1)
+            qd["order_index"] = int(qd["slot_number"]) - 1
+        parsed = _merge_regen_slot_into_paper(
+            existing_paper, parsed[0], regen_slot_number
+        )
+        force = True
+        logger.info(
+            "apply-rag-response: merging slot %d into existing %d-question paper",
+            regen_slot_number,
+            len(parsed),
+        )
+
     from app.generation.canonical_question_signature import (
-        filter_zero_duplicate_signatures,
+        disambiguate_duplicate_signatures,
     )
     from app.generation.structural_dedup import filter_structural_duplicates
     from app.generation.theorem_variety_engine import (
@@ -360,7 +623,7 @@ async def apply_rag_response(
     )
     all_prior = merge_prior_stem_lists(db_prior, qdrant_prior, limit=50)
     ok_unique, uniq_issues = validate_unique_vs_priors(parsed, all_prior)
-    if not ok_unique and not force:
+    if not ok_unique and not force and not slot_merge:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -370,17 +633,8 @@ async def apply_rag_response(
             ),
         )
 
-    parsed = filter_zero_duplicate_signatures(parsed)
-    parsed = filter_structural_duplicates(parsed, min_keep=cfg.total_questions)
+    parsed = filter_structural_duplicates(parsed, min_keep=delivery_n)
     parsed = filter_theorem_equivalence_duplicates(parsed)
-
-    if cfg.question_types and any(
-        str(t) == "FigureBased" or (hasattr(t, "value") and t.value == "FigureBased")
-        for t in cfg.question_types
-    ):
-        parsed = gen._prepare_figure_questions(parsed)
-        if settings.ENABLE_FIGURE_GENERATION:
-            parsed = await gen._attach_figures(parsed)
 
     for i, q in enumerate(parsed):
         sn = q.get("slot_number")
@@ -399,6 +653,19 @@ async def apply_rag_response(
         topic_focus=cfg.topic_focus or "",
     )
     locked = topic_state.get("locked_chapter", "generic")
+    parsed = disambiguate_duplicate_signatures(parsed, chapter=locked)
+
+    from app.generation.question_type_resolver import (
+        coerce_exportable_question_types,
+        user_selected_figure_based,
+    )
+
+    if user_selected_figure_based(cfg.question_types):
+        parsed = gen._prepare_figure_questions(parsed)
+        if settings.ENABLE_FIGURE_GENERATION:
+            parsed = await gen._attach_figures(parsed)
+    else:
+        parsed = coerce_exportable_question_types(parsed, locked)
     full_hard = is_full_hard_paper(getattr(cfg, "difficulty_distribution", None))
     mark_theorem_equivalence_duplicates(parsed)
     variety_ok, variety_issues = validate_paper_theorem_variety(
@@ -426,13 +693,162 @@ async def apply_rag_response(
 
     from app.generation.paper_repair import repair_paper_questions
 
-    parsed = repair_paper_questions(parsed, chapter=locked, re_enrich_figures=True)
+    from app.generation.paper_templates import resolve_paper_template
+
+    _apply_tmpl = resolve_paper_template(
+        override=getattr(cfg, "paper_template", None),
+        plan_template_id=topic_state.get("paper_template_id"),
+        chapter=locked,
+        subject=cfg.subject or "Mathematics",
+        class_level=cfg.class_level or "10",
+        question_count=cfg.total_questions,
+        ui_difficulty=difficulty,
+        full_hard=full_hard,
+    )
+
+    parsed = repair_paper_questions(
+        parsed,
+        chapter=locked,
+        re_enrich_figures=True,
+        paper_template_id=_apply_tmpl.id,
+    )
+    from app.generation.paper_repair import fill_missing_paper_slots
+    from app.generation.paper_integrity import normalize_paper_slot_order
+
+    min_required = pool_n if is_oversample_active(delivery_n) and not slot_merge else delivery_n
+    if len(parsed) < min_required and not slot_merge:
+        from app.core.config import settings as app_settings
+
+        if not getattr(app_settings, "ENABLE_LOCAL_LLM_FALLBACK", False):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"rag_response.txt has {len(parsed)} question(s) but "
+                    f"{min_required} required"
+                    + (
+                        f" (pool for best {delivery_n}; ids \"1\"–\"{pool_n}\")"
+                        if is_oversample_active(delivery_n)
+                        else f' (ids "1" through "{delivery_n}")'
+                    )
+                    + " (local template fill is disabled)."
+                ),
+            )
+        parsed = fill_missing_paper_slots(
+            parsed,
+            min_required,
+            chapter=locked,
+            difficulty=difficulty,
+        )
+        parsed = normalize_paper_slot_order(parsed)
+        parsed = repair_paper_questions(
+            parsed,
+            chapter=locked,
+            re_enrich_figures=True,
+            paper_template_id=_apply_tmpl.id,
+        )
     from app.generation.question_pipeline import finalize_questions_list
 
     parsed = finalize_questions_list(parsed)
+    from app.core.config import settings as app_settings
+
+    if getattr(app_settings, "ENABLE_CHAPTER_PAPER_QUALITY", True):
+        from app.generation.chapter_paper_quality import (
+            normalize_chapter_paper_marks,
+            validate_chapter_paper_quality,
+        )
+
+        parsed = normalize_chapter_paper_marks(
+            parsed, chapter=locked, full_hard=full_hard
+        )
+        cq = validate_chapter_paper_quality(parsed, chapter=locked)
+        if not cq.get("chapter_quality_ok") and not slot_merge:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "rag_response.txt failed chapter quality checks: "
+                    + "; ".join(
+                        (cq.get("chapter_quality_critical") or cq.get("chapter_quality_flags", []))[:8]
+                    )
+                ),
+            )
+    if full_hard and not slot_merge:
+        from app.generation.author_styles import resolve_author_style
+        from app.generation.rd_archetypes import get_slot_metadata
+
+        _fh_meta = get_slot_metadata(
+            delivery_n,
+            resolve_author_style(instructions=cfg.instructions or ""),
+            ui_difficulty=difficulty,
+            locked_chapter=locked,
+            full_hard=True,
+            difficulty_distribution=getattr(cfg, "difficulty_distribution", None),
+        )
+        _fh_rejects: list[str] = []
+        for _i, _q in enumerate(parsed[:delivery_n]):
+            if not _q.get("content"):
+                _q["content"] = _q.get("question") or ""
+            _meta = _fh_meta[_i] if _i < len(_fh_meta) else {"full_hard": True, "band": "L5"}
+            if gen.quality.should_reject(
+                _q, ui_difficulty=difficulty, slot_meta=_meta
+            ):
+                _stem = (
+                    _q.get("content")
+                    or _q.get("question")
+                    or ""
+                )[:140]
+                _fh_rejects.append(f"Q{_i + 1}: {_stem}")
+        if _fh_rejects and not force:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "FULL HARD (100%): rag_response.txt has items below L5 depth — "
+                    "use (i)(ii) sub-parts, prove+Hence chains, 5+ answer steps; "
+                    "ban bare Find cos/sin/tan X° one-liners. "
+                    + "; ".join(_fh_rejects[:6])
+                ),
+            )
+        if _fh_rejects and force:
+            logger.warning(
+                "apply-rag-response: full_hard quality warnings (force apply): %s",
+                _fh_rejects[:6],
+            )
+
+    from app.generation.assessment_architect_rules import (
+        evaluate_architect_compliance,
+        validate_paper_architect,
+    )
+
+    for _q in parsed:
+        evaluate_architect_compliance(
+            _q,
+            full_hard=full_hard,
+            locked_chapter=locked,
+            ui_difficulty=difficulty,
+        )
+    _arch_paper = validate_paper_architect(
+        parsed,
+        expected_count=delivery_n,
+        full_hard=full_hard,
+        locked_chapter=locked,
+    )
+    if not _arch_paper.get("paper_architect_ok"):
+        logger.warning(
+            "apply-rag-response paper architect flags: %s",
+            _arch_paper.get("paper_architect_flags"),
+        )
+        if not force and not slot_merge:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "rag_response.txt failed assessment architect paper checks: "
+                    + "; ".join((_arch_paper.get("paper_architect_flags") or [])[:8])
+                ),
+            )
+
+    parsed = coerce_exportable_question_types(parsed, locked)
 
     ok_unique_final, uniq_final = validate_unique_vs_priors(parsed, all_prior)
-    if not ok_unique_final and not force:
+    if not ok_unique_final and not force and not slot_merge:
         raise HTTPException(
             status_code=400,
             detail=(
@@ -442,12 +858,16 @@ async def apply_rag_response(
             ),
         )
 
+    integrity_expected = delivery_n if slot_merge else (
+        pool_n if is_oversample_active(delivery_n) else delivery_n
+    )
     integrity = validate_paper_integrity(
         parsed,
         chapter=locked,
-        expected_count=cfg.total_questions,
+        expected_count=integrity_expected,
+        paper_template_id=_apply_tmpl.id,
     )
-    if not integrity.get("paper_integrity_ok"):
+    if not integrity.get("paper_integrity_ok") and not slot_merge:
         logger.error("apply-rag-response paper integrity failed: %s", integrity)
         raise HTTPException(
             status_code=400,
@@ -456,8 +876,11 @@ async def apply_rag_response(
                 + "; ".join(integrity.get("paper_integrity_flags", [])[:6])
             ),
         )
-    validate_cross_question_consistency(parsed, chapter=locked)
-
+    if not integrity.get("paper_integrity_ok") and slot_merge:
+        logger.warning(
+            "apply-rag-response slot merge: integrity flags logged only: %s",
+            integrity.get("paper_integrity_flags", [])[:6],
+        )
     pre_apply = list(parsed)
     unique = await gen.dedup.filter(
         parsed,
@@ -467,16 +890,16 @@ async def apply_rag_response(
         document_id=cfg.document_id,
         skip_history=False,
     )
-    if len(unique) < cfg.total_questions:
+    if len(unique) < delivery_n or slot_merge:
         logger.warning(
             "apply-rag-response: dedup reduced %d→%d — keeping repaired paper slots",
             len(pre_apply),
             len(unique),
         )
-        unique = pre_apply[: cfg.total_questions]
+        unique = pre_apply[:delivery_n] if slot_merge else pre_apply[:pool_n]
     filtered, _ = filter_questions_by_topic(unique, locked_chapter=locked)
-    if len(filtered) < cfg.total_questions and unique:
-        filtered = unique[: cfg.total_questions]
+    if len(filtered) < delivery_n and unique:
+        filtered = unique[:pool_n]
     if not filtered:
         raise HTTPException(
             status_code=400,
@@ -486,14 +909,71 @@ async def apply_rag_response(
     parsed = sorted(
         filtered,
         key=lambda q: (q.get("slot_number") or 999, q.get("order_index", 0)),
-    )[: cfg.total_questions]
-    if len(parsed) < cfg.total_questions:
+    )[:pool_n]
+    if len(parsed) < delivery_n and not slot_merge:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"After dedup only {len(parsed)}/{cfg.total_questions} questions remain — "
+                f"After dedup only {len(parsed)}/{delivery_n} questions remain — "
                 "regenerate rag_response.txt with unique slots."
             ),
+        )
+    slot_bands = get_slot_bands(
+        len(parsed),
+        ui_difficulty=difficulty,
+        difficulty_distribution=cfg.difficulty_distribution,
+    )
+    slot_meta = get_slot_metadata(
+        len(parsed),
+        resolve_author_style(instructions=cfg.instructions or ""),
+        ui_difficulty=difficulty,
+        locked_chapter=locked,
+        difficulty_distribution=cfg.difficulty_distribution,
+    )
+    if slot_merge:
+        oversample_meta = {"slot_merge": True, "slot": regen_slot_number}
+    else:
+        parsed, oversample_meta = await score_and_select_best(
+            parsed,
+            delivery_n,
+            quality_scorer=gen.quality,
+            ui_difficulty=difficulty,
+            slot_bands=slot_bands,
+            slot_metadata=slot_meta,
+            chapter=locked,
+        )
+        logger.info("apply-rag oversample selection (post-dedup): %s", oversample_meta)
+
+    from app.generation.chapter_paper_quality import validate_all_slots_present
+
+    slots_ok, slot_issues = validate_all_slots_present(parsed, delivery_n)
+    if not slots_ok:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Final paper missing question text for slots: "
+                + ", ".join(slot_issues[:10])
+            ),
+        )
+    validate_cross_question_consistency(parsed, chapter=locked)
+    integrity_final = validate_paper_integrity(
+        parsed,
+        chapter=locked,
+        expected_count=delivery_n,
+        paper_template_id=_apply_tmpl.id,
+    )
+    if not integrity_final.get("paper_integrity_ok") and not slot_merge:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Final paper failed integrity after selection: "
+                + "; ".join(integrity_final.get("paper_integrity_flags", [])[:6])
+            ),
+        )
+    if not integrity_final.get("paper_integrity_ok") and slot_merge:
+        logger.warning(
+            "apply-rag slot merge: final integrity flags logged only: %s",
+            integrity_final.get("paper_integrity_flags", [])[:6],
         )
 
     exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
@@ -503,7 +983,7 @@ async def apply_rag_response(
 
     from app.generation.question_pipeline import finalize_question_dict
 
-    for qd in parsed[: cfg.total_questions]:
+    for qd in parsed[:delivery_n]:
         qd = finalize_question_dict(qd)
         q = Question(
             document_id=cfg.document_id,
@@ -533,36 +1013,59 @@ async def apply_rag_response(
     cfg_dict = cfg.model_dump(mode="json")
     cfg_dict["title"] = a.title or cfg.title or "Assessment"
     cfg_dict["subject"] = cfg.subject or (doc_row.subject if doc_row else "") or "Mathematics"
-    cfg_dict["class_level"] = cfg.class_level or (doc_row.class_level if doc_row else "") or "10"
+    from app.generation.content_profile import parse_filename_hints
+
+    hints = parse_filename_hints(doc_row.filename if doc_row else "")
+    cls = (cfg.class_level or (doc_row.class_level if doc_row else "") or "").strip()
+    if hints.get("class_num") and not re.search(r"\d", cls):
+        cls = f"Class {hints['class_num']}"
+    cfg_dict["class_level"] = cls or "10"
+    a.question_ids = question_ids
+    await db.flush()
+    qr_export = await db.execute(
+        select(Question).where(Question.assessment_id == assessment_id)
+    )
+    export_payload = _questions_for_export(a, qr_export.scalars().all(), polish=True)
+    for i, qd in enumerate(export_payload):
+        qd["order_index"] = i
+        qd["slot_number"] = i + 1
     export_urls = exporter.export_assessment(
-        questions=parsed[: cfg.total_questions],
+        questions=export_payload,
         config=cfg_dict,
         assessment_id=assessment_id,
     )
-    a.question_ids = question_ids
     a.total_marks = total_marks
     a.pdf_url = export_urls["pdf_url"]
     a.answer_key_url = export_urls["answer_key_url"]
     a.status = "ready" if question_ids else "failed"
     prior_log = list(a.generation_log or [])
+    note = (
+        f"Slot {regen_slot_number} updated from rag_response.txt (quality regen)."
+        if slot_merge
+        else (
+            "Final paper saved from rag_response.txt in correct slot order. "
+            "Earlier trace steps above are from the auto-generation run."
+        )
+    )
     prior_log.append(
         {
             "step": "applied_rag",
             "source": "rag_response.txt",
             "questions_applied": len(question_ids),
             "total_marks": total_marks,
-            "note": (
-                "Final paper saved from rag_response.txt in correct slot order (Q1 anchor → Q5 fusion). "
-                "Earlier trace steps above are from the broken auto-generation run."
-            ),
+            "slot_merge": slot_merge,
+            "regen_slot": regen_slot_number,
+            "note": note,
         }
     )
     a.generation_log = prior_log
     await db.commit()
     await db.refresh(a)
-    qr = await db.execute(select(Question).where(Question.assessment_id == assessment_id))
-    out = _to_out(a)
-    out.questions = [_q_to_out(q) for q in _ordered_questions(a, qr.scalars().all())]
+    if slot_merge:
+        from app.generation.rag_file_bridge import clear_regen_pending
+
+        clear_regen_pending()
+    out = await _assessment_out_with_questions(a, db)
     logger.info("Applied rag_response.txt to assessment %s (%s questions)", assessment_id, len(question_ids))
     return out
 
@@ -646,8 +1149,14 @@ async def regenerate_export(assessment_id: str, db: AsyncSession = Depends(get_d
     if doc_row:
         if not (cfg_dict.get("subject") or "").strip():
             cfg_dict["subject"] = doc_row.subject or "Mathematics"
-        if not (cfg_dict.get("class_level") or "").strip():
-            cfg_dict["class_level"] = doc_row.class_level or "10"
+        if doc_row:
+            from app.generation.content_profile import parse_filename_hints
+
+            _rh = parse_filename_hints(doc_row.filename or "")
+            _rcls = (cfg_dict.get("class_level") or doc_row.class_level or "").strip()
+            if _rh.get("class_num") and not re.search(r"\d", _rcls):
+                _rcls = f"Class {_rh['class_num']}"
+            cfg_dict["class_level"] = _rcls or "10"
     cfg_dict.setdefault("subject", "Mathematics")
     cfg_dict.setdefault("class_level", "10")
     cfg_dict["subject"] = (cfg_dict.get("subject") or "").strip() or "Mathematics"
@@ -667,8 +1176,10 @@ async def regenerate_export(assessment_id: str, db: AsyncSession = Depends(get_d
         context=(export_payload[0].get("content") or "") if export_payload else "",
     )
     export_payload = repair_paper_questions(
-        export_payload, chapter=locked or "circles", re_enrich_figures=True
-    )
+        export_payload,
+        chapter=locked or "circles",
+        re_enrich_figures=True,
+    ) if (locked or "").strip().lower() == "circles" else export_payload
     from app.generation.question_pipeline import finalize_questions_list
 
     export_payload = finalize_questions_list(export_payload)
@@ -765,15 +1276,37 @@ def _to_out(a: Assessment) -> AssessmentOut:
     )
 
 
+def _normalize_mcq_options(
+    options: Any, correct_answer: str = ""
+) -> Optional[List[Dict[str, Any]]]:
+    """Groq/LLM often returns options as {A: ..., B: ...}; API schema expects a list."""
+    if not options:
+        return None
+    if isinstance(options, list):
+        return options
+    if isinstance(options, dict):
+        key = (correct_answer or "").strip().upper()[:1]
+        return [
+            {
+                "label": str(label),
+                "text": str(text),
+                "is_correct": str(label).strip().upper()[:1] == key,
+            }
+            for label, text in options.items()
+        ]
+    return None
+
+
 def _q_to_out(q: Question) -> QuestionOut:
     from app.generation.question_pipeline import finalize_question_dict
 
+    opts = _normalize_mcq_options(q.options, q.correct_answer or "")
     qd = finalize_question_dict(
         {
             "content": q.content or "",
             "correct_answer": q.correct_answer or "",
             "explanation": q.explanation or "",
-            "options": q.options,
+            "options": opts,
         }
     )
     return QuestionOut(

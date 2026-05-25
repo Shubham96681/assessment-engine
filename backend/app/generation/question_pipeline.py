@@ -63,6 +63,22 @@ def prepare_questions_after_generation(
             re_enrich_figures=re_enrich_figures,
         )
         qs = finalize_questions_list(qs)
+    from app.core.config import settings
+
+    if settings.ENABLE_CHAPTER_PAPER_QUALITY:
+        from app.generation.chapter_paper_quality import (
+            normalize_chapter_paper_marks,
+            validate_chapter_paper_quality,
+        )
+
+        normalize_chapter_paper_marks(qs, chapter=ch)
+        report = validate_chapter_paper_quality(qs, chapter=ch)
+        if not report.get("chapter_quality_ok"):
+            logger.warning(
+                "Chapter paper quality flags (%s): %s",
+                ch,
+                (report.get("chapter_quality_critical") or report.get("chapter_quality_flags"))[:8],
+            )
     return qs
 
 
@@ -85,10 +101,12 @@ def prepare_questions_for_export_payload(
     chapter: str = "generic",
     re_enrich_figures: bool = True,
 ) -> List[Dict[str, Any]]:
-    """Before PDF build (regenerate-export, apply-rag): repair + sanitize."""
+    """Before PDF build: sanitize only for non-geometry chapters (avoid stem swaps)."""
+    ch = (chapter or "generic").strip().lower() or "generic"
+    repair = ch == "circles"
     return prepare_questions_after_generation(
         questions,
-        chapter=chapter,
-        repair=True,
+        chapter=ch,
+        repair=repair,
         re_enrich_figures=re_enrich_figures,
     )

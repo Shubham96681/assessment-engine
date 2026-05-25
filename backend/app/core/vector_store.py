@@ -30,6 +30,7 @@ if settings.VECTOR_STORE_BACKEND.lower() == "qdrant":
             (settings.QDRANT_COLLECTION_DOCUMENTS, VECTOR_SIZE),
             (settings.QDRANT_COLLECTION_QUESTIONS, VECTOR_SIZE),
             (settings.QDRANT_COLLECTION_HISTORY, VECTOR_SIZE),
+            (settings.QDRANT_COLLECTION_CBSE_REFERENCE, VECTOR_SIZE),
         ]
         existing = {c.name for c in (await qdrant_client.get_collections()).collections}
         for name, size in collections:

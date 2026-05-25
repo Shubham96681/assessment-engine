@@ -22,7 +22,9 @@ _GLUE_BUGS = re.compile(
     re.I,
 )
 _FUSION_MARK = re.compile(
-    r"configuration\s+of\s+question\s+1|using\s+the\s+configuration\s+in\s+question\s+1",
+    r"configuration\s+of\s+question\s+1|"
+    r"using\s+the\s+configuration\s+in\s+question\s+1|"
+    r"using\s+(?:the\s+)?outer\s+circle\s+from\s+question\s+1",
     re.I,
 )
 _Q5_OG_PHRASE = re.compile(r"\bfrom\s+O\b", re.I)

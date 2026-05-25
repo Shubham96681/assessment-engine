@@ -51,6 +51,33 @@ def test_validate_rejects_same_skeleton():
     assert issues
 
 
+def test_trig_uniqueness_block_avoids_circle_vocabulary():
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    block = build_rag_uniqueness_block(
+        generation_num=1,
+        prior_stems=[],
+        chapter="trigonometry",
+        question_count=5,
+        full_hard=True,
+    )
+    low = block.lower()
+    assert "concentric" not in low
+    assert "tangent–secant" not in low and "tangent-secant" not in low
+    pack = get_chapter_rule_pack("trigonometry")
+    assert pack.cognitive_blueprint_5[0].lower() in low
+
+
+def test_quadratic_role_chain_from_rule_pack():
+    from app.generation.chapter_prompt_config import uniqueness_role_chain
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    chain = uniqueness_role_chain("quadratic", full_hard=False, ui_difficulty="hard")
+    assert "discriminant" in chain.lower() or "factorisation" in chain.lower()
+    assert "concentric" not in chain.lower()
+    assert get_chapter_rule_pack("quadratic").cognitive_blueprint_5[0].lower() in chain.lower()
+
+
 def test_label_rotation_changes_with_generation_num():
     r1 = pick_label_rotation(1, [])
     r2 = pick_label_rotation(2, [])

@@ -17,7 +17,12 @@ from app.generation.tangent_secant_values import _divisors
 
 _FUSION_RE = re.compile(
     r"using\s+(?:the\s+)?outer\s+circle\s+from\s+question\s+1|"
-    r"configuration\s+of\s+question\s+1",
+    r"configuration\s+of\s+question\s+1|"
+    r"using\s+the\s+configuration\s+in\s+question\s+1",
+    re.I,
+)
+_FROM_POINT_OW_RE = re.compile(
+    r"\bHence,?\s*from\s+point\s+[A-Z]\s+with\s+O[A-Z]\s*=\s*\d+(?:\.\d+)?\s*cm\b",
     re.I,
 )
 _OG_RE = re.compile(
@@ -131,6 +136,53 @@ def fusion_values_are_clean(outer_r: float, og: float, gj: float) -> bool:
     return og_i == best_og and gj_i == best_gj
 
 
+def _fusion_stem_needs_from_o(stem: str) -> bool:
+    if not stem or re.search(r"\bfrom\s+O\b", stem, re.I):
+        return False
+    return bool(_FUSION_RE.search(stem))
+
+
+def ensure_fusion_from_o_phrase(
+    stem: str,
+    outer_r: float,
+    *,
+    seed: int = 0,
+) -> Tuple[str, bool]:
+    """Inject board-standard 'point G … from O; tangent GH' when fusion cite lost it."""
+    if not _fusion_stem_needs_from_o(stem) or outer_r <= 0:
+        return stem, False
+    og, gj, _, _ = find_best_fusion_givens(outer_r, seed=seed)
+    tan_m = re.search(r"\btangent\s+([A-Z]{2})\b", stem, re.I)
+    tan = tan_m.group(1).upper() if tan_m else "GH"
+    contact = tan[1]
+    phrase = (
+        f"point G is {og} cm from O; tangent {tan} touches the outer circle at {contact}; "
+        f"secant GJK with GJ = {gj} cm"
+    )
+    new = stem
+    if _FROM_POINT_OW_RE.search(new):
+        new = _FROM_POINT_OW_RE.sub(f"Hence {phrase}", new, count=1)
+    elif re.search(r"\(\s*ii\s*\)", new, re.I):
+        new = re.sub(
+            r"\(\s*ii\s*\)\s*.*",
+            f"(ii) Hence {phrase}. Find GK and verify GH² = GJ × GK.",
+            new,
+            count=1,
+            flags=re.I | re.S,
+        )
+    elif "hence" in new.lower():
+        new = re.sub(
+            r"\bHence,?\s*.*",
+            f"Hence {phrase}. Find GK and verify GH² = GJ × GK.",
+            new,
+            count=1,
+            flags=re.I | re.S,
+        )
+    else:
+        new = f"{new.rstrip()} Hence {phrase}."
+    return new, new != stem
+
+
 def repair_fusion_q5_stem(
     stem: str,
     outer_r: float,
@@ -138,11 +190,14 @@ def repair_fusion_q5_stem(
     seed: int = 0,
 ) -> Tuple[str, bool]:
     """Replace OG / GJ in fusion Q5 when GK is decimal or GH² is messy."""
+    injected = False
+    if outer_r > 0 and _fusion_stem_needs_from_o(stem) and not _OG_RE.search(stem):
+        stem, injected = ensure_fusion_from_o_phrase(stem, outer_r, seed=seed)
     if not _is_fusion_stem(stem) or outer_r <= 0:
-        return stem, False
+        return stem, injected
     parsed = parse_fusion_givens(stem)
     if parsed and fusion_values_are_clean(outer_r, parsed["OG"], parsed["GJ"]):
-        return stem, False
+        return stem, injected
 
     og, gj, gh, gk = find_best_fusion_givens(outer_r, seed=seed)
     new = stem

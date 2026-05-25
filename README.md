@@ -22,8 +22,8 @@ Details: [RAG_FILE_AGENT.md](./RAG_FILE_AGENT.md)
 
 - **Frontend:** Next.js 16 → port 3000  
 - **Backend:** FastAPI → port 8000  
-- **Postgres:** Docker → port **5433**  
-- **Qdrant:** Docker → port 6333  
+- **Vectors:** FAISS (local, `backend/data/faiss` — no Docker)  
+- **Postgres/SQLite:** metadata + assessments (SQLite default; optional Docker Postgres on **5433**)  
 
 ## Docs
 

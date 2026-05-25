@@ -27,6 +27,8 @@ TAG_DIAGRAM_ONLY_PROOF = "diagram_only_proof"
 TAG_DIRECT_THEOREM_APPLICATION = "direct_theorem_application"
 TAG_TAUTOLOGICAL_PERP = "tautological_perp_proof"
 TAG_SCAFFOLDED_CHORD = "scaffolded_chord_length"
+TAG_TRIVIAL_TRIG_FIND = "trivial_trig_value_find"
+TAG_PROOF_WITHOUT_HENCE = "proof_without_hence"
 
 _BAND_ORDER = {"L1": 1, "L2": 2, "L3": 3, "L4": 4, "L5": 5}
 
@@ -50,6 +52,8 @@ FULL_HARD_FORBIDDEN_ALL_SLOTS: Tuple[str, ...] = (
     TAG_DIRECT_THEOREM_APPLICATION,
     TAG_TAUTOLOGICAL_PERP,
     TAG_SCAFFOLDED_CHORD,
+    TAG_TRIVIAL_TRIG_FIND,
+    TAG_PROOF_WITHOUT_HENCE,
 )
 
 # Minimum solution band by blueprint slot band (hard UI only)
@@ -162,6 +166,17 @@ def classify_stem(stem: str) -> List[str]:
     ) and TAG_DIRECT_PYTHAGORAS not in tags:
         tags.append(TAG_HIDDEN_TRAP)
     if re.search(
+        r"\bfind\s+(?:sin|cos|tan|sec|cosec|cot)\s*\(?\s*-?\d+",
+        low,
+    ) and not re.search(r"\(i\)|\(ii\)|\(iii\)|\bor\b", low):
+        if len(low.split()) < 22:
+            tags.append(TAG_TRIVIAL_TRIG_FIND)
+    if re.search(r"\bprove\b", low) and not re.search(
+        r"\bhence\b|\bor\b.*\bhence\b|\(ii\)", low
+    ):
+        if re.search(r"\bsin\s*2|cos\s*\(|tan\s*\(|identity", low):
+            tags.append(TAG_PROOF_WITHOUT_HENCE)
+    if re.search(
         r"\b\d+\s*[²^2]\s*\+\s*\d+\s*[²^2]\s*=\s*\d+\s*[²^2]|\br\s*[²^2]\s*\+",
         stem,
         re.I,
@@ -273,11 +288,31 @@ def evaluate_hard_mode(
             }
     else:
         stem_tags = classify_stem(stem)
+
+    from app.generation.assessment_architect_rules import evaluate_architect_compliance
+
+    arch = evaluate_architect_compliance(
+        q,
+        full_hard=full_hard,
+        locked_chapter=chapter,
+        ui_difficulty=ui,
+    )
+    arch_flags = arch.get("architect_flags") or []
+    if arch_flags:
+        flags_pre: List[str] = list(arch_flags)
+        if not arch.get("architect_ok") and full_hard:
+            return {
+                "hard_mode_ok": False,
+                "hard_mode_score": min(0.35, arch.get("architect_score", 0.3)),
+                "hard_mode_flags": flags_pre + ["architect_protocol_fail"],
+                "stem_tags": stem_tags,
+            }
+
     sol = score_solution_difficulty(q)
     q.update(sol)
 
-    flags: List[str] = []
-    score = 1.0
+    flags: List[str] = list(arch_flags)
+    score = min(1.0, arch.get("architect_score", 1.0))
     band = slot_band or meta.get("band", "L3")
     min_sol = (
         FULL_HARD_SLOT_MIN_SOLUTION_BAND.get(band, "L5")
@@ -429,6 +464,13 @@ def should_reject_hard_mode(
         "full_hard_slot_band",
         "full_hard_solution_graph_below_L5",
         "full_hard_too_few_steps",
+        "trivial_trig",
+        "proof_without",
+        "architect_forbidden_hard",
+        "architect_protocol_fail",
+        "architect_full_hard_stem_too_short",
+        "architect_forbidden_angle",
+        "hence_verify_definition",
     )
     if locked_chapter == "quadratic" and any("geometry_leak" in f for f in flags):
         return True

@@ -216,6 +216,9 @@ def resolve_paper_template(
     if ch == "circles" and hard and question_count >= 3:
         return PAPER_TEMPLATES["chained_concentric"]
 
+    if ch == "trigonometry" and hard and question_count >= 3:
+        return PAPER_TEMPLATES["mixed_independent"]
+
     if ch in ("triangles", "similarity") and hard and question_count >= 3:
         return PAPER_TEMPLATES.get("chained_triangle") or PAPER_TEMPLATES["mixed_independent"]
 

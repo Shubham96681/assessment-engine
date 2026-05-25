@@ -13,7 +13,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/3] Starting infrastructure (PostgreSQL + Redis + Qdrant)...
+echo [1/3] Starting infrastructure (PostgreSQL + Redis — FAISS is local, no Qdrant)...
 cd /d %~dp0docker
 docker compose up -d
 echo       Waiting 10 seconds for services to initialize...
@@ -31,7 +31,7 @@ echo   System is starting!
 echo   Backend:  http://localhost:8000
 echo   API Docs: http://localhost:8000/api/docs
 echo   Frontend: http://localhost:3000
-echo   Qdrant:   http://localhost:6333/dashboard
+echo   Vectors:  FAISS at backend/data/faiss (no Docker)
 echo ============================================
 echo.
 pause

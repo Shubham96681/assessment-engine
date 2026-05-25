@@ -143,6 +143,48 @@ THEOREM_META: Dict[str, Dict[str, Any]] = {
         "cognitive_type": "hots_fusion",
         "combines_with": ["pythagoras"],
     },
+    "radian_degree_conversion": {
+        "difficulty": "easy",
+        "importance": "required",
+        "weight": 1.0,
+        "cognitive_type": "computation",
+        "combines_with": ["standard_angle_values"],
+    },
+    "standard_angle_values": {
+        "difficulty": "easy",
+        "importance": "important",
+        "weight": 0.85,
+        "cognitive_type": "computation",
+        "combines_with": ["radian_degree_conversion"],
+    },
+    "quadrant_reduction": {
+        "difficulty": "medium",
+        "importance": "important",
+        "weight": 0.85,
+        "cognitive_type": "computation",
+        "combines_with": ["pythagorean_identity"],
+    },
+    "pythagorean_identity": {
+        "difficulty": "medium",
+        "importance": "required",
+        "weight": 1.0,
+        "cognitive_type": "proof",
+        "combines_with": ["quadrant_reduction"],
+    },
+    "ratio_from_one_trig": {
+        "difficulty": "medium",
+        "importance": "required",
+        "weight": 1.0,
+        "cognitive_type": "computation",
+        "combines_with": ["quadrant_reduction"],
+    },
+    "identity_proof_chain": {
+        "difficulty": "hard",
+        "importance": "important",
+        "weight": 0.85,
+        "cognitive_type": "proof",
+        "combines_with": ["pythagorean_identity"],
+    },
 }
 
 COGNITIVE_TYPES = (
@@ -255,6 +297,38 @@ CHAPTER_THEOREM_CATALOG: Dict[str, List[Dict[str, str]]] = {
             "archetype_id": "proof_derive",
         },
     ],
+    "trigonometry": [
+        {
+            "id": "radian_degree_conversion",
+            "label": "Radian and degree measure conversion",
+            "archetype_id": "radian_degree",
+        },
+        {
+            "id": "standard_angle_values",
+            "label": "Trigonometric ratios of standard angles",
+            "archetype_id": "standard_angle",
+        },
+        {
+            "id": "quadrant_reduction",
+            "label": "Reduction of trigonometric ratios to acute angles",
+            "archetype_id": "quadrant_reduction",
+        },
+        {
+            "id": "pythagorean_identity",
+            "label": "Pythagorean identity and basic identities",
+            "archetype_id": "identity_prove",
+        },
+        {
+            "id": "ratio_from_one_trig",
+            "label": "Find other ratios when one ratio is given",
+            "archetype_id": "ratio_find",
+        },
+        {
+            "id": "identity_proof_chain",
+            "label": "Prove trigonometric identities",
+            "archetype_id": "identity_prove",
+        },
+    ],
 }
 
 _THEOREM_DETECT: List[tuple[str, str, str]] = [
@@ -269,6 +343,12 @@ _THEOREM_DETECT: List[tuple[str, str, str]] = [
     (r"factoris", "quadratic", "factorisation_method"),
     (r"quadratic\s+formula", "quadratic", "quadratic_formula"),
     (r"area.*breadth|length.*breadth|word\s+problem", "quadratic", "area_word_problem"),
+    (r"radian|degree\s+measure", "trigonometry", "radian_degree_conversion"),
+    (r"\bsin\s*\(|\bcos\s*\(|\btan\s*\(", "trigonometry", "standard_angle_values"),
+    (r"quadrant|reduction|ASTC", "trigonometry", "quadrant_reduction"),
+    (r"prove\s+that.*\b(?:sin|cos|tan|sec|cosec|cot)\b", "trigonometry", "identity_proof_chain"),
+    (r"identity|1\s*\+\s*tan", "trigonometry", "pythagorean_identity"),
+    (r"if\s+sin|if\s+cos|find\s+(?:sin|cos|tan)", "trigonometry", "ratio_from_one_trig"),
 ]
 
 
@@ -284,15 +364,29 @@ def infer_required_theorems(
     max_theorems: int = 6,
 ) -> List[Dict[str, str]]:
     """
-    Build required_theorems list for TopicAgent / blueprint.
-    Merges chapter catalog defaults with PDF-detected signals.
+    Theorem plan from the uploaded PDF first; catalog only if PDF has no signals.
     """
+    from app.generation.pdf_content_analyzer import (
+        extract_skill_concepts_from_pdf,
+        extract_theorems_from_pdf,
+    )
+
+    text = (blob or "") + " " + " ".join(subtopics or [])
+
+    pdf_theorems = extract_theorems_from_pdf(text, subtopics, max_theorems=max_theorems)
+    if pdf_theorems:
+        return enrich_required_theorems(pdf_theorems)
+
+    skills = extract_skill_concepts_from_pdf(text, chapter, max_items=max_theorems)
+    if skills:
+        return enrich_required_theorems(skills)
+
+    # Pattern-linked catalog entries only when PDF mentions matching ideas
     catalog = {t["id"]: t for t in catalog_for_chapter(chapter)}
     if not catalog:
         return []
 
     found: List[str] = []
-    text = (blob or "") + " " + " ".join(subtopics or [])
     low = text.lower()
     for pattern, ch, tid in _THEOREM_DETECT:
         if ch != chapter and chapter != "generic":
@@ -300,16 +394,11 @@ def infer_required_theorems(
         if re.search(pattern, low, re.I) and tid not in found:
             found.append(tid)
 
-    ordered: List[Dict[str, str]] = []
-    for tid in found:
-        if tid in catalog:
-            ordered.append(catalog[tid])
+    ordered: List[Dict[str, str]] = [catalog[tid] for tid in found if tid in catalog]
+    if ordered:
+        return enrich_required_theorems(ordered[:max_theorems])
 
-    for t in catalog_for_chapter(chapter):
-        if t["id"] not in {x["id"] for x in ordered}:
-            ordered.append(t)
-
-    return enrich_required_theorems(ordered[:max_theorems])
+    return []
 
 
 def enrich_required_theorems(theorems: List[Dict[str, str]]) -> List[Dict[str, str]]:

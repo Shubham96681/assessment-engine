@@ -128,6 +128,12 @@ def repair_slot_by_number(
     return sanitize_question_fields(out)
 
 
+def _local_templates_enabled() -> bool:
+    from app.core.config import settings
+
+    return bool(getattr(settings, "ENABLE_LOCAL_LLM_FALLBACK", False))
+
+
 def _slot_index(q: Dict[str, Any], fallback: int) -> int:
     sn = q.get("slot_number")
     if sn is not None and int(sn) >= 1:
@@ -155,14 +161,25 @@ def repair_duplicate_signatures(
             x.get("order_index", 0),
         ),
     )
-    annotate_canonical_signatures(ordered)
+    from app.generation.canonical_question_signature import (
+        disambiguate_duplicate_signatures,
+    )
+
+    annotate_canonical_signatures(ordered, chapter=chapter)
+    disambiguate_duplicate_signatures(ordered, chapter=chapter)
     seen: Dict[str, int] = {}
     out: List[Dict[str, Any]] = []
     for i, q in enumerate(ordered):
         q = dict(q)
         slot = int(q.get("slot_number") or (i + 1))
-        sig = q.get("canonical_signature") or build_canonical_signature(q).key()
+        sig = q.get("canonical_signature") or build_canonical_signature(
+            q, chapter=chapter
+        ).key()
         if sig in seen:
+            if not _local_templates_enabled():
+                seen[sig] = slot
+                out.append(q)
+                continue
             replacement = local_slot_question_dict(
                 slot - 1,
                 locked_chapter=chapter,
@@ -171,11 +188,16 @@ def repair_duplicate_signatures(
             replacement["slot_number"] = slot
             replacement["order_index"] = q.get("order_index", slot - 1)
             replacement["content"] = replacement.get("question", "")
-            replacement["question_type"] = replacement.get("type", "FigureBased")
+            from app.generation.question_type_resolver import resolve_slot_question_type
+
+            replacement["question_type"] = resolve_slot_question_type(
+                chapter, slot - 1, replacement.get("type", "")
+            )
+            replacement["type"] = replacement["question_type"]
             replacement["paper_repaired"] = True
             replacement["signature_repaired"] = True
             q = sanitize_question_fields(replacement)
-            sig = build_canonical_signature(q).key()
+            sig = build_canonical_signature(q, chapter=chapter).key()
         seen[sig] = slot
         out.append(q)
     return out
@@ -188,9 +210,7 @@ def fill_missing_paper_slots(
     chapter: str = "circles",
     difficulty: str = "medium",
 ) -> List[Dict[str, Any]]:
-    """Insert local template questions for any missing slot numbers 1..N."""
-    from app.generation.local_llm import local_slot_question_dict
-
+    """Insert gap-fill questions for missing slots 1..N (local templates only if enabled)."""
     by_slot: Dict[int, Dict[str, Any]] = {}
     for q in questions:
         sn = int(q.get("slot_number") or 0)
@@ -198,13 +218,30 @@ def fill_missing_paper_slots(
             by_slot[sn] = q
     for slot in range(1, expected_count + 1):
         if slot not in by_slot:
+            if not _local_templates_enabled():
+                import logging
+
+                logging.getLogger(__name__).error(
+                    "Slot %d missing — provide %d questions in rag_response.txt "
+                    "(ENABLE_LOCAL_LLM_FALLBACK is false; no template fill).",
+                    slot,
+                    expected_count,
+                )
+                continue
+            from app.generation.local_llm import local_slot_question_dict
+
             fill = local_slot_question_dict(
                 slot - 1, locked_chapter=chapter, difficulty=difficulty
             )
             fill["slot_number"] = slot
             fill["order_index"] = slot - 1
             fill["content"] = fill.get("question", "")
-            fill["question_type"] = fill.get("type", "FigureBased")
+            from app.generation.question_type_resolver import resolve_slot_question_type
+
+            fill["question_type"] = resolve_slot_question_type(
+                chapter, slot - 1, fill.get("type", "")
+            )
+            fill["type"] = fill["question_type"]
             fill["paper_repaired"] = True
             fill["slot_gap_filled"] = True
             by_slot[slot] = sanitize_question_fields(fill)
@@ -272,13 +309,68 @@ def repair_duplicate_slot_stems(
     return out
 
 
+def repair_mixed_independent_slot_roles(
+    questions: List[Dict[str, Any]],
+    *,
+    chapter: str = "circles",
+    paper_template_id: str = "",
+    difficulty: str = "medium",
+) -> List[Dict[str, Any]]:
+    """Replace slots that violate mixed_independent roles (no Q1 refs in slots 1–4)."""
+    from app.generation.paper_integrity import (
+        _is_mixed_independent_template,
+        question_matches_slot_role,
+    )
+    from app.generation.local_llm import local_slot_question_dict
+
+    if chapter != "circles" or not _is_mixed_independent_template(paper_template_id):
+        return questions
+
+    ordered = sorted(
+        questions,
+        key=lambda x: (_slot_index(x, 99), x.get("order_index", 0)),
+    )
+    out: List[Dict[str, Any]] = []
+    for i, q in enumerate(ordered):
+        slot = _slot_index(q, i + 1)
+        if question_matches_slot_role(
+            q, slot, chapter=chapter, paper_template_id=paper_template_id
+        ):
+            out.append(q)
+            continue
+        if not _local_templates_enabled():
+            out.append(q)
+            continue
+        from app.generation.local_llm import local_slot_question_dict
+
+        replacement = local_slot_question_dict(
+            slot - 1,
+            locked_chapter=chapter,
+            difficulty=difficulty,
+            paper_template_id=paper_template_id,
+        )
+        replacement["slot_number"] = slot
+        replacement["order_index"] = q.get("order_index", slot - 1)
+        replacement["content"] = replacement.get("question", "")
+        from app.generation.question_type_resolver import resolve_slot_question_type
+
+        replacement["question_type"] = resolve_slot_question_type(
+            chapter, slot - 1, replacement.get("type", "")
+        )
+        replacement["type"] = replacement["question_type"]
+        replacement["paper_repaired"] = True
+        replacement["slot_role_repaired"] = f"mixed_independent_slot{slot}"
+        out.append(sanitize_question_fields(replacement))
+    return out
+
+
 def repair_fusion_slot5_in_paper(
     questions: List[Dict[str, Any]],
     *,
     chapter: str = "circles",
 ) -> List[Dict[str, Any]]:
     """Slot 5 fusion — clean OG/GJ given outer R from Q1."""
-    if chapter != "circles" or len(questions) < 5:
+    if chapter != "circles" or not questions:
         return questions
     ordered = sorted(
         questions,
@@ -287,11 +379,9 @@ def repair_fusion_slot5_in_paper(
             x.get("order_index", 0),
         ),
     )
-    q1 = ordered[0]
-    q5 = ordered[4] if len(ordered) >= 5 else None
-    if not q5:
-        by_slot = {int(q.get("slot_number") or 0): q for q in ordered}
-        q5 = by_slot.get(5)
+    by_slot = {int(q.get("slot_number") or 0): q for q in ordered}
+    q1 = by_slot.get(1) or ordered[0]
+    q5 = by_slot.get(5) or (ordered[4] if len(ordered) >= 5 else None)
     if not q5:
         return questions
     outer_r = outer_radius_from_paper(q1.get("content") or q1.get("question") or "")
@@ -319,8 +409,23 @@ def repair_paper_questions(
     *,
     chapter: str = "circles",
     re_enrich_figures: bool = True,
+    paper_template_id: str = "",
 ) -> List[Dict[str, Any]]:
     """Apply all automatic repairs in slot order."""
+    if not paper_template_id:
+        try:
+            from app.generation.topic_isolation import get_current_topic_state
+
+            paper_template_id = (get_current_topic_state() or {}).get(
+                "paper_template_id", ""
+            ) or ""
+        except Exception:
+            paper_template_id = ""
+    questions = repair_mixed_independent_slot_roles(
+        questions,
+        chapter=chapter,
+        paper_template_id=paper_template_id,
+    )
     questions = repair_duplicate_slot_stems(questions, chapter=chapter)
     questions = repair_fusion_slot5_in_paper(questions, chapter=chapter)
     questions = repair_duplicate_signatures(questions, chapter=chapter)

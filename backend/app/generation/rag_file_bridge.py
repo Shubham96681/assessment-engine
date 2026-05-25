@@ -65,6 +65,15 @@ def write_rag_query(
             parts.append(
                 "TOPIC CHANGED: previous rag_response.txt was cleared — write a NEW response.\n"
             )
+    if document_meta and topic_state:
+        meta_id = str(document_meta.get("document_id") or "").strip()
+        state_id = str(topic_state.get("document_id") or "").strip()
+        if meta_id and state_id and meta_id != state_id:
+            parts.append(
+                "DOCUMENT MISMATCH WARNING: rag_query document_id does not match "
+                f"current topic state ({state_id}). Use the SELECTED DOCUMENT below only "
+                "if this assessment was created for that PDF.\n"
+            )
     if document_meta:
         parts.append("SELECTED DOCUMENT:")
         for key in (
@@ -326,7 +335,7 @@ async def request_rag_file_response(
                 if isinstance(items, list) and len(items) == 1 and items[0].get("id"):
                     logger.warning(
                         "rag_response has 1 item (id=%s) — full papers need ids 1..N; "
-                        "other slots will use per-slot regen or local templates",
+                        "other slots need per-slot Cursor regen or a full rag_response with all ids",
                         items[0].get("id"),
                     )
             except json.JSONDecodeError:

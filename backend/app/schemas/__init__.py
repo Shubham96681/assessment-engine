@@ -110,7 +110,7 @@ class TheoremCoverageOut(BaseModel):
 
 
 class TopicProfileOut(BaseModel):
-    document_id: str
+    document_id: str = ""
     primary_topic: str
     locked_chapter: str
     locked_chapter_source: str = ""
@@ -150,7 +150,19 @@ class MarksPerType(BaseModel):
 
 
 class GenerationConfig(BaseModel):
-    document_id: str
+    document_id: Optional[str] = None
+    use_chapter_pdf: bool = Field(
+        default=False,
+        description="When true and document_id is set, RAG uses the uploaded chapter PDF. When false, CBSE topic-only mode.",
+    )
+    source_document_id: Optional[str] = Field(
+        default=None,
+        description="User-selected PDF id when use_chapter_pdf is false (stored for reference only).",
+    )
+    locked_chapter: Optional[str] = Field(
+        default=None,
+        description="Chapter key from /chapters (e.g. trigonometry, circles). Required for topic-only generation.",
+    )
     title: Optional[str] = "Assessment"
     question_types: List[QuestionType] = [QuestionType.MCQ, QuestionType.SHORT_ANSWER]
     difficulty_distribution: DifficultyDistribution = DifficultyDistribution()

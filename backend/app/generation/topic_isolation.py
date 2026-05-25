@@ -47,12 +47,17 @@ def clear_topic_cache(
     On document/chapter switch: invalidate stale rag_response, archive old pair,
     reset regen pending. Returns new topic state dict.
     """
-    locked_chapter, source, confidence = resolve_locked_chapter(
-        filename=filename,
-        topic_focus=topic_focus,
-        context=context,
-    )
     prev = _read_state()
+    ctx = (context or "").strip()
+    if prev.get("document_id") == document_id:
+        subs = prev.get("subtopics") or (prev.get("topic_map") or {}).get("subtopics") or []
+        if subs:
+            ctx = f"{ctx}\n" + "\n".join(str(s) for s in subs[:20])
+    locked_chapter, source, confidence = resolve_locked_chapter(
+        filename=filename or prev.get("filename", ""),
+        topic_focus=topic_focus or prev.get("topic_focus", ""),
+        context=ctx,
+    )
     changed = (
         prev.get("document_id") != document_id
         or prev.get("locked_chapter") != locked_chapter
@@ -80,13 +85,30 @@ def clear_topic_cache(
 
     state = {
         "document_id": document_id,
-        "filename": filename,
-        "topic_focus": topic_focus,
+        "filename": filename or prev.get("filename", ""),
+        "topic_focus": topic_focus or prev.get("topic_focus", ""),
         "locked_chapter": locked_chapter,
         "locked_chapter_source": source,
         "confidence": confidence,
         "topic_changed": changed,
     }
+    if prev.get("document_id") == document_id:
+        for key in (
+            "topic_map",
+            "primary_topic",
+            "subtopics",
+            "required_theorems",
+            "retrieval_confidence",
+            "generation_mode",
+            "paper_template_id",
+        ):
+            if prev.get(key) is not None:
+                state[key] = prev[key]
+        if locked_chapter != prev.get("locked_chapter"):
+            state["topic_map"] = dict(state.get("topic_map") or {})
+            state["topic_map"]["locked_chapter"] = locked_chapter
+            state["topic_map"]["locked_chapter_source"] = source
+            state["topic_map"]["confidence"] = confidence
     _write_state(state)
     return state
 
@@ -107,7 +129,48 @@ def persist_paper_template_id(template_id: str) -> None:
 
 def save_topic_map(topic_map: dict) -> None:
     """Merge extracted topic/subtopics into rag_topic_state.json."""
+    from app.generation.chapter_concept_classifier import (
+        refine_locked_chapter,
+        resolve_locked_chapter,
+    )
+
     state = _read_state()
+    filename = topic_map.get("filename") or state.get("filename", "")
+    topic_focus = topic_map.get("topic_focus") or state.get("topic_focus", "")
+    subtopics = topic_map.get("subtopics") or []
+    blob = " ".join(subtopics[:20])
+
+    from app.generation.pdf_content_analyzer import infer_locked_chapter_from_pdf
+
+    pdf_ch, pdf_src, pdf_conf = infer_locked_chapter_from_pdf(
+        blob=blob,
+        filename=filename,
+        topic_focus=topic_focus,
+        subtopics=subtopics,
+    )
+    refined_ch, refined_src, refined_conf = refine_locked_chapter(
+        pdf_ch,
+        pdf_src,
+        pdf_conf,
+        filename=filename,
+        context=blob,
+        subtopics=subtopics,
+    )
+    locked = refined_ch
+    locked_src = refined_src
+    locked_conf = refined_conf
+
+    topic_map = dict(topic_map)
+    topic_map["locked_chapter"] = locked
+    topic_map["locked_chapter_source"] = locked_src
+    topic_map["confidence"] = round(locked_conf, 3)
+    from app.generation.theorem_coverage import infer_required_theorems
+
+    topic_map["required_theorems"] = infer_required_theorems(
+        locked, blob, subtopics
+    )
+
+
     state["topic_map"] = topic_map
     state["primary_topic"] = topic_map.get("primary_topic", "")
     state["subtopics"] = topic_map.get("subtopics", [])
@@ -119,9 +182,9 @@ def save_topic_map(topic_map: dict) -> None:
         state["memory_prompt"] = topic_map["memory_prompt"]
     if topic_map.get("student_skill_block"):
         state["student_skill_block"] = topic_map["student_skill_block"]
-    state["locked_chapter"] = topic_map.get(
-        "locked_chapter", state.get("locked_chapter", "generic")
-    )
+    state["locked_chapter"] = locked
+    state["locked_chapter_source"] = locked_src
+    state["confidence"] = locked_conf
     if topic_map.get("paper_template_id"):
         state["paper_template_id"] = str(topic_map["paper_template_id"]).strip()
     _write_state(state)

@@ -1,10 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getDashboardStats, getApiBaseUrl } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from "recharts";
 import { FileText, Sparkles, Target, Activity } from "lucide-react";
 import Link from "next/link";
+
+const CHART_HEIGHT = 256;
+
+/** Recharts needs a real pixel size — avoid width/height -1 on first paint. */
+function ChartPanel({
+  data,
+  emptyLabel,
+  children,
+}: {
+  data: { name: string; value: unknown }[];
+  emptyLabel: string;
+  children: ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!data.length) {
+    return (
+      <div
+        className="flex items-center justify-center text-slate-500 text-sm"
+        style={{ height: CHART_HEIGHT }}
+      >
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  if (!mounted) {
+    return (
+      <div
+        className="flex items-center justify-center text-slate-500 text-sm"
+        style={{ height: CHART_HEIGHT }}
+      >
+        Loading chart…
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full min-w-0" style={{ height: CHART_HEIGHT }}>
+      <ResponsiveContainer width="100%" height={CHART_HEIGHT} minWidth={0}>
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -89,46 +135,42 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#1e293b]/50 backdrop-blur-md border border-[#334155] rounded-2xl p-6 shadow-xl">
           <h2 className="text-lg font-bold text-white mb-6">Cognitive Level Distribution (Bloom's)</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={bloomData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  cursor={{ fill: '#334155', opacity: 0.4 }}
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }} 
-                />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {bloomData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartPanel data={bloomData} emptyLabel="No Bloom data yet — generate an assessment first.">
+            <BarChart data={bloomData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis dataKey="name" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <Tooltip
+                cursor={{ fill: '#334155', opacity: 0.4 }}
+                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {bloomData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartPanel>
         </div>
 
         <div className="bg-[#1e293b]/50 backdrop-blur-md border border-[#334155] rounded-2xl p-6 shadow-xl">
           <h2 className="text-lg font-bold text-white mb-6">Question Types Generated</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={typeData} layout="vertical" margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
-                <XAxis type="number" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} width={80} axisLine={false} tickLine={false} />
-                <Tooltip 
-                  cursor={{ fill: '#334155', opacity: 0.4 }}
-                  contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }} 
-                />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                  {typeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartPanel data={typeData} emptyLabel="No question-type data yet.">
+            <BarChart data={typeData} layout="vertical" margin={{ top: 0, right: 0, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" horizontal={false} />
+              <XAxis type="number" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="name" type="category" stroke="#94a3b8" tick={{ fill: '#94a3b8', fontSize: 12 }} width={80} axisLine={false} tickLine={false} />
+              <Tooltip
+                cursor={{ fill: '#334155', opacity: 0.4 }}
+                contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}
+              />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                {typeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartPanel>
         </div>
       </div>
 

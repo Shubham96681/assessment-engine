@@ -22,25 +22,34 @@ BLOOM_VERBS = {
     "Create": ["Design", "Propose", "Formulate", "Construct", "Develop", "Plan", "Create"],
 }
 
-def _format_exclude_prior_block(stems: Optional[List[str]]) -> str:
+def _format_exclude_prior_block(
+    stems: Optional[List[str]],
+    *,
+    locked_chapter: str = "",
+) -> str:
     if not stems:
         return ""
-    lines = "\n".join(f"- {s[:200]}" for s in stems[:25])
-    return f"""
-## NEVER REPEAT (mandatory)
-These stems were already used for this user/chapter. Write **entirely new** questions:
-- Different numbers, point labels, construction, and archetype
-- No paraphrase of the stems below
-- **Still follow** the paper dependency graph / slot roles (Q1 anchor → Q2 Hence → … → Q5 fusion)
-- Change radii pairs, tangent lengths, and external point names every generation
-{lines}
-"""
+    from app.generation.chapter_prompt_config import exclude_prior_guidance_lines
 
+    header = "\n".join(exclude_prior_guidance_lines(locked_chapter or "generic"))
+    body = "\n".join(f"- {s[:200]}" for s in stems[:25])
+    return f"{header}\n{body}\n"
+
+
+MODEL_ANSWER_MATH_RULES = """
+MODEL ANSWER FORMAT (correct_answer / answer field):
+- Plain text with normal English words; use Unicode θ π ∠ √ where needed (not raw LaTeX in JSON).
+- Write fractions as (numerator)/(denominator) or a/b — e.g. (tan A + tan B)/(1 - tan A tan B).
+- Each sub-part on its OWN LINE: start line with (i), (ii), (iii) — never glue (ii) onto end of (i).
+- Use tan A, sin θ, cos(A+B) with spaces; never Python lists, dicts, or ('prove': '...') strings.
+- 3–7 steps per part; end proofs with Hence proved. where appropriate.
+- BAN: )/( without parentheses, tan A*3 without spaces, corrupted tokens like cos| or \\2/
+"""
 
 JSON_FORMAT_NOTE = """
 CRITICAL: Return ONLY a valid JSON array. No markdown, no preamble, no explanation.
 Start your response with [ and end with ].
-"""
+""" + MODEL_ANSWER_MATH_RULES
 
 # RD Sharma / RS Aggarwal — human textbook behavior (see RD_SHARMA_CLASS10_REFERENCE.md)
 TEXTBOOK_EXERCISE_STYLE = """
@@ -163,6 +172,7 @@ class PromptBuilder:
         rejection_block: str = "",
         semantic_plan: Optional[SemanticGenerationPlan] = None,
         difficulty_distribution=None,
+        delivery_count: Optional[int] = None,
     ) -> str:
         bloom_str = bloom_level.value if hasattr(bloom_level, "value") else str(bloom_level)
         type_str = question_type.value if hasattr(question_type, "value") else str(question_type)
@@ -181,9 +191,11 @@ class PromptBuilder:
         author = resolve_author_style(instructions=instructions)
 
         if semantic_plan is None:
+            deliver = int(delivery_count) if delivery_count else count
             semantic_plan = build_semantic_plan(
                 locked_chapter=chapter,
                 question_count=count,
+                delivery_question_count=deliver,
                 question_types=[question_type],
                 difficulty=difficulty,
                 bloom_level=bloom_level,

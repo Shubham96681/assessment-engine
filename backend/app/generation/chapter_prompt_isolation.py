@@ -48,6 +48,20 @@ HARD MODE — Quadrilaterals only:
 - L4/L5: 3+ proof or find steps; OR with same archetype and separate givens.
 """
 
+TRIANGLES_HARD_RULES = """
+HARD MODE — Triangles / similarity only:
+- Spread: similarity ratio, congruence (RHS/SAS), Pythagoras, area ratio, proof+Hence.
+- BAN: circle, secant, concentric, tangent at point of contact, discriminant, quadratic equation.
+- L4/L5: 3+ steps; OR only with same archetype and separate numeric givens.
+"""
+
+TRIGONOMETRY_HARD_RULES = """
+HARD MODE — Trigonometry only:
+- Spread: radian/degree conversion, identities, quadrant signs, standard angles, proofs.
+- BAN: circle geometry, secant, concentric, parallelogram, quadratic, tangent at contact point.
+- L4/L5: 3+ steps (Given → identity/ratio → simplify → Hence).
+"""
+
 GENERIC_HARD_RULES = """
 HARD MODE — chapter from CONTEXT only:
 - Match uploaded chapter structures; no circle templates unless CONTEXT is Circles.
@@ -58,7 +72,8 @@ CHAPTER_HARD_RULES: Dict[str, str] = {
     "circles": CIRCLES_HARD_RULES,
     "quadratic": QUADRATIC_HARD_RULES,
     "quadrilaterals": QUADRILATERALS_HARD_RULES,
-    "triangles": GENERIC_HARD_RULES,
+    "triangles": TRIANGLES_HARD_RULES,
+    "trigonometry": TRIGONOMETRY_HARD_RULES,
     "polynomials": GENERIC_HARD_RULES,
     "generic": GENERIC_HARD_RULES,
 }
@@ -89,10 +104,38 @@ REASONING DIVERSITY:
 - No two items with the same cognitive chain and only relabelled points.
 """
 
+TRIANGLES_REASONING_DIVERSITY = """
+REASONING DIVERSITY — Triangles:
+- Spread similarity, congruence, Pythagoras, area ratio — not circle or quadratic graphs.
+"""
+
+TRIGONOMETRY_REASONING_DIVERSITY = """
+REASONING DIVERSITY — Trigonometry:
+- Spread identities, quadrant reduction, standard values, proofs — not circle templates.
+- Max TWO period/reduction-only items per paper (standard_angle + quadrant_reduction).
+- Do not repeat the same reduction template with relabelled angles only.
+"""
+
+TRIGONOMETRY_NUMERIC_RULES = """
+NUMERIC CONSISTENCY — Trigonometry:
+- Exact surd values only for standard angles (multiples of 15° after reduction).
+- Quadrant signs: QII cos,tan negative; QIII all negative except tan,cot.
+- OR options: comparable difficulty — both multi-step, not trivial reduction beside proof.
+"""
+
+TRIGONOMETRY_IDIOMATIC = """
+TRIGONOMETRY PHRASING:
+- Example: "If sin θ = 8/17 and θ lies in quadrant II, find the remaining ratios."
+- Example: "Prove that cos(π − x) = −cos x using cos(A − B)."
+- BAN minute angles (162°30′) with exact surd sin/cos requests.
+"""
+
 CHAPTER_REASONING_DIVERSITY: Dict[str, str] = {
     "circles": CIRCLES_REASONING_DIVERSITY,
     "quadratic": QUADRATIC_REASONING_DIVERSITY,
     "quadrilaterals": QUADRILATERALS_REASONING_DIVERSITY,
+    "triangles": TRIANGLES_REASONING_DIVERSITY,
+    "trigonometry": TRIGONOMETRY_REASONING_DIVERSITY,
     "generic": GENERIC_REASONING_DIVERSITY,
 }
 
@@ -123,6 +166,7 @@ CHAPTER_NUMERIC_RULES: Dict[str, str] = {
     "circles": CIRCLES_NUMERIC_RULES,
     "quadratic": QUADRATIC_NUMERIC_RULES,
     "quadrilaterals": QUADRILATERALS_NUMERIC_RULES,
+    "trigonometry": TRIGONOMETRY_NUMERIC_RULES,
     "generic": "",
 }
 
@@ -143,6 +187,7 @@ CHAPTER_IDIOMATIC: Dict[str, str] = {
     "circles": CIRCLES_IDIOMATIC,
     "quadratic": QUADRATIC_IDIOMATIC,
     "quadrilaterals": "Use standard quadrilateral theorem wording from NCERT/RD Sharma.",
+    "trigonometry": TRIGONOMETRY_IDIOMATIC,
     "generic": "",
 }
 
@@ -183,7 +228,10 @@ QUADRATIC_HARD_SEQUENCE_SLOTS = [
     {"slot": 5, "band": "L5", "role": "HOTS — disguised reuse or OR fusion", "one_line_ok": False, "memory": "reuse"},
 ]
 
-from app.generation.full_hard_mode import CIRCLES_FULL_HARD_SEQUENCE_SLOTS
+from app.generation.full_hard_mode import (
+    CIRCLES_FULL_HARD_SEQUENCE_SLOTS,
+    TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS,
+)
 
 CHAPTER_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
     "quadratic": QUADRATIC_HARD_SEQUENCE_SLOTS,
@@ -191,6 +239,7 @@ CHAPTER_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
 
 CHAPTER_FULL_HARD_SEQUENCE_SLOTS: Dict[str, List[Dict[str, Any]]] = {
     "circles": CIRCLES_FULL_HARD_SEQUENCE_SLOTS,
+    "trigonometry": TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS,
 }
 
 CHAPTER_REAL_DIFFICULTY_NOTE: Dict[str, str] = {
@@ -204,6 +253,10 @@ CHAPTER_REAL_DIFFICULTY_NOTE: Dict[str, str] = {
     ),
     "quadrilaterals": (
         "- HARD UI: mix proofs and finds; diagonals / midpoint / area; no circle templates."
+    ),
+    "trigonometry": (
+        "- Board mix: conversion, identity proofs, ratio finds, one short standard value, "
+        "HOTS prove+apply; max 2 reduction drills; balanced OR on last item."
     ),
     "generic": "- ~2 easy, ~2 medium, ~1 sparse hard, ~1 challenge — from CONTEXT chapter only.",
 }
@@ -266,24 +319,48 @@ def sequence_slots_for_chapter(
     ui_difficulty: str,
     *,
     full_hard: bool = False,
+    question_count: int = 10,
 ) -> List[Dict[str, Any]]:
     from app.generation.rd_archetypes import HARD_SEQUENCE_SLOTS, HUMAN_SEQUENCE_SLOTS
 
     ui = (ui_difficulty or "medium").lower()
     ch = normalize_chapter(chapter)
     if ui in ("hard", "difficult"):
+        if full_hard and ch == "trigonometry":
+            from app.generation.trigonometry_hard_benchmark import benchmark_slots
+
+            return benchmark_slots(question_count)
         if full_hard and ch in CHAPTER_FULL_HARD_SEQUENCE_SLOTS:
             return CHAPTER_FULL_HARD_SEQUENCE_SLOTS[ch]
         if ch in CHAPTER_HARD_SEQUENCE_SLOTS:
             return CHAPTER_HARD_SEQUENCE_SLOTS[ch]
+        from app.generation.chapter_rule_packs import CHAPTER_RULES, get_chapter_rule_pack
+        from app.generation.chapter_prompt_config import sequence_slots_from_rule_pack
+
+        if ch in CHAPTER_RULES:
+            derived = sequence_slots_from_rule_pack(
+                get_chapter_rule_pack(ch), full_hard=full_hard
+            )
+            if derived:
+                return derived
         return HARD_SEQUENCE_SLOTS
     return HUMAN_SEQUENCE_SLOTS
 
 
-def real_difficulty_mix_note(chapter: str, ui_difficulty: str) -> str:
+def real_difficulty_mix_note(
+    chapter: str,
+    ui_difficulty: str,
+    *,
+    full_hard: bool = False,
+) -> str:
     ui = (ui_difficulty or "medium").lower()
     if ui not in ("hard", "difficult"):
         return "- ~2 easy, ~2 medium, ~1 sparse hard (minimal stem), ~1 challenge."
+    if full_hard:
+        from app.generation.full_hard_mode import full_hard_calibration_lines
+
+        ch = normalize_chapter(chapter)
+        return "\n".join(f"- {ln}" for ln in full_hard_calibration_lines(ch))
     return CHAPTER_REAL_DIFFICULTY_NOTE.get(
         normalize_chapter(chapter),
         CHAPTER_REAL_DIFFICULTY_NOTE["generic"],

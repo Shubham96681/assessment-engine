@@ -30,7 +30,9 @@ services:
       timeout: 3s
       retries: 5
 
+  # Optional — only if VECTOR_STORE_BACKEND=qdrant in backend/.env (default is FAISS)
   qdrant:
+    profiles: ["qdrant"]
     image: qdrant/qdrant:latest
     container_name: assessment_qdrant
     ports:

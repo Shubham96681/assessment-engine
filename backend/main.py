@@ -37,6 +37,12 @@ async def lifespan(app: FastAPI):
     await ensure_demo_user()
     logger.info("Demo user ready")
     try:
+        from app.core.cbse_curriculum_doc import ensure_cbse_curriculum_document
+
+        await ensure_cbse_curriculum_document()
+    except Exception as e:
+        logger.warning("CBSE curriculum document setup skipped: %s", e)
+    try:
         await init_vector_store()
         logger.info("Vector store ready (%s)", settings.VECTOR_STORE_BACKEND)
     except Exception as e:
@@ -45,9 +51,10 @@ async def lifespan(app: FastAPI):
         os.makedirs(os.path.join(settings.LOCAL_STORAGE_PATH, d), exist_ok=True)
     logger.info("Storage directories ready")
     logger.info(
-        "LLM: RAG_FILE_AGENT=%s RAG_ONLY=%s (no local/Ollama fallback) poll=%.2fs timeout=%ss retries=%s",
+        "LLM: RAG_FILE_AGENT=%s RAG_ONLY=%s LOCAL_FALLBACK=%s poll=%.2fs timeout=%ss retries=%s",
         settings.RAG_FILE_AGENT_ENABLED,
         settings.RAG_FILE_AGENT_ONLY,
+        getattr(settings, "ENABLE_LOCAL_LLM_FALLBACK", False),
         settings.RAG_FILE_POLL_INTERVAL_SECONDS,
         settings.RAG_FILE_TIMEOUT_SECONDS,
         settings.RAG_FILE_MAX_RETRIES,
@@ -66,8 +73,27 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_preload_embeddings())
     asyncio.create_task(_repair_stale_generating_assessments())
+    if settings.ENABLE_CBSE_REFERENCE and settings.CBSE_REFERENCE_AUTO_BUILD:
+        asyncio.create_task(_build_cbse_reference_if_needed())
     yield
     logger.info("Shutting down...")
+
+
+async def _build_cbse_reference_if_needed():
+    """Background index of CBSE_QuestionPapers by chapter (first startup or stale PDFs)."""
+    await asyncio.sleep(3)
+    try:
+        from app.generation.cbse_reference_ingest import build_cbse_reference_index
+
+        man = await build_cbse_reference_index(force=False)
+        if man.get("status") == "built":
+            logger.info(
+                "CBSE reference index ready: %s stems, chapters=%s",
+                man.get("stem_count", 0),
+                list((man.get("chapters") or {}).keys())[:8],
+            )
+    except Exception as e:
+        logger.warning("CBSE reference auto-build skipped: %s", e)
 
 
 async def _repair_stale_generating_assessments():

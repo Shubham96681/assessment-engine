@@ -9,6 +9,7 @@ from rank_bm25 import BM25Okapi
 from app.core.config import settings
 from app.core.vector_store import qdrant_client, Filter, FieldCondition, MatchValue
 from app.rag.embeddings import embed_query
+from app.rag.retrieval_rerank import rerank_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +32,35 @@ class HybridRetriever:
         locked_chapter: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         top_k = top_k or settings.MAX_RETRIEVAL_CHUNKS
+        mult = max(1.0, settings.RETRIEVAL_SEARCH_MULTIPLIER)
+        search_k = int(top_k * mult * 3)
 
-        # 1. Dense search
-        dense_results = await self._dense_search(query, document_id, top_k * 3)
+        # 1. Dense search (wide pool)
+        dense_results = await self._dense_search(query, document_id, search_k)
 
         # 2. BM25 sparse search on the same candidates
         bm25_results = self._bm25_rerank(query, dense_results)
 
         # 3. RRF fusion
-        fused = self._reciprocal_rank_fusion(dense_results, bm25_results, top_k * 2)
+        fused = self._reciprocal_rank_fusion(
+            dense_results, bm25_results, int(search_k * 0.75)
+        )
 
         if locked_chapter and locked_chapter != "generic":
             from app.rag.chapter_chunk_filter import filter_chunks_by_chapter
 
-            fused = filter_chunks_by_chapter(fused, locked_chapter)[:top_k]
-        else:
-            fused = fused[:top_k]
+            fused = filter_chunks_by_chapter(fused, locked_chapter)
 
+        if settings.ENABLE_RETRIEVAL_RERANK and fused:
+            fused = rerank_chunks(
+                query,
+                fused,
+                locked_chapter=locked_chapter or "",
+                top_k=top_k * 2,
+                use_cross_encoder=settings.ENABLE_CROSS_ENCODER_RERANK,
+            )
+
+        fused = fused[:top_k]
         logger.debug(f"Retrieved {len(fused)} chunks for: {query[:60]}...")
         return fused
 
@@ -67,16 +80,24 @@ class HybridRetriever:
             limit=limit,
             with_payload=True,
         )
-        return [
-            {
-                "text": r.payload.get("text", ""),
-                "page_num": r.payload.get("page_num"),
-                "score": r.score,
-                "qdrant_id": r.id,
-                "payload": r.payload,
-            }
-            for r in results
-        ]
+        rows = []
+        for r in results:
+            payload = r.payload or {}
+            rows.append(
+                {
+                    "text": payload.get("text", ""),
+                    "page_num": payload.get("page_num"),
+                    "score": r.score,
+                    "qdrant_id": r.id,
+                    "payload": payload,
+                    "locked_chapter": payload.get("locked_chapter"),
+                    "section_type": payload.get("section_type"),
+                    "section_label": payload.get("section_label"),
+                    "exercise_id": payload.get("exercise_id"),
+                    "retrieval_keywords": payload.get("retrieval_keywords"),
+                }
+            )
+        return rows
 
     def _bm25_rerank(
         self,

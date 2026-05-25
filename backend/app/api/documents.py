@@ -126,7 +126,9 @@ async def list_documents(db: AsyncSession = Depends(get_db)):
             changed = True
     if changed:
         await db.commit()
-    return docs
+    from app.core.cbse_curriculum_doc import CBSE_CURRICULUM_DOCUMENT_ID
+
+    return [d for d in docs if d.id != CBSE_CURRICULUM_DOCUMENT_ID]
 
 
 @router.get("/{document_id}/topic-profile", response_model=TopicProfileOut)
@@ -194,6 +196,16 @@ async def get_document_topic_profile(
 
     profile["total_chunks_db"] = doc.total_chunks or 0
     try:
+        from app.generation.topic_isolation import save_topic_map
+
+        save_topic_map(
+            {
+                **profile,
+                "filename": doc.filename or "",
+                "topic_focus": topic_focus,
+                "document_id": document_id,
+            }
+        )
         return TopicProfileOut(**profile)
     except Exception as e:
         logger.exception("topic-profile response validation failed")

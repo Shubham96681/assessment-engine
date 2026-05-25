@@ -7,6 +7,7 @@ import {
   submitFeedback,
   getApiBaseUrl,
   applyRagResponse,
+  regenerateExport,
   getRagPending,
   formatApiError,
 } from "@/lib/api";
@@ -14,7 +15,7 @@ import { useParams } from "next/navigation";
 import { Download, ArrowLeft, Star, FileCheck, HelpCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import GenerationTrace from "@/components/GenerationTrace";
-import { QuestionContent } from "@/lib/questionText";
+import { AnswerContent, QuestionContent } from "@/lib/questionText";
 
 function isAxiosTimeout(err: unknown): boolean {
   return (
@@ -47,7 +48,10 @@ export default function AssessmentDetails() {
   const [pollNote, setPollNote] = useState("");
   const [notFoundConfirmed, setNotFoundConfirmed] = useState(false);
   const [applyingRag, setApplyingRag] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [ragPending, setRagPending] = useState(false);
+  const [regenSlot, setRegenSlot] = useState<number | null>(null);
+  const [awaitingRegenApply, setAwaitingRegenApply] = useState(false);
 
   const loadFullAssessment = useCallback(async () => {
     const data = await getAssessment(id);
@@ -86,9 +90,11 @@ export default function AssessmentDetails() {
           try {
             const rag = await getRagPending();
             setRagPending(!!rag.pending);
+            setRegenSlot(rag.regen_slot ?? null);
+            if (rag.regen_slot) setAwaitingRegenApply(true);
             setPollNote(
               rag.pending
-                ? "Waiting for Cursor Agent: keep an Agent chat open in this repo — hooks will process rag_query.txt on agent stop. Or fill rag_response.txt and click the button below."
+                ? "Finishing your paper — this page will update automatically."
                 : "Generation in progress. This page will update automatically."
             );
           } catch {
@@ -100,7 +106,31 @@ export default function AssessmentDetails() {
           return;
         }
 
-        await loadFullAssessment();
+        const full = await getAssessment(id);
+        if (cancelled) return;
+        setAssessment(full);
+        setLoading(false);
+        setPollNote("");
+        try {
+          const rag = await getRagPending();
+          setRagPending(!!rag.pending);
+          setRegenSlot(rag.regen_slot ?? null);
+          if (rag.regen_slot) setAwaitingRegenApply(true);
+          if (
+            awaitingRegenApply &&
+            rag.regen_slot &&
+            !rag.pending &&
+            full.status === "ready"
+          ) {
+            setAwaitingRegenApply(false);
+            const applied = await applyRagResponse(id, true);
+            setAssessment(applied);
+          } else if (full.status === "ready" && (rag.pending || awaitingRegenApply)) {
+            window.setTimeout(poll, 3000);
+          }
+        } catch {
+          /* ignore */
+        }
       } catch (err) {
         if (cancelled) return;
         console.error(err);
@@ -135,15 +165,20 @@ export default function AssessmentDetails() {
     return () => {
       cancelled = true;
     };
-  }, [id, loadFullAssessment]);
+  }, [id, loadFullAssessment, awaitingRegenApply]);
 
   const handleApplyRagResponse = async () => {
     setApplyingRag(true);
     try {
-      const data = await applyRagResponse(id);
-      setAssessment(data);
+      const data = await applyRagResponse(id, true);
+      if (data?.questions?.length) {
+        setAssessment(data);
+      } else {
+        await loadFullAssessment();
+      }
       setLoading(false);
       setPollNote("");
+      setAwaitingRegenApply(false);
     } catch (e: unknown) {
       const msg =
         e && typeof e === "object" && "response" in e
@@ -152,6 +187,18 @@ export default function AssessmentDetails() {
       alert(msg || "Could not apply rag_response.txt. Ensure the file exists at project root.");
     } finally {
       setApplyingRag(false);
+    }
+  };
+
+  const handleRegenerateExport = async () => {
+    setExportingPdf(true);
+    try {
+      const data = await regenerateExport(id);
+      setAssessment(data);
+    } catch (e: unknown) {
+      alert(formatApiError(e) || "Could not create PDF. Check backend logs.");
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -225,25 +272,36 @@ export default function AssessmentDetails() {
     );
   }
 
-  if (assessment.status === "failed") {
-    const hint =
-      (assessment.config && assessment.config.failure_hint) ||
-      "No questions were saved. Common fixes: restart backend, ensure rag_response.txt is filled, then use the button below.";
+  if (
+    assessment.status === "failed" &&
+    !(assessment.questions && assessment.questions.length > 0)
+  ) {
     return (
-      <div className="max-w-2xl mx-auto mt-20 text-center space-y-4 px-4">
-        <h2 className="text-2xl font-bold text-rose-400">Generation failed</h2>
-        <p className="text-slate-400 text-sm">{hint}</p>
-        <button
-          type="button"
-          onClick={handleApplyRagResponse}
-          disabled={applyingRag}
-          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium"
-        >
-          {applyingRag ? "Applying…" : "Apply rag_response.txt now"}
-        </button>
-        <Link href="/generate" className="inline-block text-indigo-400 underline">
-          Back to Generate
-        </Link>
+      <div className="flex flex-col h-[80vh] items-center justify-center space-y-6 px-4">
+        <div className="relative w-24 h-24">
+          <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
+          <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <div className="text-center max-w-lg">
+          <h2 className="text-2xl font-bold text-white mb-2">Preparing your assessment</h2>
+          <p className="text-slate-400 text-sm mb-4">
+            Questions appear here as soon as they are ready. You can also apply a saved response file
+            if you use the file agent workflow.
+          </p>
+          <button
+            type="button"
+            onClick={handleApplyRagResponse}
+            disabled={applyingRag}
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium"
+          >
+            {applyingRag ? "Applying…" : "Apply saved response — finish now"}
+          </button>
+          <p className="text-slate-500 text-xs mt-4">
+            <Link href="/generate" className="text-indigo-400 underline">
+              Back to Generate
+            </Link>
+          </p>
+        </div>
       </div>
     );
   }
@@ -266,7 +324,7 @@ export default function AssessmentDetails() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
+    <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           <Link
@@ -298,11 +356,40 @@ export default function AssessmentDetails() {
           </div>
         </div>
 
-        <div className="flex gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          {assessment.status === "ready" && (
+            <button
+              type="button"
+              onClick={handleApplyRagResponse}
+              disabled={applyingRag}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl font-medium transition-all"
+            >
+              {applyingRag
+                ? "Applying…"
+                : regenSlot
+                  ? `Apply slot ${regenSlot} from rag_response.txt`
+                  : "Apply rag_response.txt updates"}
+            </button>
+          )}
+          {assessment.status === "ready" &&
+            assessment.questions?.length > 0 &&
+            !assessment.pdf_url && (
+              <button
+                type="button"
+                onClick={handleRegenerateExport}
+                disabled={exportingPdf}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                {exportingPdf ? "Creating PDF…" : "Create PDF download"}
+              </button>
+            )}
           {assessment.pdf_url && (
             <a
               href={`${getBaseUrl()}${assessment.pdf_url}?v=${cacheKey}`}
               target="_blank"
+              rel="noopener noreferrer"
+              download
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all"
             >
               <Download className="w-4 h-4" /> Question Paper
@@ -312,6 +399,8 @@ export default function AssessmentDetails() {
             <a
               href={`${getBaseUrl()}${assessment.answer_key_url}?v=${cacheKey}`}
               target="_blank"
+              rel="noopener noreferrer"
+              download
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-indigo-500/20 border border-[#334155] hover:border-indigo-500/30 text-white px-6 py-2.5 rounded-xl font-medium transition-all"
             >
               <FileCheck className="w-4 h-4" /> Answer Key
@@ -330,6 +419,14 @@ export default function AssessmentDetails() {
             final paper (not old trace previews).
           </p>
           <GenerationTrace log={assessment.generation_log} />
+          {assessment.generation_log?.some(
+            (s: { step?: string }) => s.step === "applied_rag"
+          ) && (
+            <p className="text-xs text-emerald-400/90 mt-3">
+              Look for step <strong>applied_rag</strong> above — questions below match the last
+              successful apply from <code className="text-indigo-300">rag_response.txt</code>.
+            </p>
+          )}
         </div>
       )}
 
@@ -354,7 +451,7 @@ export default function AssessmentDetails() {
                   {idx + 1}
                 </span>
                 <span className="text-sm font-medium text-slate-300 bg-[#0f172a] px-3 py-1 rounded-full border border-[#334155]">
-                  {q.question_type.replace(/([A-Z])/g, " $1").trim()}
+                  {(q.question_type || "Question").replace(/([A-Z])/g, " $1").trim()}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -372,9 +469,9 @@ export default function AssessmentDetails() {
               </div>
             </div>
 
-            <p className="text-lg text-white mb-6 leading-relaxed whitespace-pre-wrap">
+            <div className="text-white mb-6 text-left max-w-full">
               <QuestionContent text={q.content} />
-            </p>
+            </div>
 
             {q.figure_url && (
               <div className="mb-6 rounded-xl overflow-hidden border border-[#334155] inline-block bg-[#0f172a] p-4">
@@ -386,7 +483,7 @@ export default function AssessmentDetails() {
               </div>
             )}
 
-            {q.options && q.options.length > 0 && (
+            {Array.isArray(q.options) && q.options.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
                 {q.options.map((opt: any, i: number) => (
                   <div
@@ -409,13 +506,13 @@ export default function AssessmentDetails() {
                 Correct Answer & Explanation
               </h4>
               {q.question_type !== "MCQ" && q.correct_answer && (
-                <div className="text-white mb-3 font-medium">
-                  <QuestionContent text={q.correct_answer} />
+                <div className="text-white mb-3 font-medium max-w-full">
+                  <AnswerContent text={q.correct_answer} />
                 </div>
               )}
               {q.explanation && (
-                <div className="text-sm text-slate-400 leading-relaxed italic border-l-2 border-slate-600 pl-3">
-                  {q.explanation}
+                <div className="text-sm text-slate-400 italic border-l-2 border-slate-600 pl-3 max-w-full">
+                  <QuestionContent text={q.explanation} className="text-sm" />
                 </div>
               )}
             </div>

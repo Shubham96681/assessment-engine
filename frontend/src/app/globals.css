@@ -38,3 +38,65 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 }
+
+/* KaTeX — textbook-style math on dark UI; prose keeps normal word spacing */
+.exam-question-content {
+  font-size: 1.125rem;
+  line-height: 1.75;
+  word-spacing: normal;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.exam-question-content .katex {
+  font-size: 1.08em;
+  color: #f8fafc;
+}
+
+.exam-question-content .katex-display {
+  margin: 0.5rem 0;
+  padding: 0.25rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.exam-math-display {
+  max-width: 100%;
+}
+
+.exam-math-inline .katex {
+  font-size: 1.05em;
+  white-space: nowrap;
+}
+
+/* Model answers — one block per (i)(ii)(iii) */
+.answer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.answer-part {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.answer-part .part-label {
+  font-weight: 600;
+  color: #4ade80;
+  min-width: 2rem;
+  flex-shrink: 0;
+}
+
+.answer-part .part-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.answer-part .exam-math-display {
+  display: block !important;
+  text-align: left;
+}

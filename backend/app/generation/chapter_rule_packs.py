@@ -5,10 +5,134 @@ Used by SemanticGenerationPlan and PromptCompiler (no global geometry DNA).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from app.generation.strict_topic_gate import CHAPTER_FORBIDDEN
+
+
+@dataclass(frozen=True)
+class SlotPlanRow:
+    """One blueprint slot — declarative data on ChapterRulePack."""
+
+    archetype_id: str
+    band: str
+    role: str
+    max_marks: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class OrBranchWeights:
+    """Structural OR difficulty signals (chapter-agnostic defaults, overridable per pack)."""
+
+    prove: float = 3.0
+    compound_identity: float = 2.0
+    reduction_only: float = 0.8
+    large_angle_reduction: float = 0.5
+
+
+@dataclass(frozen=True)
+class ProofRouteRule:
+    """Stem must use the listed identity family (data-driven, not chapter branches)."""
+
+    stem_needle: str
+    required_phrase: str
+    forbidden_phrase: str = ""
+
+
+@dataclass(frozen=True)
+class StemPatternCap:
+    """Cap repeated stem skeletons (e.g. degree→radian + quadrant + sin/cos)."""
+
+    pattern: str
+    max_count: int
+
+
+@dataclass(frozen=True)
+class DifficultyEscalationConfig:
+    """RD Sharma / JEE-style elevation hints — registered per chapter on the rule pack."""
+
+    tier_labels: Tuple[str, ...] = ("foundation", "rd_sharma", "jee_foundation")
+    prompt_lines: Tuple[str, ...] = ()
+    min_identity_proof_items: int = 0
+    min_prove_hence_chains: int = 0
+    require_balanced_or: bool = False
+    forbid_trivial_quadrant: Tuple[str, ...] = ()
+    prove_stem_pattern: str = r"\bprove\b"
+    hence_stem_pattern: str = r"\bhence\b"
+    ratio_find_stem_pattern: str = ""
+    all_ratios_stem_pattern: str = ""
+
+    @property
+    def enabled(self) -> bool:
+        return bool(
+            self.prompt_lines
+            or self.min_identity_proof_items
+            or self.min_prove_hence_chains
+            or self.forbid_trivial_quadrant
+        )
+
+
+@dataclass(frozen=True)
+class ChapterPaperQualityConfig:
+    """
+    Per-chapter paper quality rules — register on ChapterRulePack, not in validators.
+    """
+
+    max_per_skill_family: Tuple[Tuple[str, int], ...] = ()
+    slot_plans: Tuple[Tuple[int, Tuple[SlotPlanRow, ...]], ...] = ()
+    standard_exact_degree_step: int = 0
+    forbid_minute_with_exact_surd: bool = False
+    max_or_difficulty_ratio: float = 0.0
+    prompt_bullets: Tuple[str, ...] = ()
+    or_branch_weights: OrBranchWeights = field(default_factory=OrBranchWeights)
+    proof_route_rules: Tuple[ProofRouteRule, ...] = ()
+    stem_pattern_caps: Tuple[StemPatternCap, ...] = ()
+    critical_issue_tokens: Tuple[str, ...] = ()
+    reject_flag_prefixes: Tuple[str, ...] = ()
+    max_marks_inflated_reject: int = 0
+
+    @property
+    def enabled(self) -> bool:
+        return bool(
+            self.max_per_skill_family
+            or self.slot_plans
+            or self.standard_exact_degree_step > 0
+            or self.forbid_minute_with_exact_surd
+            or self.max_or_difficulty_ratio > 0
+            or self.prompt_bullets
+        )
+
+    def max_family_dict(self) -> Dict[str, int]:
+        return dict(self.max_per_skill_family)
+
+    def slot_plan_for_count(self, n: int) -> Tuple[SlotPlanRow, ...]:
+        for count, rows in self.slot_plans:
+            if count == n:
+                return rows
+        return ()
+
+
+def _resolve_pack_paper_quality(
+    chapter_key: str,
+    explicit: Optional[ChapterPaperQualityConfig],
+) -> Optional[ChapterPaperQualityConfig]:
+    if explicit is not None:
+        return explicit
+    from app.generation.chapter_quality_registry import paper_quality_for
+
+    return paper_quality_for(chapter_key)
+
+
+def _resolve_pack_escalation(
+    chapter_key: str,
+    explicit: Optional[DifficultyEscalationConfig],
+) -> Optional[DifficultyEscalationConfig]:
+    if explicit is not None:
+        return explicit
+    from app.generation.chapter_quality_registry import escalation_for
+
+    return escalation_for(chapter_key)
 
 
 @dataclass(frozen=True)
@@ -38,6 +162,18 @@ class ChapterRulePack:
     )
     max_figure_based_count: int = 1
     retrieval_semantic_terms: Tuple[str, ...] = ()
+    author_style_line: str = ""
+    semantic_completeness_text: str = ""
+    preferred_types_figure_note: str = ""
+    uniqueness_variation_hint: str = ""
+    imperfection_profile_key: str = ""
+    full_hard_reject_pythagoras_drill: bool = False
+    paper_quality: Optional[ChapterPaperQualityConfig] = None
+    difficulty_escalation: Optional[DifficultyEscalationConfig] = None
+
+    @property
+    def uses_concentric_uniqueness(self) -> bool:
+        return "concentric" in self.archetype_ids
 
     def forbidden_block(self) -> str:
         terms = ", ".join(self.forbidden_terms[:14])
@@ -96,6 +232,7 @@ class ChapterRulePack:
         slots: Sequence[Any],
         *,
         ui_difficulty: str,
+        full_hard: bool = False,
     ) -> str:
         """Slot order from plan — no legacy build_paper_blueprint geometry."""
         lines = [
@@ -103,7 +240,21 @@ class ChapterRulePack:
             f"Chapter fingerprint: {self.chapter_key} (ONLY these archetypes).",
         ]
         if ui_difficulty.lower() in ("hard", "difficult"):
-            lines.append("Hardness = chapter patterns below (not geometry-global).")
+            if full_hard:
+                lines.append("FULL HARD (100%): every slot band L5 — hardest tier only.")
+                if self.chapter_key == "trigonometry":
+                    from app.generation.trigonometry_hard_benchmark import (
+                        suggested_paper_totals,
+                    )
+
+                    tot = suggested_paper_totals(len(slots) or 10)
+                    lines.append(
+                        f"BENCHMARK MARKS: {tot['marks_per_slot_default']} per slot "
+                        f"(last slot {tot['marks_per_slot_default'] + 2} if count≥8); "
+                        f"target total ≈ {tot['total_marks']} for {tot['total_questions']} questions."
+                    )
+            else:
+                lines.append("Hardness = chapter patterns below (not geometry-global).")
         for s in slots:
             slot_num = getattr(s, "slot", None) or s.get("slot", 0)
             band = getattr(s, "band", None) or s.get("band", "L3")
@@ -115,78 +266,69 @@ class ChapterRulePack:
                 f'  id "{slot_num}": [{arch}] band {band} | {cog}'
                 + (f" | figure: {fig}" if fig else "")
             )
+        stem_len = (
+            "STEM LENGTH: L5 HOTS 35–60 words every slot; ban one-line value recall."
+            if full_hard
+            else "STEM LENGTH: L1 12–25 | L2–L3 20–40 | L5 HOTS 35–60 words."
+        )
         lines.extend(
             [
                 "",
-                "STEM LENGTH: L1 12–25 | L2–L3 20–40 | L5 HOTS 35–60 words.",
+                stem_len,
                 "TRAPS: invisible in stem; theorems named only in answers.",
             ]
         )
+        from app.generation.chapter_paper_quality import chapter_paper_quality_prompt_block
+
+        qc = chapter_paper_quality_prompt_block(
+            self.chapter_key,
+            len(slots) or 5,
+            ui_difficulty=ui_difficulty,
+            full_hard=full_hard,
+        )
+        if qc:
+            lines.extend(["", qc])
+        esc = self.difficulty_escalation
+        if esc and esc.enabled:
+            from app.generation.difficulty_escalation import escalation_prompt_block
+
+            block = escalation_prompt_block(self.chapter_key)
+            if block:
+                lines.extend(["", block])
         return "\n".join(lines)
 
     def semantic_completeness_rules(self) -> str:
-        if self.chapter_key == "quadratic":
-            return (
-                "SEMANTIC COMPLETENESS (quadratic):\n"
-                "- State equation or word-model givens; Find/Show that with numbers.\n"
-                "- If stem says 'the equation', the quadratic must appear in the stem or table.\n"
-                "- FigureBased only for area/speed models or coefficient tables — not bare factorisation.\n"
-                "- OR: same archetype, separate numeric givens per branch.\n"
-                "- L4/L5: model answer needs 3+ dependent steps (form → discriminant/factor → roots → verify).\n"
-                "- BAN circle/tangent vocabulary."
-            )
-        if self.chapter_key == "circles":
-            return (
-                "SEMANTIC COMPLETENESS (circles):\n"
-                "- Find angle: full angle symbol + numeric given.\n"
-                "- Tangent length: name point of contact, centre, segments.\n"
-                "- Prove equal tangents: name external point and both tangents."
-            )
-        return (
-            "SEMANTIC COMPLETENESS:\n"
-            "- Stems self-contained; all givens in text."
+        return self.semantic_completeness_text.strip() or (
+            "SEMANTIC COMPLETENESS:\n- Stems self-contained; all givens in text."
         )
 
     def author_style_note(self) -> str:
-        if self.chapter_key == "circles":
-            return (
-                "AUTHOR STYLE: compressed stems; dashed radii; symmetric tangents TA, TB; "
-                "uneven marks; exercise memory teach→reuse on last slot."
-            )
-        if self.chapter_key == "quadratic":
-            return (
-                "AUTHOR STYLE: compressed algebra stems; area/speed word models; "
-                "uneven marks; exercise memory teach→reuse — no geometry diagrams."
-            )
-        return "AUTHOR STYLE: compressed textbook stems; uneven marks; invisible traps."
+        return self.author_style_line.strip() or (
+            "AUTHOR STYLE: compressed textbook stems; uneven marks; invisible traps."
+        )
 
     def preferred_types_block(self) -> str:
         types = ", ".join(self.preferred_question_types)
-        if self.chapter_key == "circles":
-            figure_note = (
-                f"- FigureBased is primary for Circles (up to {self.max_figure_based_count} items): "
-                "labeled_diagram with centre, radii (dashed), tangents (solid), angles marked.\n"
-                "- ShortAnswer/LongAnswer for proofs and numeric finds without over-drawing."
-            )
-        elif self.chapter_key == "quadratic":
-            figure_note = (
-                f"- Max {self.max_figure_based_count} FigureBased item(s) — "
-                "only rectangle/segment layout, coefficient table, or line_graph when required.\n"
-                "- Prefer ShortAnswer, LongAnswer, CaseStudy, MCQ for bare algebra."
-            )
-        elif self.chapter_key == "quadrilaterals":
-            figure_note = (
-                f"- Up to {self.max_figure_based_count} FigureBased: parallelogram/rhombus diagrams.\n"
-                "- Proofs and finds may be ShortAnswer/LongAnswer without a figure."
-            )
-        else:
-            figure_note = (
-                f"- Max {self.max_figure_based_count} FigureBased when the chapter needs a diagram."
-            )
+        figure_note = self.preferred_types_figure_note.strip() or (
+            f"- Max {self.max_figure_based_count} FigureBased when the chapter needs a diagram."
+        )
         return (
             f"PREFERRED QUESTION TYPES ({self.display_title}): {types}.\n"
             f"{figure_note}"
         )
+
+    def uniqueness_refresh_line(self) -> str:
+        return self.uniqueness_variation_hint.strip() or (
+            f"- Change givens and labels every generation ({self.display_title})"
+        )
+
+    def preferred_type_for_slot(self, slot_index: int) -> str:
+        """0-based slot index → question type from pack data."""
+        types = tuple(self.preferred_question_types) or ("LongAnswer",)
+        t = types[slot_index % len(types)]
+        if t == "FigureBased" and self.max_figure_based_count <= 0:
+            return "LongAnswer"
+        return t
 
 
 def _pack(
@@ -209,6 +351,15 @@ def _pack(
     ),
     max_figure_based_count: int = 1,
     retrieval_semantic_terms: Tuple[str, ...] = (),
+    *,
+    author_style_line: str = "",
+    semantic_completeness_text: str = "",
+    preferred_types_figure_note: str = "",
+    uniqueness_variation_hint: str = "",
+    imperfection_profile_key: str = "",
+    full_hard_reject_pythagoras_drill: bool = False,
+    paper_quality: Optional[ChapterPaperQualityConfig] = None,
+    difficulty_escalation: Optional[DifficultyEscalationConfig] = None,
 ) -> ChapterRulePack:
     extra = tuple(sorted(CHAPTER_FORBIDDEN.get(key, set())))[:8]
     merged = tuple(dict.fromkeys(forbidden + extra))
@@ -227,7 +378,23 @@ def _pack(
         preferred_question_types=preferred_question_types,
         max_figure_based_count=max_figure_based_count,
         retrieval_semantic_terms=retrieval_semantic_terms,
+        author_style_line=author_style_line,
+        semantic_completeness_text=semantic_completeness_text,
+        preferred_types_figure_note=preferred_types_figure_note,
+        uniqueness_variation_hint=uniqueness_variation_hint,
+        imperfection_profile_key=imperfection_profile_key,
+        full_hard_reject_pythagoras_drill=full_hard_reject_pythagoras_drill,
+        paper_quality=_resolve_pack_paper_quality(key, paper_quality),
+        difficulty_escalation=_resolve_pack_escalation(key, difficulty_escalation),
     )
+
+
+def _load_chapter_quality_registry() -> None:
+    """Import registry module so chapter profiles register before pack lookup."""
+    from app.generation import chapter_quality_registry  # noqa: F401
+
+
+_load_chapter_quality_registry()
 
 
 CHAPTER_RULES: Dict[str, ChapterRulePack] = {
@@ -287,6 +454,27 @@ CHAPTER_RULES: Dict[str, ChapterRulePack] = {
             "discriminant nature of roots",
             "equal roots parameter k",
             "word problem area speed",
+        ),
+        author_style_line=(
+            "AUTHOR STYLE: compressed algebra stems; area/speed word models; "
+            "uneven marks; exercise memory teach→reuse — no geometry diagrams."
+        ),
+        semantic_completeness_text=(
+            "SEMANTIC COMPLETENESS (quadratic):\n"
+            "- State equation or word-model givens; Find/Show that with numbers.\n"
+            "- If stem says 'the equation', the quadratic must appear in the stem or table.\n"
+            "- FigureBased only for area/speed models or coefficient tables — not bare factorisation.\n"
+            "- OR: same archetype, separate numeric givens per branch.\n"
+            "- L4/L5: model answer needs 3+ dependent steps (form → discriminant/factor → roots → verify).\n"
+            "- BAN circle/tangent vocabulary."
+        ),
+        preferred_types_figure_note=(
+            "- Max 1 FigureBased item(s) — only rectangle/segment layout, coefficient table, "
+            "or line_graph when required.\n"
+            "- Prefer ShortAnswer, LongAnswer, CaseStudy, MCQ for bare algebra."
+        ),
+        uniqueness_variation_hint=(
+            "- Change coefficients, parameters k, and word-problem numbers every generation"
         ),
     ),
     "circles": _pack(
@@ -354,6 +542,26 @@ CHAPTER_RULES: Dict[str, ChapterRulePack] = {
             "power of a point tangent secant",
             "chord touching smaller circle",
         ),
+        author_style_line=(
+            "AUTHOR STYLE: compressed stems; dashed radii; symmetric tangents TA, TB; "
+            "uneven marks; exercise memory teach→reuse on last slot."
+        ),
+        semantic_completeness_text=(
+            "SEMANTIC COMPLETENESS (circles):\n"
+            "- Find angle: full angle symbol + numeric given.\n"
+            "- Tangent length: name point of contact, centre, segments.\n"
+            "- Prove equal tangents: name external point and both tangents."
+        ),
+        preferred_types_figure_note=(
+            "- FigureBased is primary for Circles (up to 5 items): "
+            "labeled_diagram with centre, radii (dashed), tangents (solid), angles marked.\n"
+            "- ShortAnswer/LongAnswer for proofs and numeric finds without over-drawing."
+        ),
+        uniqueness_variation_hint=(
+            "- Change radii pairs, tangent lengths, and external point names every generation"
+        ),
+        imperfection_profile_key="rd_sharma",
+        full_hard_reject_pythagoras_drill=True,
     ),
     "quadrilaterals": _pack(
         "quadrilaterals",
@@ -398,6 +606,88 @@ CHAPTER_RULES: Dict[str, ChapterRulePack] = {
             "FigureBased",
         ),
         max_figure_based_count=3,
+        preferred_types_figure_note=(
+            "- Up to 3 FigureBased: parallelogram/rhombus diagrams.\n"
+            "- Proofs and finds may be ShortAnswer/LongAnswer without a figure."
+        ),
+        uniqueness_variation_hint=(
+            "- Change vertex labels, diagonal lengths, and angle givens every generation"
+        ),
+        full_hard_reject_pythagoras_drill=True,
+    ),
+    "triangles": _pack(
+        "triangles",
+        "Triangles",
+        ("circle", "tangent", "secant", "radius", "concentric", "discriminant", "quadratic"),
+        (
+            "similarity_ratio",
+            "congruence_rhs",
+            "pythagoras_find",
+            "area_ratio",
+            "proof_derive",
+            "hots_triangle",
+        ),
+        ("similar_triangles", "pythagoras", "congruence"),
+        ("labeled_diagram",),
+        ("hidden similarity", "ratio chain", "proof+Hence"),
+        (
+            "similarity anchor",
+            "Hence ratio",
+            "congruence proof",
+            "area from ratio",
+            "HOTS fusion",
+        ),
+        (
+            "In triangle PQR, DE parallel QR meets PQ at D and PR at E. If PD = 4 cm and DQ = 6 cm, find PE : ER.",
+            "Prove triangles ABC and DEF congruent by SAS.",
+        ),
+        "In triangle PQR, DE parallel QR meets PQ at D and PR at E. If PD = 4 cm and DQ = 6 cm, find PE : ER.",
+        "Match triangle similarity and congruence style in SOURCE.",
+        preferred_question_types=("FigureBased", "ShortAnswer", "LongAnswer", "ShortAnswer", "FigureBased"),
+        max_figure_based_count=3,
+        uniqueness_variation_hint=(
+            "- Change similarity ratios, corresponding sides, and proof labels every generation"
+        ),
+        full_hard_reject_pythagoras_drill=True,
+    ),
+    "trigonometry": _pack(
+        "trigonometry",
+        "Trigonometry",
+        ("circle", "secant", "concentric", "parallelogram", "discriminant", "quadratic equation"),
+        (
+            "standard_angle",
+            "identity_prove",
+            "quadrant_reduction",
+            "ratio_find",
+            "radian_degree",
+            "hots_trig",
+        ),
+        ("pythagorean_identity", "quadrant_signs", "complementary_angles"),
+        ("labeled_diagram", "table"),
+        ("identity chain", "quadrant trap", "standard value"),
+        (
+            "radian conversion",
+            "identity proof",
+            "quadrant sign",
+            "ratio from one function",
+            "HOTS identity fusion",
+        ),
+        (
+            "Express 75° in radian measure.",
+            "If sin θ = 3/5 and θ lies in quadrant II, find cos θ.",
+            "Prove that (1 + tan²θ) sec²θ = 1.",
+        ),
+        "Express 75° in radian measure.",
+        "Match trigonometric identity and reduction style in SOURCE.",
+        preferred_question_types=("ShortAnswer", "ShortAnswer", "LongAnswer", "ShortAnswer", "LongAnswer"),
+        max_figure_based_count=1,
+        preferred_types_figure_note=(
+            "- Max 1 FigureBased when a quadrant sketch or ratio table is needed.\n"
+            "- Prefer ShortAnswer and LongAnswer for reductions, proofs, and ratio finds."
+        ),
+        uniqueness_variation_hint=(
+            "- Change angles, quadrants, and standard-ratio constants every generation"
+        ),
     ),
 }
 

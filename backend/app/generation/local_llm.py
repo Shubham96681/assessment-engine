@@ -21,6 +21,10 @@ def _clean_text(text: str) -> str:
 
 def _detect_chapter(context: str, filename: str = "") -> str:
     blob = f"{filename} {context}".lower()
+    if "trigonometric" in blob or "trigonometry" in blob:
+        return "trigonometry"
+    if re.search(r"\b(?:sin|cos|tan|cot|sec|cosec|radian)\b", blob):
+        return "trigonometry"
     if "quadratic" in blob or "discriminant" in blob or "x²" in blob or "x^2" in blob:
         return "quadratic"
     if "circle" in blob or "tangent" in blob or "secant" in blob:
@@ -174,7 +178,160 @@ _CIRCLES_FIGURE_SLOTS: List[Dict[str, Any]] = [
     },
 ]
 
-# Board-hard — slot-indexed fallback (0=Q1 … 4=Q5) aligned with paper dependency graph
+# Mixed-independent — standalone stems (no Question 1→2 cross-refs)
+_MIXED_INDEPENDENT_CIRCLES_SLOTS: List[Dict[str, Any]] = [
+    {
+        "stem": (
+            "Circles with centres P and Q have radii 5 cm and 3 cm. "
+            "If PQ = 10 cm, find the length of the direct common external tangent."
+        ),
+        "answer": (
+            "Given radii 5 cm and 3 cm, PQ = 10 cm. Step 1: Offset along PQ is 2 cm. "
+            "Step 2: Tangent length = √(10² − 2²) = √96 cm. Step 3: Radii to contacts are "
+            "perpendicular to the tangent. Step 4: Same length from the right trapezoid. "
+            "Step 5: Hence the direct common external tangent has length √96 cm."
+        ),
+        "labels": {"P": "P", "Q": "Q", "R": "R", "S": "S"},
+        "positions": {"P": "centre", "Q": "centre", "R": "on_circle", "S": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "P", "to": "Q", "style": "dashed"},
+            {"shape": "segment", "from": "R", "to": "S"},
+        ],
+        "marks": 5,
+        "archetype_id": "common_tangent",
+    },
+    {
+        "stem": (
+            "From external point T, tangent TA = 9 cm touches a circle at A. "
+            "Secant TBC meets the circle at B (nearer T) and C with TB = 4 cm. Find TC."
+        ),
+        "answer": (
+            "Given TA = 9 cm, TB = 4 cm. Step 1: Tangent–secant power gives TA² = TB × TC. "
+            "Step 2: 81 = 4 × TC. Step 3: TC = 20.25 cm. Step 4: Check 4 × 20.25 = 81. "
+            "Step 5: Hence TC = 20.25 cm."
+        ),
+        "labels": {"O": "O", "T": "T", "A": "A", "B": "B", "C": "C"},
+        "positions": {"O": "centre", "T": "outside", "A": "on_circle", "B": "on_circle", "C": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+            {"shape": "segment", "from": "T", "to": "A"},
+            {"shape": "segment", "from": "B", "to": "C"},
+        ],
+        "marks": 5,
+        "archetype_id": "secant_tangent",
+    },
+    {
+        "stem": "Prove that tangents drawn from an external point to a circle are equal in length.",
+        "answer": (
+            "Given external point X and tangents XY, XZ to a circle with centre O. "
+            "Step 1: OY and OZ are radii, so OY = OZ. Step 2: OX is common and "
+            "angle OYX = angle OZX = 90°. Step 3: Right triangles OYX and OZX are congruent (RHS). "
+            "Step 4: CPCT gives XY = XZ. Step 5: Hence the tangents from X are equal."
+        ),
+        "labels": {"O": "O", "X": "X", "Y": "Y", "Z": "Z"},
+        "positions": {"O": "centre", "X": "outside", "Y": "on_circle", "Z": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "Y", "style": "dashed"},
+            {"shape": "segment", "from": "O", "to": "Z", "style": "dashed"},
+            {"shape": "segment", "from": "X", "to": "Y"},
+            {"shape": "segment", "from": "X", "to": "Z"},
+        ],
+        "marks": 5,
+        "archetype_id": "direct_theorem",
+    },
+    {
+        "stem": (
+            "Tangents PM and PN are drawn from P to a circle with centre O and radius 9 cm. "
+            "If angle MPN = 52°, find angle MON."
+        ),
+        "answer": (
+            "Given OP bisects angle MPN and radii OM, ON are perpendicular to PM, PN. "
+            "Step 1: In quadrilateral OMPN, angle OMP = angle ONP = 90°. Step 2: Angle MPN = 52°. "
+            "Step 3: Angle MON = 360° − 90° − 90° − 52° = 128°. Step 4: Central angle equals "
+            "the angle between the radii. Step 5: Hence angle MON = 128°."
+        ),
+        "labels": {"O": "O", "P": "P", "M": "M", "N": "N"},
+        "positions": {"O": "centre", "P": "outside", "M": "on_circle", "N": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "M", "style": "dashed"},
+            {"shape": "segment", "from": "O", "to": "N", "style": "dashed"},
+            {"shape": "segment", "from": "P", "to": "M"},
+            {"shape": "segment", "from": "P", "to": "N"},
+        ],
+        "marks": 6,
+        "archetype_id": "angle_theorem",
+    },
+    {
+        "stem": (
+            "A circle has centre O and radius 10 cm. Chord CD = 16 cm. "
+            "(i) Find OM where M is the midpoint of CD. "
+            "(ii) Hence, from E with OE = 13 cm, find the tangent length ET."
+        ),
+        "answer": (
+            "Given radius 10 cm, CD = 16 cm. (i) Step 1: M is midpoint of CD, so CM = 8 cm. "
+            "Step 2: OM² = 10² − 8² = 36. Step 3: OM = 6 cm. (ii) Step 4: ET² = OE² − r² = 169 − 100 = 69. "
+            "Step 5: Hence ET = √69 cm."
+        ),
+        "labels": {"O": "O", "C": "C", "D": "D", "M": "M", "E": "E", "T": "T"},
+        "positions": {
+            "O": "centre",
+            "C": "on_circle",
+            "D": "on_circle",
+            "M": "inside",
+            "E": "outside",
+            "T": "on_circle",
+        },
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "M", "style": "dashed"},
+            {"shape": "segment", "from": "C", "to": "D"},
+            {"shape": "segment", "from": "E", "to": "T"},
+        ],
+        "marks": 7,
+        "archetype_id": "hidden_theorem",
+    },
+    {
+        "stem": (
+            "From external point U, tangent UV = 12 cm touches a circle at V. "
+            "Secant UWX meets the circle at W (nearer U) and X with UW = 5 cm. Find UX."
+        ),
+        "answer": (
+            "Given UV = 12 cm, UW = 5 cm. Step 1: UV² = UW × UX. Step 2: 144 = 5 × UX. "
+            "Step 3: UX = 28.8 cm. Step 4: Check 5 × 28.8 = 144. Step 5: Hence UX = 28.8 cm."
+        ),
+        "labels": {"O": "O", "U": "U", "V": "V", "W": "W", "X": "X"},
+        "positions": {"O": "centre", "U": "outside", "V": "on_circle", "W": "on_circle", "X": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "V", "style": "dashed"},
+            {"shape": "segment", "from": "U", "to": "V"},
+            {"shape": "segment", "from": "W", "to": "X"},
+        ],
+        "marks": 6,
+        "archetype_id": "secant_tangent",
+    },
+    {
+        "stem": (
+            "Two tangents PA and PB are drawn to a circle with centre O from P. "
+            "If angle APB = 64°, find angle AOB."
+        ),
+        "answer": (
+            "Given angle APB = 64°. Step 1: OA ⟂ PA and OB ⟂ PB. Step 2: In quadrilateral OAPB, "
+            "two right angles at A and B. Step 3: angle AOB + angle APB = 180°. Step 4: angle AOB = 116°. "
+            "Step 5: Hence angle AOB = 116°."
+        ),
+        "labels": {"O": "O", "P": "P", "A": "A", "B": "B"},
+        "positions": {"O": "centre", "P": "outside", "A": "on_circle", "B": "on_circle"},
+        "segments": [
+            {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+            {"shape": "segment", "from": "O", "to": "B", "style": "dashed"},
+            {"shape": "segment", "from": "P", "to": "A"},
+            {"shape": "segment", "from": "P", "to": "B"},
+        ],
+        "marks": 6,
+        "archetype_id": "angle_theorem",
+    },
+]
+
+# Board-hard — slot-indexed fallback (0=Q1 … 4=Q5) aligned with chained concentric graph
 _CIRCLES_HARD_FIGURE_SLOTS: List[Dict[str, Any]] = [
     {
         "stem": (
@@ -257,22 +414,22 @@ _CIRCLES_HARD_FIGURE_SLOTS: List[Dict[str, Any]] = [
     },
     {
         "stem": (
-            "Using the outer circle from Question 1 and the tangent-secant at P from Question 2 "
-            "(PQ = 12 cm, PR = 4 cm). (i) Find OP. (ii) Hence, from point W with OW = 23 cm, find the "
-            "tangent length WU to the outer circle; if a secant through W meets the circle at X (nearer) "
-            "and Y with WX = 8 cm, find WY and verify WU² = WX × WY."
+            "In the configuration of Question 1, with PQ = 12 cm from Question 2 touching the outer "
+            "circle at Q. (i) Find OP. (ii) Hence point G is 26 cm from O; tangent GH touches the outer "
+            "circle at H; secant GJK with GJ = 9 cm. Find GK and verify GH² = GJ × GK."
         ),
         "answer": (
-            "From Question 1, OQ = 17 cm. From Question 2, PQ = 12 cm. (i) OP = sqrt(433) cm. "
-            "(ii) WU = sqrt(240) cm, WY = 30 cm, check 8 × 30 = 240."
+            "From Question 1, outer radius = 17 cm. (i) OP = √(17² + 12²) = √433 cm. "
+            "(ii) GH² = 26² − 17² = 387; GK = 387 ÷ 9 = 43 cm. Step 3: GJ × GK = 9 × 43 = 387 = GH². "
+            "Hence GK = 43 cm."
         ),
-        "labels": {"O": "O", "P": "P", "Q": "Q", "W": "W", "U": "U", "X": "X", "Y": "Y"},
-        "positions": {"O": "centre", "P": "outside", "Q": "on_circle", "W": "outside", "U": "on_circle", "X": "on_circle", "Y": "on_circle"},
+        "labels": {"O": "O", "P": "P", "Q": "Q", "G": "G", "H": "H", "J": "J", "K": "K"},
+        "positions": {"O": "centre", "P": "outside", "Q": "on_circle", "G": "outside", "H": "on_circle", "J": "on_circle", "K": "on_circle"},
         "segments": [
             {"shape": "segment", "from": "O", "to": "Q", "style": "dashed"},
             {"shape": "segment", "from": "P", "to": "Q"},
-            {"shape": "segment", "from": "W", "to": "X"},
-            {"shape": "segment", "from": "X", "to": "Y"},
+            {"shape": "segment", "from": "G", "to": "H"},
+            {"shape": "segment", "from": "J", "to": "K"},
         ],
         "marks": 7,
         "archetype_id": "hidden_theorem",
@@ -317,12 +474,25 @@ _QUADRATIC_FIGURE_SLOTS: List[Dict[str, Any]] = [
 ]
 
 
-def _build_circles_figure(slot_index: int, difficulty: str, bloom: str) -> Dict[str, Any]:
-    pool = (
-        _CIRCLES_HARD_FIGURE_SLOTS
-        if (difficulty or "").lower() in ("hard", "difficult")
-        else _CIRCLES_FIGURE_SLOTS
-    )
+def _circles_slot_pool(
+    difficulty: str,
+    paper_template_id: str = "",
+) -> List[Dict[str, Any]]:
+    if (paper_template_id or "").strip().lower() == "mixed_independent":
+        return _MIXED_INDEPENDENT_CIRCLES_SLOTS
+    if (difficulty or "").lower() in ("hard", "difficult"):
+        return _CIRCLES_HARD_FIGURE_SLOTS
+    return _CIRCLES_FIGURE_SLOTS
+
+
+def _build_circles_figure(
+    slot_index: int,
+    difficulty: str,
+    bloom: str,
+    *,
+    paper_template_id: str = "",
+) -> Dict[str, Any]:
+    pool = _circles_slot_pool(difficulty, paper_template_id)
     tpl = pool[slot_index % len(pool)]
     labels = dict(tpl.get("labels", {}))
     segs = list(tpl.get("segments", []))
@@ -423,17 +593,88 @@ def local_slot_question_dict(
     locked_chapter: str = "circles",
     difficulty: str = "medium",
     bloom: str = "Apply",
+    paper_template_id: str = "",
 ) -> Dict[str, Any]:
     """Single slot question dict for gap-fill / integrity repair."""
     from app.generation.question_pipeline import finalize_question_dict
 
-    if locked_chapter == "circles":
-        raw = _build_circles_figure(slot_index, difficulty, bloom)
-    elif locked_chapter == "quadratic":
+    if not paper_template_id:
+        try:
+            from app.generation.topic_isolation import get_current_topic_state
+
+            paper_template_id = (get_current_topic_state() or {}).get(
+                "paper_template_id", ""
+            ) or ""
+        except Exception:
+            paper_template_id = ""
+
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    pack = get_chapter_rule_pack(locked_chapter)
+    qtype = pack.preferred_type_for_slot(slot_index)
+    if qtype == "FigureBased" and locked_chapter == "circles":
+        raw = _build_circles_figure(
+            slot_index, difficulty, bloom, paper_template_id=paper_template_id
+        )
+    elif qtype == "FigureBased" and locked_chapter == "quadratic":
         raw = _build_quadratic_figure(slot_index, difficulty, bloom)
     else:
-        raw = _build_circles_figure(slot_index, difficulty, bloom)
+        raw = _build_text_slot_from_pack(
+            slot_index,
+            locked_chapter=locked_chapter,
+            difficulty=difficulty,
+            bloom=bloom,
+            question_type=qtype,
+        )
     return finalize_question_dict(raw)
+
+
+def _build_text_slot_from_pack(
+    slot_index: int,
+    *,
+    locked_chapter: str,
+    difficulty: str,
+    bloom: str,
+    question_type: str = "LongAnswer",
+) -> Dict[str, Any]:
+    """Gap-fill / repair slot from ChapterRulePack anchors (not circles FigureBased)."""
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    pack = get_chapter_rule_pack(locked_chapter)
+    role = (
+        pack.cognitive_blueprint_5[slot_index]
+        if slot_index < len(pack.cognitive_blueprint_5)
+        else "chapter exercise"
+    )
+    anchor = (
+        pack.embedding_anchors[slot_index]
+        if slot_index < len(pack.embedding_anchors)
+        else pack.stem_example
+    )
+    marks = {"easy": 3, "medium": 4, "hard": 5, "difficult": 6}.get(
+        (difficulty or "medium").lower(), 4
+    )
+    arch = (
+        pack.archetype_ids[slot_index % len(pack.archetype_ids)]
+        if pack.archetype_ids
+        else "concept_apply"
+    )
+    stem = (
+        f"{anchor} Use new constants and quadrant labels — not a repeat of prior papers."
+    )
+    if difficulty in ("hard", "difficult") and question_type == "LongAnswer":
+        stem += " (i) Main result. (ii) Hence verify with a numeric check."
+    return {
+        "id": str(slot_index + 1),
+        "type": question_type,
+        "question": stem,
+        "marks": marks,
+        "correct_answer": (
+            f"Given → Step 1 → Step 2 → Hence ({role}; match {pack.display_title} style)."
+        ),
+        "explanation": f"{bloom}-level {pack.chapter_key} gap-fill from pack anchor.",
+        "archetype_id": arch,
+    }
 
 
 def build_local_slot_response(

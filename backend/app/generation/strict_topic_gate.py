@@ -54,6 +54,20 @@ CHAPTER_FORBIDDEN: Dict[str, Set[str]] = {
         "discriminant",
         "parallelogram",
     },
+    "trigonometry": {
+        "circle",
+        "secant",
+        "concentric",
+        "parallelogram",
+        "discriminant",
+        "quadratic equation",
+        "∫",
+        "integral",
+        " dx",
+        "d/dx",
+        "differentiate",
+        "integration by parts",
+    },
 }
 
 # At least one should appear for non-generic chapters (soft — paired with classifier)

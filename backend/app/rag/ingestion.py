@@ -15,6 +15,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.core.config import settings
 from app.core.vector_store import qdrant_client, PointStruct
 from app.rag.embeddings import embed_texts
+from app.rag.chunk_metadata import label_chunk_payload
+from app.rag.structured_chunker import chunk_document_pages
 
 logger = logging.getLogger(__name__)
 
@@ -136,20 +138,58 @@ class PDFIngestionPipeline:
         user_id: str,
         metadata: Dict,
     ) -> List[Dict]:
+        filename = metadata.get("filename", "") or metadata.get("original_filename", "")
+        subject = metadata.get("subject", "")
+
+        if settings.ENABLE_STRUCTURED_CHUNKING:
+            structured = chunk_document_pages(
+                pages_text,
+                document_id=document_id,
+                filename=filename,
+            )
+            if structured:
+                all_chunks = []
+                for sc in structured:
+                    row = {
+                        "text": sc.text,
+                        "document_id": document_id,
+                        "user_id": user_id,
+                        "page_num": sc.page_num,
+                        "chunk_index": sc.chunk_index,
+                        "chunk_hash": hashlib.sha256(sc.text.encode()).hexdigest(),
+                        "chunk_id": sc.chunk_id,
+                        "section_type": sc.section_type,
+                        "section_label": sc.section_label,
+                        "exercise_id": sc.exercise_id,
+                        "subject": subject,
+                        "class_level": metadata.get("class_level", ""),
+                        "char_count": len(sc.text),
+                    }
+                    all_chunks.append(
+                        label_chunk_payload(row, filename=filename, subject=subject)
+                    )
+                return all_chunks
+
         all_chunks = []
         for page_info in pages_text:
             if not page_info["text"]:
                 continue
-            for idx, chunk_text in enumerate(self.splitter.split_text(page_info["text"])):
-                all_chunks.append({
+            for idx, chunk_text in enumerate(
+                self.splitter.split_text(page_info["text"])
+            ):
+                row = {
                     "text": chunk_text,
                     "document_id": document_id,
                     "user_id": user_id,
                     "page_num": page_info["page_num"],
                     "chunk_index": idx,
                     "chunk_hash": hashlib.sha256(chunk_text.encode()).hexdigest(),
-                    "subject": metadata.get("subject", ""),
+                    "subject": subject,
                     "class_level": metadata.get("class_level", ""),
                     "char_count": len(chunk_text),
-                })
+                    "section_type": "paragraph",
+                }
+                all_chunks.append(
+                    label_chunk_payload(row, filename=filename, subject=subject)
+                )
         return all_chunks

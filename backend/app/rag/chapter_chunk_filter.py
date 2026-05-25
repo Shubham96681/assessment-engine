@@ -29,6 +29,25 @@ CHAPTER_CHUNK_HINTS: Dict[str, List[str]] = {
         "polynomial",
     ],
     "circles": ["circle", "tangent", "radius", "chord", "secant"],
+    "trigonometry": [
+        "sin",
+        "cos",
+        "tan",
+        "radian",
+        "identity",
+        "trigonometric",
+        "cot",
+        "sec",
+        "cosec",
+    ],
+    "triangles": [
+        "triangle",
+        "congruent",
+        "similar",
+        "pythagoras",
+        "angle",
+        "side",
+    ],
 }
 
 

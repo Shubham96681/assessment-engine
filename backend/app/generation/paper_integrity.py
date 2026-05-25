@@ -97,6 +97,8 @@ def question_matches_slot_role(
     if _is_mixed_independent_template(paper_template_id):
         if is_fusion and slot < 5:
             return False
+        if slot < 5 and _REF_RE.search(stem):
+            return False
         if slot == 3:
             return bool(re.search(r"\b(prove|show\s+that)\b", low))
         if slot == 5:
@@ -264,6 +266,19 @@ def validate_paper_integrity(
     )
     issues.extend(q12_issues)
 
+    from app.core.config import settings
+
+    if settings.ENABLE_CHAPTER_PAPER_QUALITY and chapter:
+        from app.generation.chapter_paper_quality import (
+            normalize_chapter_paper_marks,
+            validate_chapter_paper_quality,
+        )
+
+        normalize_chapter_paper_marks(questions, chapter=chapter)
+        cq = validate_chapter_paper_quality(questions, chapter=chapter)
+        if not cq.get("chapter_quality_ok"):
+            issues.extend(cq.get("chapter_quality_critical") or cq.get("chapter_quality_flags", [])[:12])
+
     from app.generation.concentric_values import validate_concentric_clean_values
 
     for q in questions:
@@ -278,15 +293,20 @@ def validate_paper_integrity(
             elif not stem_has_valid_external_tangent_givens(stem):
                 issues.append("slot4_external_tangent_impossible_geometry")
 
-    has_dup, dup_keys = paper_has_duplicate_signatures(questions)
+    from app.generation.canonical_question_signature import (
+        disambiguate_duplicate_signatures,
+    )
+
+    disambiguate_duplicate_signatures(questions, chapter=chapter)
+    has_dup, dup_keys = paper_has_duplicate_signatures(questions, chapter=chapter)
     if has_dup:
         issues.append(f"canonical_signature_duplicates:{dup_keys}")
 
     for i, q in enumerate(questions):
-        sig = build_canonical_signature(q)
+        sig = build_canonical_signature(q, chapter=chapter)
         q["canonical_signature"] = sig.key()
 
-    critical = (
+    critical: tuple[str, ...] = (
         "forward_reference",
         "self_reference",
         "slot1_is_fusion",
@@ -299,6 +319,12 @@ def validate_paper_integrity(
         "slot4_external_tangent_missing_givens",
         "slot4_external_tangent_impossible_geometry",
     )
+    if settings.ENABLE_CHAPTER_PAPER_QUALITY and chapter:
+        from app.generation.chapter_paper_quality import get_chapter_quality_spec
+
+        ch_spec = get_chapter_quality_spec(chapter)
+        if ch_spec and ch_spec.config.critical_issue_tokens:
+            critical = critical + ch_spec.config.critical_issue_tokens
     ok = not any(any(c in x for c in critical) for x in issues)
     return {
         "paper_integrity_ok": ok,

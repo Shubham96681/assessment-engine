@@ -1,4 +1,8 @@
 """Auto-repair pipeline — Q2 dedup, concentric radii, LaTeX."""
+from app.generation.canonical_question_signature import (
+    annotate_canonical_signatures,
+    paper_has_duplicate_signatures,
+)
 from app.generation.paper_repair import (
     repair_concentric_stem_radii,
     repair_paper_questions,
@@ -93,3 +97,30 @@ def test_repair_duplicate_common_tangent_slot3_slot4():
     flags = " ".join(r["paper_integrity_flags"])
     assert "duplicate_stem:slot3_slot4" not in flags
     assert "canonical_signature_duplicates" not in flags
+
+
+def test_chapter_questions_distinct_canonical_signatures():
+    """Same answer-shape, different stems — must not share one generic signature."""
+    qs = [
+        {
+            "slot_number": 2,
+            "locked_chapter": "trigonometry",
+            "content": "Prove that sin(π − x) = sin x for every angle x where the ratios are defined.",
+            "correct_answer": "Step 1: symmetry on unit circle. Step 2: Hence sin(π − x) = sin x.",
+            "archetype_id": "identity_prove",
+        },
+        {
+            "slot_number": 5,
+            "locked_chapter": "trigonometry",
+            "content": (
+                "(i) Prove that sin(x + y) = sin x cos y + cos x sin y for all defined angles. "
+                "(ii) Hence find sin 105° in exact surd form. OR Find cosec(510°)."
+            ),
+            "correct_answer": "Step 1: sum formula. Step 2: sin 105° = (√6 + √2)/4. OR cosec(510°) = 2.",
+            "archetype_id": "hots_trig",
+        },
+    ]
+    annotate_canonical_signatures(qs, chapter="trigonometry")
+    assert qs[0]["canonical_signature"] != qs[1]["canonical_signature"]
+    has_dup, dups = paper_has_duplicate_signatures(qs, chapter="trigonometry")
+    assert not has_dup, dups

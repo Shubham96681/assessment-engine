@@ -270,6 +270,22 @@ def build_semantic_retrieval_query(
     if profile.context_headline:
         parts.append(profile.context_headline)
 
+    try:
+        from app.generation.topic_isolation import get_current_topic_state
+
+        state = get_current_topic_state() or {}
+        subs = state.get("subtopics") or (state.get("topic_map") or {}).get(
+            "subtopics"
+        ) or []
+        for sub in subs[:8]:
+            s = str(sub).strip()
+            if s.upper().startswith("EXERCISE"):
+                parts.append(s)
+            elif len(s) > 6 and len(s) < 80:
+                parts.append(s[:60])
+    except Exception:
+        pass
+
     # De-duplicate while preserving order
     seen: set[str] = set()
     unique: List[str] = []

@@ -6,6 +6,7 @@ from __future__ import annotations
 import logging
 from typing import List, Optional
 
+from app.core.config import settings
 from app.generation.content_profile import ContentProfile, build_chapter_alignment
 from app.generation.prompt_purity import (
     filter_memory_prompt_block,
@@ -60,28 +61,18 @@ class PromptCompiler:
         )
 
     def section_difficulty_calibration(self) -> str:
-        from app.generation.difficulty_regime import regime_calibration_lines
+        from app.generation.prompt_builder import PromptBuilder
 
-        p = self.plan
-        regime = getattr(p, "difficulty_regime", "") or "board_medium"
-        label = f"{p.difficulty.upper()} ({regime})"
-        if getattr(p, "full_hard", False):
-            label = f"{p.difficulty.upper()} — FULL HARD PAPER ({regime})"
-        lines = [f"DIFFICULTY CALIBRATION: {label}."]
-        lines.extend(f"  • {ln}" for ln in regime_calibration_lines(regime, self._locked))
-        if getattr(p, "full_hard", False):
-            lines.append(
-                "  • FULL HARD (100%): EVERY slot is L5 (hardest) — 5+ steps, ≥3 theorem families, no L4 warm-up."
-            )
-            lines.append(
-                "  • Reject one-step Pythagoras, direct formula drills, and items solvable in ≤2 NCERT moves."
-            )
-        if p.difficulty in ("hard", "difficult"):
-            for pat in self.pack.hard_difficulty_patterns[:4]:
-                lines.append(f"  • {pat}")
-        elif regime == "board_medium":
-            lines.append("  • Standard mix: ~2 easy, ~2 medium, ~1 challenge.")
-        return "\n".join(lines)
+        return PromptBuilder.difficulty_section(self.plan)
+
+    def section_assessment_architect(self) -> str:
+        from app.generation.prompt_builder import PromptBuilder
+
+        return PromptBuilder.architect_section(
+            chapter=self._locked,
+            question_count=self.plan.question_count,
+            full_hard=getattr(self.plan, "full_hard", False),
+        )
 
     def section_preferred_types(self) -> str:
         return self.pack.preferred_types_block()
@@ -155,15 +146,22 @@ class PromptCompiler:
         return self.pack.compact_blueprint(
             self.plan.slots,
             ui_difficulty=self.plan.difficulty,
+            full_hard=getattr(self.plan, "full_hard", False),
         )
 
     def section_author_style(self) -> str:
         return self.pack.author_style_note()
 
     def section_few_shot_style(self) -> str:
+        from app.generation.prompt_builder import PromptBuilder
+
+        base = PromptBuilder.few_shot_section(
+            self._locked,
+            full_hard=getattr(self.plan, "full_hard", False),
+        )
         return (
-            "FEW-SHOT STYLE (chapter-scoped; do not copy verbatim):\n"
-            f"- Example: {self.pack.stem_example}\n"
+            f"{base}\n"
+            f"- Pack example: {self.pack.stem_example}\n"
             f"- {self.pack.rag_style_note}\n"
             "- BAN: Use the diagram; Show your working; Students often; Using theorem."
         )
@@ -183,12 +181,12 @@ class PromptCompiler:
         else:
             guidance = "RAG STYLE: light SOURCE inspiration; prefer chapter rule pack structures."
         ctx = p.context_excerpt
-        if p.locked_chapter == "quadratic":
-            ctx_hits = find_prompt_contamination(ctx, "quadratic")
+        if p.locked_chapter in ("quadratic", "triangles", "trigonometry"):
+            ctx_hits = find_prompt_contamination(ctx, p.locked_chapter)
             if ctx_hits:
                 ctx = (
-                    "[Context trimmed — foreign geometry phrases removed from retrieval.]\n"
-                    + sanitize_prompt_lines(ctx, "quadratic")
+                    "[Context trimmed — foreign phrases removed from retrieval.]\n"
+                    + sanitize_prompt_lines(ctx, p.locked_chapter)
                 )
         return (
             guidance
@@ -257,13 +255,14 @@ OUTPUT CONTRACT:
         stems = filter_stems_by_chapter(
             self.plan.exclude_prior_stems, self.plan.locked_chapter
         )
-        return _format_exclude_prior_block(stems)
+        return _format_exclude_prior_block(stems, locked_chapter=self.plan.locked_chapter)
 
     def compile_sections(self) -> List[PromptSection]:
         """Ordered tagged sections — chapter-exclusive; no global TEXTBOOK_EXERCISE_STYLE."""
         raw: List[PromptSection] = [
             self._sec("system", self.section_system_role()),
             self._sec("difficulty", self.section_difficulty_calibration()),
+            self._sec("assessment_architect", self.section_assessment_architect()),
             self._sec("preferred_types", self.section_preferred_types()),
             self._sec("author_style", self.section_author_style()),
             self._sec("author_imperfection", self.section_author_imperfection()),
@@ -335,12 +334,14 @@ OUTPUT CONTRACT:
         p = self.plan
         effective = p.effective_question_types()
         label = types_label or ", ".join(effective)
+        from app.generation.generation_oversample import oversample_prompt_note
+
         task = (
             f"TASK: Generate exactly {p.question_count} questions.\n"
             f"Types (chapter-native mix): {label}. Difficulty: {p.difficulty}. Bloom: {p.bloom_level}.\n"
             f"Chapter: {p.chapter_title} ONLY.\n"
             f"Max FigureBased: {self.pack.max_figure_based_count}.\n"
-            f"{extra_task_note}"
+            f"{oversample_prompt_note(p.delivery_count)}{extra_task_note}"
         )
         return task + "\n\n" + self.compile_full_prompt()
 
@@ -386,6 +387,28 @@ def build_generation_prompt(
             type_tail = sanitize_prompt_lines(type_tail, plan.locked_chapter)
         prompt = prompt + "\n\nTYPE-SPECIFIC OUTPUT:\n" + type_tail
     validate_prompt_purity(prompt, plan.locked_chapter, strict=strict_purity)
+    if settings.ENABLE_CBSE_BENCHMARK:
+        try:
+            from app.generation.cbse_benchmark import benchmark_prompt_hints
+
+            hints = benchmark_prompt_hints(plan.class_label or "10")
+            if hints:
+                prompt = prompt + "\n\n" + hints
+        except Exception as exc:
+            logger.debug("CBSE benchmark prompt hints skipped: %s", exc)
+    if settings.ENABLE_CBSE_REFERENCE and plan.locked_chapter not in ("", "generic"):
+        try:
+            from app.generation.cbse_reference_ingest import load_cbse_reference_manifest
+
+            man = load_cbse_reference_manifest()
+            ch_count = (man.get("chapters") or {}).get(plan.locked_chapter, 0)
+            if ch_count:
+                prompt = prompt + (
+                    f"\n\nCBSE chapter index: {ch_count} board stems for "
+                    f"{plan.locked_chapter}; match SQP mark weight and stem compression."
+                )
+        except Exception as exc:
+            logger.debug("CBSE reference prompt hints skipped: %s", exc)
     logger.debug(
         "Prompt purity OK chapter=%s len=%d",
         plan.locked_chapter,

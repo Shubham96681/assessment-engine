@@ -47,6 +47,10 @@ from app.generation.rd_archetypes import (
     get_slot_metadata,
 )
 from app.generation.author_styles import resolve_author_style
+from app.generation.generation_oversample import (
+    is_oversample_active,
+    pool_question_count,
+)
 
 
 _planned_paper_template_id: Optional[str] = None
@@ -106,7 +110,17 @@ class QuestionGenerator:
         """
         Main entry point: config → list of question dicts
         """
-        logger.info(f"Generating {config.total_questions} questions (gen #{generation_num})")
+        delivery_n = config.total_questions
+        pool_n = pool_question_count(delivery_n)
+        if is_oversample_active(delivery_n):
+            logger.info(
+                "Oversample: generating pool of %d, delivering best %d (gen #%s)",
+                pool_n,
+                delivery_n,
+                generation_num,
+            )
+        else:
+            logger.info(f"Generating {delivery_n} questions (gen #{generation_num})")
 
         plan = self._build_generation_plan(
             config, file_agent_mode=settings.RAG_FILE_AGENT_ENABLED
@@ -117,7 +131,8 @@ class QuestionGenerator:
         rag_document_meta = self._build_rag_document_meta(config, document_meta)
         from app.generation.full_hard_mode import is_full_hard_paper
 
-        rag_document_meta["question_count"] = str(config.total_questions or 5)
+        rag_document_meta["question_count"] = str(pool_n)
+        rag_document_meta["delivery_question_count"] = str(delivery_n)
         rag_document_meta["full_hard"] = (
             "1" if is_full_hard_paper(getattr(config, "difficulty_distribution", None)) else "0"
         )
@@ -168,7 +183,18 @@ class QuestionGenerator:
             or topic_state.get("locked_chapter")
             or "generic"
         )
+        if getattr(config, "locked_chapter", None):
+            locked_chapter = (config.locked_chapter or "").strip().lower() or locked_chapter
         topic_state["locked_chapter"] = locked_chapter
+        if topic_profile is not None:
+            topic_profile["locked_chapter"] = locked_chapter
+        from app.core.cbse_curriculum_doc import is_cbse_curriculum_document
+
+        if is_cbse_curriculum_document(config.document_id):
+            use_curriculum_archetypes = True
+            if topic_profile is not None:
+                topic_profile["use_curriculum_archetypes"] = True
+                topic_profile["generation_mode"] = "cbse_curriculum"
         weak_skills: List[str] = []
         strong_skills: List[str] = []
         gen_memory: Dict[str, Any] = {}
@@ -242,7 +268,8 @@ class QuestionGenerator:
         try:
             _plan = _build_plan(
                 locked_chapter=locked_chapter,
-                question_count=config.total_questions,
+                question_count=pool_n,
+                delivery_question_count=delivery_n,
                 question_types=config.question_types,
                 difficulty=_diff,
                 bloom_level=_bloom,
@@ -344,13 +371,24 @@ class QuestionGenerator:
                     query[:120],
                 )
                 profile.chapter_key = locked_chapter
-                chunks = await self.retriever.retrieve(
-                    query=query,
-                    document_id=config.document_id,
-                    top_k=8,
-                    locked_chapter=locked_chapter,
-                )
-                retrieval_meta = compute_retrieval_confidence(chunks)
+                from app.core.cbse_curriculum_doc import is_cbse_curriculum_document
+
+                if is_cbse_curriculum_document(config.document_id):
+                    chunks = []
+                    retrieval_meta = {
+                        "score": 0.0,
+                        "use_curriculum_archetypes": True,
+                        "mode": "cbse_curriculum",
+                        "reason": "topic_only_cbse_reference",
+                    }
+                else:
+                    chunks = await self.retriever.retrieve(
+                        query=query,
+                        document_id=config.document_id,
+                        top_k=8,
+                        locked_chapter=locked_chapter,
+                    )
+                    retrieval_meta = compute_retrieval_confidence(chunks)
                 step_curriculum = use_curriculum_archetypes or retrieval_meta[
                     "use_curriculum_archetypes"
                 ]
@@ -377,6 +415,15 @@ class QuestionGenerator:
                         profile,
                         required_theorems=required_theorems,
                         retrieval_confidence=retrieval_meta["score"],
+                    )
+                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+
+                    context = await enrich_context_with_cbse_reference(
+                        context,
+                        query=query,
+                        locked_chapter=locked_chapter,
+                        class_level=config.class_level
+                        or (document_meta or {}).get("class_level", ""),
                     )
                     last_context = context
                     last_task = task
@@ -405,6 +452,15 @@ class QuestionGenerator:
                         difficulty=task.get("difficulty", "medium"),
                     )
                     context = build_context_fallback(profile)
+                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+
+                    context = await enrich_context_with_cbse_reference(
+                        context,
+                        query=query,
+                        locked_chapter=locked_chapter,
+                        class_level=config.class_level
+                        or (document_meta or {}).get("class_level", ""),
+                    )
                     last_context = context
                     last_task = task
                     source_chunk_ids = []
@@ -412,6 +468,15 @@ class QuestionGenerator:
                     rag_chunk_summaries = []
                 else:
                     context = "\n\n---\n\n".join([c["text"] for c in chunks[:settings.MAX_RETRIEVAL_CHUNKS]])
+                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+
+                    context = await enrich_context_with_cbse_reference(
+                        context,
+                        query=query,
+                        locked_chapter=locked_chapter,
+                        class_level=config.class_level
+                        or (document_meta or {}).get("class_level", ""),
+                    )
                     profile = build_content_profile(
                         topic_focus=config.topic_focus or "",
                         filename=(document_meta or {}).get("filename", ""),
@@ -443,6 +508,7 @@ class QuestionGenerator:
                     bloom_level=task["bloom_level"],
                     context=context,
                     count=task["count"],
+                    delivery_count=task.get("delivery_count", config.total_questions),
                     subject=config.subject,
                     class_level=config.class_level,
                     topic_focus=config.topic_focus,
@@ -559,13 +625,13 @@ class QuestionGenerator:
                     dedup_out=len(unique_questions),
                 )
             )
-            if len(unique_questions) >= config.total_questions:
+            if len(unique_questions) >= pool_n:
                 break
             if attempt < max_attempts and self._can_regenerate():
                 logger.warning(
                     "Only %d unique questions (need %d) — regeneration attempt %d",
                     len(unique_questions),
-                    config.total_questions,
+                    pool_n,
                     attempt + 1,
                 )
                 continue
@@ -590,6 +656,17 @@ class QuestionGenerator:
             full_hard=_full_hard,
             difficulty_distribution=config.difficulty_distribution,
         )
+        from app.generation.topic_isolation import get_current_topic_state
+
+        _ts_plan = get_current_topic_state() or {}
+        _plan_arch = _ts_plan.get("semantic_plan_archetypes") or []
+        _plan_cog = _ts_plan.get("semantic_plan_cognitive") or {}
+        for _si, _sm in enumerate(slot_meta):
+            _sn = int(_sm.get("slot") or (_si + 1))
+            if _plan_cog.get(_sn):
+                _sm["cognitive_type"] = _plan_cog[_sn]
+            if _si < len(_plan_arch) and _plan_arch[_si]:
+                _sm["archetype_id"] = _plan_arch[_si]
         scored = await self.quality.score_batch(
             unique_questions,
             slot_bands=slot_bands,
@@ -706,7 +783,7 @@ class QuestionGenerator:
                         slot_meta=meta or {},
                         source="quality_pool_reject",
                     )
-            if len(pool) < config.total_questions:
+            if len(pool) < pool_n:
                 pool = sorted(
                     curated,
                     key=lambda q: q.get("combined_score", q.get("quality_score", 0)),
@@ -717,10 +794,20 @@ class QuestionGenerator:
                     "Dedup/quality left 0 questions — restoring %d unique parsed items",
                     len(unique_questions),
                 )
-                pool = unique_questions[: config.total_questions]
-            final = sorted(pool, key=lambda q: q.get("order_index", 0))[
-                : config.total_questions
-            ]
+                pool = unique_questions[:pool_n]
+            from app.generation.generation_oversample import select_best_for_chapter
+
+            final, oversample_meta = select_best_for_chapter(
+                pool if pool else curated,
+                delivery_n,
+                chapter=locked_chapter,
+                ui_difficulty=dominant_diff,
+                slot_meta=slot_meta,
+            )
+            if is_oversample_active(delivery_n):
+                generation_log.append(
+                    {"step": "oversample_selection", **oversample_meta}
+                )
 
         if required_theorems and final:
             final, coverage_report = enforce_coverage_before_delivery(
@@ -775,7 +862,8 @@ class QuestionGenerator:
 
         generation_log.append({
             "step": "finalize",
-            "count_requested": config.total_questions,
+            "count_requested": delivery_n,
+            "count_pool": pool_n,
             "count_parsed": len(all_questions),
             "count_after_dedup": len(unique_questions),
             "count_delivered": len(final),
@@ -827,6 +915,11 @@ class QuestionGenerator:
         from app.generation.paper_repair import fill_missing_paper_slots, repair_paper_questions
 
         if len(final) < config.total_questions:
+            if not self._local_fallback_allowed():
+                raise RagAgentResponseMissing(
+                    f"Paper has {len(final)} question(s) but {config.total_questions} required. "
+                    "Provide a full rag_response.txt (ENABLE_LOCAL_LLM_FALLBACK is false)."
+                )
             final = fill_missing_paper_slots(
                 final,
                 config.total_questions,
@@ -839,6 +932,7 @@ class QuestionGenerator:
             final,
             chapter=locked_chapter,
             re_enrich_figures=False,
+            paper_template_id=_tmpl.id,
         )
 
         if settings.ENABLE_PAPER_DEPENDENCY_GRAPH and locked_chapter:
@@ -861,6 +955,7 @@ class QuestionGenerator:
                     final,
                     chapter=locked_chapter,
                     re_enrich_figures=False,
+                    paper_template_id=_tmpl.id,
                 )
 
         if settings.ENABLE_FIGURE_GENERATION:
@@ -883,20 +978,136 @@ class QuestionGenerator:
         generation_log.append(
             {"step": "paper_integrity", "paper_template_id": _tmpl.id, **integrity}
         )
+        from app.generation.question_pipeline import finalize_questions_list
+
         if should_reject_paper_integrity(
             final,
             chapter=locked_chapter,
             expected_count=config.total_questions,
             paper_template_id=_tmpl.id,
         ):
-            flags = integrity.get("paper_integrity_flags") or []
+            from app.generation.canonical_question_signature import (
+                disambiguate_duplicate_signatures,
+            )
+
+            for q in final:
+                q["locked_chapter"] = locked_chapter
+            disambiguate_duplicate_signatures(final, chapter=locked_chapter)
+            final = repair_paper_questions(
+                final,
+                chapter=locked_chapter,
+                re_enrich_figures=False,
+                paper_template_id=_tmpl.id,
+            )
+            integrity_retry = validate_paper_integrity(
+                final,
+                chapter=locked_chapter,
+                expected_count=config.total_questions,
+                paper_template_id=_tmpl.id,
+            )
+            generation_log.append(
+                {
+                    "step": "paper_integrity_retry",
+                    "paper_template_id": _tmpl.id,
+                    **integrity_retry,
+                }
+            )
+            if not should_reject_paper_integrity(
+                final,
+                chapter=locked_chapter,
+                expected_count=config.total_questions,
+                paper_template_id=_tmpl.id,
+            ):
+                return finalize_questions_list(final)
+
+            from app.generation.full_hard_mode import is_full_hard_paper
+
+            final = self._salvage_paper_marks(
+                final,
+                chapter=locked_chapter,
+                paper_template_id=_tmpl.id,
+                full_hard=is_full_hard_paper(config.difficulty_distribution),
+            )
+            final = repair_paper_questions(
+                final,
+                chapter=locked_chapter,
+                re_enrich_figures=False,
+                paper_template_id=_tmpl.id,
+            )
+            integrity_salvage = validate_paper_integrity(
+                final,
+                chapter=locked_chapter,
+                expected_count=config.total_questions,
+                paper_template_id=_tmpl.id,
+            )
+            generation_log.append(
+                {
+                    "step": "paper_integrity_salvage",
+                    "paper_template_id": _tmpl.id,
+                    **integrity_salvage,
+                }
+            )
+            if not should_reject_paper_integrity(
+                final,
+                chapter=locked_chapter,
+                expected_count=config.total_questions,
+                paper_template_id=_tmpl.id,
+            ):
+                return finalize_questions_list(final)
+
+            flags = integrity_retry.get("paper_integrity_flags") or []
+            generation_log.append(
+                {
+                    "step": "draft_before_reject",
+                    "questions": final,
+                    "flags": flags,
+                }
+            )
+            if not getattr(settings, "PAPER_INTEGRITY_BLOCK_EXPORT", False):
+                generation_log.append(
+                    {
+                        "step": "integrity_export_relaxed",
+                        "flags": flags[:12],
+                        "note": "Exported after background salvage; flags logged only.",
+                    }
+                )
+                return finalize_questions_list(final)
             raise ValueError(
                 "Paper integrity failed — refusing to export: "
                 + "; ".join(flags[:8])
             )
-        from app.generation.question_pipeline import finalize_questions_list
 
         return finalize_questions_list(final)
+
+    def _salvage_paper_marks(
+        self,
+        questions: List[Dict[str, Any]],
+        *,
+        chapter: str,
+        paper_template_id: str = "",
+        full_hard: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """Clamp marks to blueprint caps and clear fixable quality flags (background repair)."""
+        from app.generation.chapter_paper_quality import (
+            annotate_chapter_paper_quality,
+            normalize_chapter_paper_marks,
+        )
+
+        if not chapter:
+            return questions
+        normalize_chapter_paper_marks(
+            questions, chapter=chapter, full_hard=full_hard
+        )
+        for q in questions:
+            if q.get("marks_normalized"):
+                q["chapter_quality_flags"] = [
+                    f
+                    for f in (q.get("chapter_quality_flags") or [])
+                    if not f.startswith("marks_inflated")
+                    and not f.startswith("marks_deflated")
+                ]
+        annotate_chapter_paper_quality(questions, chapter=chapter)
+        return questions
 
     def _quality_regen_use_cursor(self) -> bool:
         return bool(
@@ -956,20 +1167,53 @@ class QuestionGenerator:
         return True
 
     @staticmethod
+    def _cloud_provider_order() -> List[str]:
+        """Provider try-order; PRIMARY_LLM (groq | gemini | openai) is tried first."""
+        primary = (getattr(settings, "PRIMARY_LLM", None) or "gemini").strip().lower()
+        known = ("groq", "gemini", "openai")
+        if primary not in known:
+            primary = "gemini"
+        return [primary] + [p for p in known if p != primary]
+
+    @staticmethod
     def _local_fallback_allowed() -> bool:
-        """Structured local templates + Ollama only when file agent is not mandatory."""
-        if settings.RAG_FILE_AGENT_ENABLED and settings.RAG_FILE_AGENT_ONLY:
-            return False
-        return True
+        """Structured local_llm templates — off by default; use Cursor / cloud AI only."""
+        return bool(getattr(settings, "ENABLE_LOCAL_LLM_FALLBACK", False))
 
     async def _safe_groq_generate(self, prompt: str) -> Optional[str]:
         if not settings.GROQ_API_KEY:
             return None
-        try:
-            return await self._groq_generate(prompt)
-        except Exception as e:
-            logger.warning("Groq unavailable (%s); using fallback", e)
-            return None
+        for max_chars in (9000, 6000, 4500):
+            try:
+                compact = self._trim_prompt_for_groq(prompt, max_chars=max_chars)
+                return await self._groq_generate(compact)
+            except Exception as e:
+                err = str(e).lower()
+                if "413" in err or "too large" in err or "rate_limit" in err:
+                    logger.warning(
+                        "Groq prompt too large at %d chars — retrying smaller",
+                        max_chars,
+                    )
+                    continue
+                logger.warning("Groq unavailable (%s); using fallback", e)
+                return None
+        return None
+
+    async def _generate_via_cloud_llm(
+        self, prompt: str
+    ) -> Optional[tuple[str, str]]:
+        """Try cloud LLMs in PRIMARY_LLM order (default: groq → gemini → openai)."""
+        for provider in self._cloud_provider_order():
+            if provider == "groq" and settings.GROQ_API_KEY:
+                out = await self._safe_groq_generate(prompt)
+                if out:
+                    logger.info("Question generation via Groq (%s)", settings.GROQ_MODEL)
+                    return out, "groq"
+            elif provider == "gemini" and settings.GOOGLE_GEMINI_API_KEY:
+                return await self._gemini_generate(prompt), "gemini"
+            elif provider == "openai" and settings.OPENAI_API_KEY:
+                return await self._openai_generate(prompt), "openai"
+        return None
 
     async def _generate_regen_raw(
         self,
@@ -983,15 +1227,11 @@ class QuestionGenerator:
     ) -> str:
         """Single-question regeneration — file agent / local only when RAG_FILE_AGENT_ONLY."""
         suffix = "\n\nReturn ONLY a JSON array with ONE object. Start with [ end with ]."
-        if self._cloud_llm_allowed():
-            if settings.GOOGLE_GEMINI_API_KEY:
-                return await self._gemini_generate(prompt + suffix)
-            if settings.OPENAI_API_KEY:
-                return await self._openai_generate(prompt + suffix)
-            groq_out = await self._safe_groq_generate(prompt + suffix)
-            if groq_out:
-                return groq_out
-            if settings.OLLAMA_ENABLED:
+        if settings.has_cloud_llm():
+            cloud = await self._generate_via_cloud_llm(prompt + suffix)
+            if cloud:
+                return cloud[0]
+            if settings.OLLAMA_ENABLED and self._local_fallback_allowed():
                 out = await self._ollama_generate(prompt)
                 if out:
                     return out
@@ -1080,7 +1320,9 @@ class QuestionGenerator:
                     return pool.pop(j)
             return None
 
-        def _place_in_slot(i: int, q: Dict[str, Any]) -> None:
+        def _place_in_slot(
+            i: int, q: Dict[str, Any], meta: Optional[Dict[str, Any]] = None
+        ) -> None:
             from app.generation.paper_repair import repair_slot_by_number
 
             q = repair_slot_by_number(
@@ -1089,6 +1331,11 @@ class QuestionGenerator:
             slots[i] = dict(q)
             slots[i]["order_index"] = i
             slots[i]["slot_number"] = i + 1
+            slots[i]["locked_chapter"] = locked_chapter
+            if meta:
+                for key in ("archetype_id", "cognitive_type", "slot_archetype"):
+                    if meta.get(key) and not slots[i].get(key):
+                        slots[i][key] = meta[key]
             used_stems.add(_stem_key(q.get("content") or ""))
 
         # Place curated items by slot_number when present (not always curated[0] → slot 0)
@@ -1108,7 +1355,7 @@ class QuestionGenerator:
                     and not _slot_already_used(q)
                     and _role_ok(idx, q)
                 ):
-                    _place_in_slot(idx, q)
+                    _place_in_slot(idx, q, meta)
                     accepted_first_pass += 1
                 else:
                     unassigned.append(q)
@@ -1137,7 +1384,7 @@ class QuestionGenerator:
             if not self.quality.should_reject(
                 q, ui_difficulty=dominant_diff, slot_meta=meta
             ) and not _slot_already_used(q) and _role_ok(i, q):
-                _place_in_slot(i, q)
+                _place_in_slot(i, q, meta)
                 accepted_first_pass += 1
             elif settings.ENABLE_REJECTION_CORPUS and q.get("content"):
                 await record_rejection(
@@ -1174,7 +1421,7 @@ class QuestionGenerator:
                 if not self.quality.should_reject(
                     candidate, ui_difficulty=dominant_diff, slot_meta=meta
                 ):
-                    _place_in_slot(i, candidate)
+                    _place_in_slot(i, candidate, meta)
                     candidate["quality_regen_attempts"] = attempt
                     logger.info(
                         "Slot %d accepted after auto-repair (attempt %d)", i + 1, attempt
@@ -1245,6 +1492,9 @@ class QuestionGenerator:
                     rejected = candidate
                     continue
                 candidate = parsed[0]
+                for key in ("archetype_id", "cognitive_type"):
+                    if meta.get(key) and not candidate.get(key):
+                        candidate[key] = meta[key]
                 if _slot_already_used(candidate):
                     if self._local_fallback_allowed():
                         logger.warning(
@@ -1295,7 +1545,7 @@ class QuestionGenerator:
                 ):
                     candidate["quality_regen_attempts"] = attempt
                     candidate["quality_regen_source"] = regen_source
-                    _place_in_slot(i, candidate)
+                    _place_in_slot(i, candidate, meta)
                     logger.info(
                         "Slot %d accepted after %s regeneration (attempt %d)",
                         i + 1,
@@ -1315,7 +1565,7 @@ class QuestionGenerator:
                     not _slot_already_used(q_be)
                     and _role_ok(i, q_be)
                 ):
-                    _place_in_slot(i, q_be)
+                    _place_in_slot(i, q_be, meta)
                     logger.warning(
                         "Slot %d: using best-effort curated item after max regen attempts",
                         i + 1,
@@ -1379,13 +1629,17 @@ class QuestionGenerator:
 
         # File-agent mode: ONE step only — one rag_query / one rag_response for whole paper
         if file_agent_mode:
+            from app.generation.generation_oversample import pool_question_count
+
             difficulty, bloom_level = self._resolve_generation_profile(config)
+            pool = pool_question_count(total)
             return [{
                 "type": types[0],
                 "all_types": types,
                 "difficulty": difficulty,
                 "bloom_level": bloom_level,
-                "count": total,
+                "count": pool,
+                "delivery_count": total,
             }]
 
         plan = []
@@ -1591,13 +1845,9 @@ class QuestionGenerator:
                 )
 
         if self._cloud_llm_allowed():
-            if settings.GOOGLE_GEMINI_API_KEY:
-                return await self._gemini_generate(prompt), "gemini"
-            if settings.OPENAI_API_KEY:
-                return await self._openai_generate(prompt), "openai"
-            groq_out = await self._safe_groq_generate(prompt)
-            if groq_out:
-                return groq_out, "groq"
+            cloud = await self._generate_via_cloud_llm(prompt)
+            if cloud:
+                return cloud
         if settings.OLLAMA_ENABLED and self._cloud_llm_allowed():
             ollama_out = await self._ollama_generate(prompt)
             if ollama_out:
@@ -1674,17 +1924,40 @@ class QuestionGenerator:
         )
         return response.choices[0].message.content
 
+    @staticmethod
+    def _trim_prompt_for_groq(prompt: str, max_chars: int = 9000) -> str:
+        """Groq on-demand TPM caps large RAG prompts — keep head + output contract tail."""
+        if len(prompt) <= max_chars:
+            return prompt
+        markers = ("OUTPUT CONTRACT:", "QUESTION:", "EXERCISE BLUEPRINT")
+        cut = -1
+        for m in markers:
+            idx = prompt.rfind(m)
+            if idx > cut:
+                cut = idx
+        if cut > 0:
+            head_budget = min(6000, max_chars // 3)
+            tail_budget = max_chars - head_budget - 80
+            return (
+                prompt[:head_budget]
+                + "\n\n[Context trimmed for Groq TPM — syllabus rules preserved below.]\n\n"
+                + prompt[cut : cut + tail_budget]
+            )
+        return prompt[: max_chars - 80] + "\n\n[Prompt trimmed for Groq TPM.]"
+
     async def _groq_generate(self, prompt: str) -> str:
         from openai import AsyncOpenAI
         client = AsyncOpenAI(
             api_key=settings.GROQ_API_KEY,
             base_url="https://api.groq.com/openai/v1",
         )
+        if len(prompt) > 9000:
+            logger.info("Groq prompt trimmed %d → %d chars", len(prompt), len(prompt[:9000]))
         response = await client.chat.completions.create(
             model=settings.GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.85,
-            max_tokens=8192,
+            max_tokens=2400,
         )
         return response.choices[0].message.content
 
@@ -1722,15 +1995,10 @@ class QuestionGenerator:
                 item_type = item.get("type")
                 if item_type:
                     qtype_str = item_type if isinstance(item_type, str) else str(item_type)
-                from app.generation.question_text import (
-                    normalize_geometry_symbols,
-                    strip_markdown_bold,
-                )
+                from app.generation.question_text import ensure_plain_text
 
-                content = strip_markdown_bold(
-                    normalize_geometry_symbols(
-                        item.get("question", item.get("content", "")).strip()
-                    )
+                content = ensure_plain_text(
+                    item.get("question", item.get("content", "")).strip()
                 )
                 if not content:
                     continue
@@ -1744,26 +2012,26 @@ class QuestionGenerator:
                 raw_id = item.get("id")
                 if raw_id is not None and str(raw_id).strip().isdigit():
                     slot_number = int(str(raw_id).strip())
+                arch_id = (item.get("archetype_id") or item.get("slot_archetype") or "").strip()
+                cog = (item.get("cognitive_type") or "").strip()
                 q = {
                     "id": str(uuid.uuid4()),
                     "slot_number": slot_number,
+                    "archetype_id": arch_id or None,
+                    "cognitive_type": cog or None,
                     "content": content,
                     "question_type": qtype_str,
                     "difficulty": task_diff,
                     "bloom_level": task["bloom_level"].value if hasattr(task["bloom_level"], "value") else task["bloom_level"],
                     "options": item.get("options"),
-                    "correct_answer": strip_markdown_bold(
-                        normalize_geometry_symbols(
-                            str(
-                                item.get("answer", item.get("correct_answer", ""))
-                                or ""
-                            ).strip()
-                        )
+                    "correct_answer": ensure_plain_text(
+                        str(
+                            item.get("answer", item.get("correct_answer", ""))
+                            or ""
+                        ).strip()
                     ),
-                    "explanation": strip_markdown_bold(
-                        normalize_geometry_symbols(
-                            str(item.get("explanation", "") or "").strip()
-                        )
+                    "explanation": ensure_plain_text(
+                        str(item.get("explanation", "") or "").strip()
                     ),
                     "marks": marks,
                     "figure_spec": item.get("figure_spec"),

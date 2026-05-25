@@ -3,9 +3,12 @@ Canonical question signature — zero-duplicate policy per exam.
 
 Signature tuple (stable across relabelled points/numbers):
   primary_theorem, reasoning_pattern, answer_structure, diagram_archetype
+
+Chapter-specific theorem detection lives in signature_chapter_plugins (registered by rule pack).
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
@@ -15,6 +18,7 @@ from app.generation.reasoning_signature import (
     reasoning_signature_for_question,
     signature_key,
 )
+from app.generation.signature_chapter_plugins import detect_chapter_primary_theorem
 
 
 @dataclass(frozen=True)
@@ -44,53 +48,66 @@ def _answer_text(q: Dict[str, Any]) -> str:
     return " ".join(parts)
 
 
-def _primary_theorem(stem: str, answer: str, archetype: str) -> str:
-    low = f"{stem} {answer}".lower()
-    if "concentric" in low and "chord" in low:
-        return "concentric_chord_theorem"
-    if re.search(r"\bprove\b", low) and (
-        "meets the circle only" in low
-        or re.search(r"only\s+at\s+[A-Z]\b", stem, re.I)
-    ):
-        return "tangent_converse"
-    if re.search(r"\bprove\b", low) and re.search(r"\bperpendicular\b", low):
-        return "tangent_perpendicular_radius"
-    if re.search(r"\bprove\b", low) and re.search(
-        r"\b(?:pa|pb|rc|rd|jl|jm)\s*=\s*", stem, re.I
-    ):
-        return "equal_tangents_theorem"
-    if re.search(r"\bsecant\b", low) and (
-        "²" in answer or "×" in answer or "power" in low
-    ):
-        return "secant_tangent_power"
-    if "common" in low and "external" in low:
-        return "common_external_tangent"
-    if re.search(r"tangent.*chord|chord.*tangent", low) and re.search(
-        r"find\s+angle", low
-    ):
-        return "tangent_chord_angle_theorem"
-    if re.search(r"tangents?\s+[A-Z]{2}", stem, re.I) and re.search(
-        r"find\s+angle\s+[A-Z]O[A-Z]", stem, re.I
-    ):
-        return "tangent_pair_angle_sum"
-    if re.search(r"\btangent\b", low) and re.search(r"\bradius\b|distance", low):
-        return "tangent_length_radius"
-    if archetype == "cyclic_angle":
-        return "cyclic_quadrilateral_angle"
-    if "similar" in low:
-        return "tangent_similarity"
-    return archetype or "generic_circle"
+def _chapter_namespace(q: Dict[str, Any], chapter: str = "") -> str:
+    return (
+        (chapter or q.get("locked_chapter") or q.get("chapter") or "generic")
+        .strip()
+        .lower()
+        or "generic"
+    )
+
+
+def _stem_structure_fingerprint(stem: str) -> str:
+    """Chapter-agnostic structural hash — distinguishes stems with same answer shape."""
+    norm = re.sub(r"\s+", " ", (stem or "").lower().strip())
+    norm = re.sub(r"\d+(\.\d+)?", "#", norm)
+    tokens = re.findall(
+        r"\b(?:prove|find|express|hence|reduce|quadrant|radian|identity|"
+        r"sin|cos|tan|cot|sec|cosec|or|hence)\b|π|pi",
+        norm,
+    )
+    if not tokens:
+        digest = hashlib.sha256(norm[:160].encode()).hexdigest()[:10]
+        return f"fp_{digest}"
+    key = "_".join(sorted(set(tokens))[:10])
+    digest = hashlib.sha256(f"{norm}|{key}".encode()).hexdigest()[:8]
+    return f"{key}_{digest}"
+
+
+def _primary_theorem(
+    stem: str,
+    answer: str,
+    archetype: str,
+    *,
+    chapter: str = "",
+) -> str:
+    ns = chapter or "generic"
+    plugin = detect_chapter_primary_theorem(ns, stem, answer, archetype)
+    if plugin:
+        return f"{ns}:{plugin}"
+    cognitive = (archetype or "").strip()
+    if not cognitive:
+        cognitive = (stem and _stem_structure_fingerprint(stem)) or "unspecified"
+    return f"{ns}:{cognitive}"
 
 
 def _reasoning_pattern(stem: str, answer: str, archetype: str) -> str:
     comps = extract_reasoning_signature(stem, answer=answer, archetype_id=archetype)
-    return signature_key(comps) or reasoning_signature_for_question(
+    base = signature_key(comps) or reasoning_signature_for_question(
         {"content": stem, "correct_answer": answer, "archetype_id": archetype}
     )
+    fp = _stem_structure_fingerprint(stem)
+    if base in ("fusion", "generic", "") and fp:
+        return f"{base}:{fp}" if base else fp
+    return base or fp or "generic"
 
 
 def _answer_structure(stem: str, answer: str) -> str:
     low = f"{stem} {answer}".lower()
+    if re.search(r"\bor\b", stem, re.I) and re.search(r"\(i\)", stem, re.I):
+        if re.search(r"\bprove\b", low):
+            return "proof_hence_or"
+        return "multi_part_with_or"
     if re.search(r"\bprove\b", low) and re.search(r"\bhence\b|\(ii\)", low):
         return "proof_then_numeric"
     if re.search(r"\bprove\b", low):
@@ -125,25 +142,67 @@ def _diagram_archetype(q: Dict[str, Any], stem: str) -> str:
     if re.search(r"\btangent\b", low) and len(labels) <= 4:
         return "single_circle_tangent"
     if q.get("figure_type") == "labeled_diagram":
-        return "labeled_circle_diagram"
+        return "labeled_diagram"
     return "no_diagram"
 
 
-def build_canonical_signature(q: Dict[str, Any]) -> CanonicalSignature:
+def build_canonical_signature(
+    q: Dict[str, Any],
+    *,
+    chapter: str = "",
+) -> CanonicalSignature:
     stem = q.get("content") or q.get("question") or ""
     answer = _answer_text(q)
-    arch = (q.get("archetype_id") or q.get("slot_archetype") or "").strip()
+    arch = (
+        q.get("archetype_id")
+        or q.get("slot_archetype")
+        or q.get("cognitive_type")
+        or ""
+    ).strip()
+    ch = _chapter_namespace(q, chapter)
     return CanonicalSignature(
-        primary_theorem=_primary_theorem(stem, answer, arch),
+        primary_theorem=_primary_theorem(stem, answer, arch, chapter=ch),
         reasoning_pattern=_reasoning_pattern(stem, answer, arch),
         answer_structure=_answer_structure(stem, answer),
         diagram_archetype=_diagram_archetype(q, stem),
     )
 
 
-def annotate_canonical_signatures(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def disambiguate_duplicate_signatures(
+    questions: List[Dict[str, Any]],
+    *,
+    chapter: str = "",
+) -> List[Dict[str, Any]]:
+    """If two slots share a signature key, suffix later slots with @slotN (structural collision repair)."""
+    annotate_canonical_signatures(questions, chapter=chapter)
+    seen: Dict[str, int] = {}
+    for q in sorted(
+        questions,
+        key=lambda x: int(x.get("slot_number") or x.get("order_index", 0) or 0),
+    ):
+        key = q.get("canonical_signature") or ""
+        if not key:
+            continue
+        if key in seen:
+            slot = int(q.get("slot_number") or (seen[key] + 1))
+            parts = key.split("|", 3)
+            parts[0] = f"{parts[0]}@slot{slot}"
+            q["canonical_signature"] = "|".join(parts)
+            q["signature_disambiguated"] = True
+            parts_dict = dict(q.get("canonical_signature_parts") or {})
+            parts_dict["primary_theorem"] = parts[0]
+            q["canonical_signature_parts"] = parts_dict
+        seen[q.get("canonical_signature") or key] = int(q.get("slot_number") or 0)
+    return questions
+
+
+def annotate_canonical_signatures(
+    questions: List[Dict[str, Any]],
+    *,
+    chapter: str = "",
+) -> List[Dict[str, Any]]:
     for q in questions:
-        sig = build_canonical_signature(q)
+        sig = build_canonical_signature(q, chapter=chapter)
         q["canonical_signature"] = sig.key()
         q["canonical_signature_parts"] = {
             "primary_theorem": sig.primary_theorem,
@@ -156,9 +215,11 @@ def annotate_canonical_signatures(questions: List[Dict[str, Any]]) -> List[Dict[
 
 def filter_zero_duplicate_signatures(
     questions: List[Dict[str, Any]],
+    *,
+    chapter: str = "",
 ) -> List[Dict[str, Any]]:
     """Step 1 policy: zero repeated canonical signatures per paper."""
-    annotate_canonical_signatures(questions)
+    disambiguate_duplicate_signatures(questions, chapter=chapter)
     kept: List[Dict[str, Any]] = []
     seen: set[str] = set()
     for q in questions:
@@ -175,8 +236,13 @@ def filter_zero_duplicate_signatures(
     return kept
 
 
-def paper_has_duplicate_signatures(questions: List[Dict[str, Any]]) -> Tuple[bool, List[str]]:
-    annotate_canonical_signatures(questions)
+def paper_has_duplicate_signatures(
+    questions: List[Dict[str, Any]],
+    *,
+    chapter: str = "",
+) -> Tuple[bool, List[str]]:
+    annotate_canonical_signatures(questions, chapter=chapter)
+    disambiguate_duplicate_signatures(questions, chapter=chapter)
     counts: Dict[str, int] = {}
     for q in questions:
         k = q.get("canonical_signature") or ""

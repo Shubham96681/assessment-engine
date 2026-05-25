@@ -119,6 +119,42 @@ export type TopicProfile = {
   index_status?: string;
 };
 
+export type ChapterOption = {
+  chapter_key: string;
+  display_title: string;
+  cbse_stem_count: number;
+  has_rule_pack: boolean;
+  relevant_question_types: string[];
+  max_figure_based: number;
+};
+
+export type ChaptersListResponse = {
+  chapters: ChapterOption[];
+  count: number;
+  curriculum_document_id: string;
+};
+
+export const getChapters = async () => {
+  const res = await api.get('/chapters');
+  return res.data as ChaptersListResponse;
+};
+
+export const getChapterProfile = async (
+  chapterKey: string,
+  opts?: { topicFocus?: string; classLevel?: string },
+) => {
+  const params: Record<string, string> = {};
+  if (opts?.topicFocus) params.topic_focus = opts.topicFocus;
+  if (opts?.classLevel) params.class_level = opts.classLevel;
+  const res = await api.get(`/chapters/${chapterKey}/profile`, { params });
+  return res.data as TopicProfile;
+};
+
+export const getChapterQuestionTypes = async (chapterKey: string) => {
+  const res = await api.get(`/chapters/${chapterKey}/question-types`);
+  return res.data as { chapter_key: string; question_types: string[] };
+};
+
 export const getDocumentTopicProfile = async (
   documentId: string,
   topicFocus?: string,
@@ -163,14 +199,25 @@ export const deleteAssessment = async (id: string) => {
 export const getRagPending = async (): Promise<{
   pending: boolean;
   hint?: string;
+  regen_slot?: number | null;
+  regen_feedback?: string | null;
 }> => {
   const res = await api.get('/rag/pending', { timeout: 8000 });
   return res.data;
 };
 
+/** Build question-paper + answer-key PDFs from stored questions (when pdf_url is missing). */
+export const regenerateExport = async (assessmentId: string) => {
+  const res = await api.post(`/assessments/${assessmentId}/regenerate-export`, null, {
+    timeout: 120000,
+  });
+  return res.data;
+};
+
 /** Finish a stuck assessment using rag_response.txt already on disk */
-export const applyRagResponse = async (assessmentId: string) => {
+export const applyRagResponse = async (assessmentId: string, force = false) => {
   const res = await api.post(`/assessments/${assessmentId}/apply-rag-response`, null, {
+    params: force ? { force: true } : {},
     timeout: 180000,
   });
   return res.data;

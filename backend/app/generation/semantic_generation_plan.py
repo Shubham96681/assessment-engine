@@ -72,12 +72,18 @@ class SemanticGenerationPlan:
     full_hard: bool = False
     paper_dependency: Any = None  # PaperDependencyPlan
     paper_template_id: str = "chained_concentric"
+    delivery_question_count: int = 0
 
     def cognitive_blueprint_dict(self) -> Dict[int, str]:
         return {s.slot: s.cognitive_type for s in self.slots}
 
     def archetype_ids(self) -> List[str]:
         return [a.get("id", "") for a in self.archetypes if a.get("id")]
+
+    @property
+    def delivery_count(self) -> int:
+        d = int(self.delivery_question_count or 0)
+        return d if d > 0 else self.question_count
 
     def effective_question_types(self) -> List[str]:
         """
@@ -125,6 +131,7 @@ def build_semantic_plan(
     *,
     locked_chapter: str,
     question_count: int,
+    delivery_question_count: int = 0,
     question_types: List[Any],
     difficulty: str,
     bloom_level: Any,
@@ -188,6 +195,15 @@ def build_semantic_plan(
             question_count, chapter, ui_difficulty=ui, full_hard=full_hard
         )
     archetypes = filter_archetype_dicts(archetypes, chapter)
+    if not archetypes:
+        from app.generation.archetype_registry import archetype_definitions_for_chapter
+
+        archetypes = archetype_definitions_for_chapter(chapter)
+        logger.warning(
+            "Archetype pool empty after filter for chapter=%s — using registry definitions (%d)",
+            chapter,
+            len(archetypes),
+        )
 
     dep_plan = build_paper_dependency_plan(
         chapter=chapter,
@@ -233,10 +249,19 @@ def build_semantic_plan(
         full_hard=full_hard,
         difficulty_distribution=difficulty_distribution,
     )
-    seq_slots = sequence_slots_for_chapter(chapter, ui, full_hard=full_hard)
+    from app.generation.chapter_prompt_config import resolve_sequence_slots
+
+    seq_slots = resolve_sequence_slots(
+        chapter, ui, full_hard=full_hard, question_count=question_count
+    )
     tmpl_slots = template_slots_for_count(paper_tmpl, question_count)
     cognitive_defaults = list(pack.cognitive_blueprint_5)
     slots: List[SlotPlan] = []
+    if not archetypes:
+        raise ValueError(
+            f"No archetypes available for chapter '{chapter}'. "
+            "Check chapter_rule_packs and rd_archetypes TRIGONOMETRY_ARCHETYPES."
+        )
     for i in range(question_count):
         arch = archetypes[i] if i < len(archetypes) else archetypes[-1]
         meta = slot_meta[i] if i < len(slot_meta) else {}
@@ -278,6 +303,7 @@ def build_semantic_plan(
         chapter_title=pack.display_title,
         difficulty=ui,
         question_count=question_count,
+        delivery_question_count=delivery_question_count or question_count,
         question_types=types,
         bloom_level=bloom_str,
         rule_pack=pack,

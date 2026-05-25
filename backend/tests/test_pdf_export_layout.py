@@ -33,6 +33,38 @@ def test_strip_dollar_sum():
     assert not has_raw_latex(out)
 
 
+def test_angle_symbol_preserved():
+    out = ensure_plain_text("In \u0394ABC, \u2220C = 90\u00b0 and \u2220A = \u03c0/2.")
+    assert "\u2220" in out
+    assert "\u0394" in out
+
+
+def test_strip_hr_markup():
+    out = ensure_plain_text("Prove sin 5\u03b8 = x for 0\u00b0 \u2264 \u03b8 \u2264 90\u00b0. <hr/>Hence, find sin \u03b8.")
+    assert "hr/" not in out.lower()
+    assert "Hence" in out
+    assert "<" not in out
+
+
+def test_strip_partial_hr_artifact():
+    out = ensure_plain_text("90\u00b0.,hr/Hence, find sin \u03b8.")
+    assert "hr/" not in out.lower()
+    assert "Hence" in out
+
+
+def test_angle_word_to_symbol():
+    out = ensure_plain_text("In triangle ABC, angle A = \u03c0/2. If angle ATB = 60\u00b0, find angle AOB.")
+    assert "\u2220A" in out
+    assert "\u2220ATB" in out
+    assert "\u2220AOB" in out
+    assert "angle A =" not in out
+
+
+def test_angle_between_phrase_unchanged():
+    out = ensure_plain_text("Find the angle between the tangents when each tangent is 12 cm.")
+    assert "angle between" in out
+
+
 def test_normalize_stem_glued_tokens():
     assert "2 touching" in normalize_stem_for_pdf("from Question 2touching")
     assert "= 15" in normalize_stem_for_pdf("PA=15cm")
@@ -42,3 +74,15 @@ def test_reportlab_markup_nbsp_on_measurement():
     out = to_reportlab_markup("PA=15cm from Question 2 touching")
     assert "\u00a0" in out
     assert "2touching" not in out
+
+
+def test_normalize_fro_gh_truncation():
+    out = normalize_stem_for_pdf("fro GH = 21 cm tangent from O")
+    assert "from GH" in out
+    assert "fro GH" not in out
+
+
+def test_markup_protects_gh_label():
+    out = to_reportlab_markup("tangent GH from O")
+    assert "GH" in out
+    assert "fro" not in out.lower() or "from" in out.lower()

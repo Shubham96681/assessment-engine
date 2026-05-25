@@ -63,12 +63,40 @@ _TOPIC_LEXICON: Dict[str, Tuple[str, ...]] = {
         "midpoint theorem",
         "opposite sides",
     ),
+    "triangles": (
+        "similar triangles",
+        "congruence",
+        "pythagoras",
+        "rhs",
+        "sss",
+        "sas",
+        "asa",
+        "aa similarity",
+        "corresponding sides",
+        "angle sum",
+    ),
+    "trigonometry": (
+        "sin",
+        "cos",
+        "tan",
+        "cot",
+        "sec",
+        "cosec",
+        "radian",
+        "degree",
+        "identity",
+        "prove that",
+        "angle of elevation",
+        "quadrant",
+    ),
 }
 
 _CHAPTER_PRIMARY = {
     "quadratic": "quadratic",
     "circles": "geometry",
     "quadrilaterals": "quadrilaterals",
+    "triangles": "triangles",
+    "trigonometry": "trigonometry",
     "generic": "quadratic",
 }
 
@@ -109,12 +137,38 @@ _CHAPTER_FOREIGN_TERMS: Dict[str, Tuple[str, ...]] = {
         "concentric",
         "ta²",
     ),
+    "triangles": (
+        "discriminant",
+        "quadratic equation",
+        "factorisation",
+        "parallelogram",
+        "rhombus",
+        "concentric",
+        "point of contact",
+        "secant–tangent",
+        "ta²",
+        "tangent–secant power",
+    ),
+    "trigonometry": (
+        "discriminant",
+        "quadratic equation",
+        "parallelogram",
+        "rhombus",
+        "concentric",
+        "chord of the larger circle",
+        "point of contact",
+        "external point",
+        "ta²",
+        "dashed radii",
+    ),
 }
 
 _CHAPTER_PRIMARY_TERMS: Dict[str, Tuple[str, ...]] = {
     "quadratic": _TOPIC_LEXICON["quadratic"],
     "circles": _TOPIC_LEXICON["geometry"],
     "quadrilaterals": _TOPIC_LEXICON["quadrilaterals"],
+    "triangles": _TOPIC_LEXICON["triangles"],
+    "trigonometry": _TOPIC_LEXICON["trigonometry"],
 }
 
 
@@ -131,15 +185,34 @@ def _count_hits(text: str, terms: Tuple[str, ...]) -> int:
     return n
 
 
+_DOMINANCE_SKIP_SECTION_MARKERS: Tuple[str, ...] = (
+    "## NEVER REPEAT",
+    "PRIOR QUESTIONS — DO NOT REPEAT",
+    "PRIOR REASONING GRAPHS — DO NOT REUSE",
+)
+
+
 def _prompt_lines_for_dominance(prompt: str, locked_chapter: str) -> str:
-    """Drop ban-list lines so FORBIDDEN declarations do not inflate foreign ratio."""
+    """Drop ban-list lines and historical prior-stem blocks (foreign chapter leakage)."""
     from app.generation.prompt_purity import _is_forbidden_declaration_line
     from app.generation.chapter_rule_packs import get_chapter_rule_pack
 
     pack = get_chapter_rule_pack(locked_chapter)
     banned = tuple(pack.forbidden_terms)
     kept: List[str] = []
+    skip_section = False
     for line in prompt.splitlines():
+        stripped = line.strip()
+        if any(m in line for m in _DOMINANCE_SKIP_SECTION_MARKERS):
+            skip_section = True
+            continue
+        if skip_section:
+            if stripped.startswith("##") and not any(
+                m in line for m in _DOMINANCE_SKIP_SECTION_MARKERS
+            ):
+                skip_section = False
+            else:
+                continue
         if _is_forbidden_declaration_line(line, banned_terms=banned):
             continue
         kept.append(line)
@@ -151,7 +224,13 @@ def compute_topic_distribution(prompt: str, *, locked_chapter: str = "") -> Dict
     Normalized hit counts per topic family (not true NLP — fast compile guard).
     """
     if not prompt:
-        return {"quadratic": 0.0, "geometry": 0.0, "quadrilaterals": 0.0}
+        return {
+            "quadratic": 0.0,
+            "geometry": 0.0,
+            "quadrilaterals": 0.0,
+            "triangles": 0.0,
+            "trigonometry": 0.0,
+        }
     body = (
         _prompt_lines_for_dominance(prompt, locked_chapter)
         if locked_chapter
@@ -161,6 +240,8 @@ def compute_topic_distribution(prompt: str, *, locked_chapter: str = "") -> Dict
         "quadratic": _count_hits(body, _TOPIC_LEXICON["quadratic"]),
         "geometry": _count_hits(body, _TOPIC_LEXICON["geometry"]),
         "quadrilaterals": _count_hits(body, _TOPIC_LEXICON["quadrilaterals"]),
+        "triangles": _count_hits(body, _TOPIC_LEXICON["triangles"]),
+        "trigonometry": _count_hits(body, _TOPIC_LEXICON["trigonometry"]),
     }
     total = sum(counts.values()) or 1
     return {k: round(v / total, 4) for k, v in counts.items()}

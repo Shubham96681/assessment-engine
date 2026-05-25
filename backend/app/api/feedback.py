@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models import Question, QuestionFeedback
 from app.schemas import FeedbackCreate, FeedbackOut
@@ -25,6 +26,23 @@ async def submit_feedback(data: FeedbackCreate, db: AsyncSession = Depends(get_d
     q = r.scalar_one_or_none()
     if q:
         q.quality_score = q.quality_score * 0.7 + (data.rating / 5.0) * 0.3
+        if settings.ENABLE_RL_REWARD:
+            try:
+                from app.rl.feedback_collector import FeedbackCollector
+
+                FeedbackCollector().record_feedback(
+                    question_id=str(data.question_id),
+                    assessment_id=str(data.assessment_id or ""),
+                    rating=float(data.rating),
+                    tags=data.tags or [],
+                    comment=data.comment or "",
+                    question_text=q.content or "",
+                    answer_text=str(q.correct_answer or ""),
+                    chapter=getattr(q, "chapter", "") or "",
+                    combined_score=float(q.quality_score or 0),
+                )
+            except Exception:
+                pass
     await db.flush()
     return fb
 

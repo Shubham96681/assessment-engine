@@ -27,7 +27,7 @@ Use this document when you **clone the repo on a new machine** or hand the proje
 | Frontend | Next.js (`http://localhost:3000`) | Upload PDF, configure quiz, view questions, download PDF |
 | Backend | FastAPI (`http://localhost:8000`) | RAG search, question generation, PDF export |
 | PostgreSQL | Docker port **5433** | Assessments, documents, questions |
-| Qdrant | Docker port **6333** | Vector search over PDF chunks |
+| FAISS | Local `backend/data/faiss` | Vector search over PDF chunks (default; no Docker) |
 | Redis | Docker port **6379** | Optional (reserved for future workers) |
 | Cursor agent | `rag_query.txt` / `rag_response.txt` | Acts as the “LLM” when no API key is set |
 

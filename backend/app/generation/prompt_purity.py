@@ -47,6 +47,22 @@ _FOREIGN_SECTION_MARKERS: dict[str, Tuple[str, ...]] = {
         "TA² = TC",
         "discriminant D = b²",
     ),
+    "triangles": (
+        "HARD MODE — Circles",
+        "REASONING GRAPH DIVERSITY — Circles",
+        "NUMERIC CONSISTENCY — Circles",
+        "concentric chord",
+        "tangent–secant power",
+        "IDIOMATIC GEOMETRY",
+    ),
+    "trigonometry": (
+        "HARD MODE — Circles",
+        "REASONING GRAPH DIVERSITY — Circles",
+        "NUMERIC CONSISTENCY — Circles",
+        "concentric",
+        "point of contact",
+        "secant–tangent",
+    ),
 }
 
 # Archetype ids from other chapters (high-signal)
@@ -254,14 +270,13 @@ def filter_memory_prompt_block(block: str, chapter: str) -> str:
         foreign_theorems.update(other.theorem_pattern_ids)
         foreign_theorems.update(other.archetype_ids)
 
+    pack = get_chapter_rule_pack(ch)
+    foreign_vocab = {t.lower() for t in pack.forbidden_terms}
     lines = []
     for line in block.splitlines():
         low = line.lower()
         if any(t.replace("_", " ") in low or t in low for t in foreign_theorems):
-            if ch == "quadratic" and any(
-                x in low
-                for x in ("tangent", "secant", "concentric", "circle", "chord")
-            ):
+            if foreign_vocab and any(_term_in_text(term, line) for term in foreign_vocab):
                 continue
         lines.append(line)
     return "\n".join(lines)

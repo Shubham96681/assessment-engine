@@ -7,6 +7,18 @@ from app.generation.paper_repair import fill_missing_paper_slots, repair_duplica
 from app.generation.paper_templates import resolve_paper_template
 
 
+def test_mixed_independent_rejects_chained_ref_in_slot4():
+    q = {
+        "content": (
+            "In the same concentric circles as in Question 1. Hence, from external point P, "
+            "tangent PT = 6 cm; secant PQR has PQ = 4 cm. Find PR."
+        ),
+    }
+    assert not question_matches_slot_role(
+        q, 4, chapter="circles", paper_template_id="mixed_independent"
+    )
+
+
 def test_mixed_independent_accepts_secant_slot4():
     q = {
         "content": (
@@ -77,7 +89,51 @@ def test_mixed_paper_passes_integrity_with_secant_and_case_study():
     assert not any("slot_role_mismatch" in f for f in r["paper_integrity_flags"])
 
 
-def test_fill_missing_slot():
+def test_repair_mixed_slot_roles_replaces_chained_stems():
+    from app.generation.paper_repair import repair_mixed_independent_slot_roles
+
+    qs = [
+        {
+            "slot_number": 1,
+            "content": "Concentric radii 17 and 8 chord AB.",
+            "question_type": "FigureBased",
+        },
+        {
+            "slot_number": 2,
+            "content": "Tangent from K length 9.",
+            "question_type": "FigureBased",
+        },
+        {
+            "slot_number": 3,
+            "content": "Prove that RC = RD.",
+            "question_type": "FigureBased",
+        },
+        {
+            "slot_number": 4,
+            "content": (
+                "Using the outer circle from Question 1, find tangent length from P."
+            ),
+            "question_type": "FigureBased",
+        },
+        {
+            "slot_number": 5,
+            "content": "Find x.",
+            "question_type": "FigureBased",
+        },
+    ]
+    fixed = repair_mixed_independent_slot_roles(
+        qs, chapter="circles", paper_template_id="mixed_independent", difficulty="hard"
+    )
+    r = validate_paper_integrity(
+        fixed, chapter="circles", expected_count=5, paper_template_id="mixed_independent"
+    )
+    assert r["paper_integrity_ok"] is True
+
+
+def test_fill_missing_slot(monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "ENABLE_LOCAL_LLM_FALLBACK", True)
     qs = [
         {"slot_number": 1, "content": "Concentric find AB.", "question_type": "FigureBased"},
         {"slot_number": 2, "content": "Tangent secant from P.", "question_type": "FigureBased"},

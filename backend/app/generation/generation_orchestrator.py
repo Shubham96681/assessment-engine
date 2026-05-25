@@ -44,14 +44,32 @@ class MultiAgentOrchestrator:
         meta = document_meta or {}
         agent_log: List[Dict[str, Any]] = []
 
+        from app.core.cbse_curriculum_doc import is_cbse_curriculum_document
+        from app.generation.chapter_catalog import build_chapter_topic_profile
+
+        locked_override = (getattr(config, "locked_chapter", None) or "").strip().lower()
+
         # ── Agent 1: Topic ─────────────────────────────────────────────
-        topic_profile = await extract_document_topic_profile(
-            config.document_id,
-            filename=meta.get("filename", ""),
-            topic_focus=config.topic_focus or "",
-            subject=config.subject or meta.get("subject", "Mathematics"),
-            class_level=config.class_level or meta.get("class_level", ""),
-        )
+        if is_cbse_curriculum_document(config.document_id) and locked_override:
+            topic_profile = build_chapter_topic_profile(
+                locked_override,
+                class_level=config.class_level or meta.get("class_level", ""),
+                topic_focus=config.topic_focus or "",
+                subject=config.subject or meta.get("subject", "Mathematics"),
+            )
+            topic_profile["document_id"] = config.document_id
+            topic_profile["use_curriculum_archetypes"] = True
+        else:
+            topic_profile = await extract_document_topic_profile(
+                config.document_id,
+                filename=meta.get("filename", ""),
+                topic_focus=config.topic_focus or locked_override,
+                subject=config.subject or meta.get("subject", "Mathematics"),
+                class_level=config.class_level or meta.get("class_level", ""),
+            )
+            if locked_override:
+                topic_profile["locked_chapter"] = locked_override
+                topic_profile["locked_chapter_source"] = "user_selected"
         save_topic_map(topic_profile)
         agent_log.append(
             {
@@ -96,13 +114,15 @@ class MultiAgentOrchestrator:
 
         # ── Agent 2: Retriever ───────────────────────────────────────────
         chunks: List[Dict[str, Any]] = []
+        skip_doc_rag = is_cbse_curriculum_document(config.document_id)
         try:
-            chunks = await self.retriever.retrieve(
-                retrieval_query,
-                config.document_id,
-                subject=config.subject,
-                locked_chapter=locked,
-            )
+            if not skip_doc_rag:
+                chunks = await self.retriever.retrieve(
+                    retrieval_query,
+                    config.document_id,
+                    subject=config.subject,
+                    locked_chapter=locked,
+                )
         except Exception as e:
             logger.warning("RetrieverAgent failed: %s", e)
             agent_log.append(
@@ -120,6 +140,13 @@ class MultiAgentOrchestrator:
             )
 
         retrieval_meta = compute_retrieval_confidence(chunks)
+        if skip_doc_rag:
+            retrieval_meta = {
+                **retrieval_meta,
+                "use_curriculum_archetypes": True,
+                "mode": "cbse_curriculum",
+                "reason": "topic_only_cbse_reference",
+            }
         topic_profile["retrieval_confidence"] = retrieval_meta["score"]
         topic_profile["generation_mode"] = retrieval_meta["mode"]
         topic_profile["use_curriculum_archetypes"] = retrieval_meta[

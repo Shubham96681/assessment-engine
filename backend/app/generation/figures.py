@@ -30,6 +30,14 @@ def _geometry_fonts() -> Dict[str, float]:
     }
 
 
+def _print_geometry_figure():
+    """High-DPI white canvas for PDF embedding (avoids blurry downscale)."""
+    import matplotlib.pyplot as plt
+
+    dpi = max(120, int(settings.FIGURE_EXPORT_DPI))
+    return plt.subplots(figsize=(10.5, 8.5), dpi=dpi)
+
+
 def _setup_dark_fig(w=8, h=5):
     import matplotlib
     matplotlib.use("Agg")
@@ -409,17 +417,17 @@ class FigureGenerator:
             x2 = min_span
             x1 = 0.0
 
-        fig, ax = plt.subplots(figsize=(11.5, 9.5), dpi=120)
+        fig, ax = _print_geometry_figure()
         fig.patch.set_facecolor("#ffffff")
         ax.set_facecolor("#ffffff")
         ax.set_aspect("equal")
         ax.axis("off")
 
         ax.add_patch(
-            mpatches.Circle((x1, r1s), r1s, fill=False, edgecolor="#1e293b", lw=2)
+            mpatches.Circle((x1, r1s), r1s, fill=False, edgecolor="#1e293b", lw=2.4)
         )
         ax.add_patch(
-            mpatches.Circle((x2, r2s), r2s, fill=False, edgecolor="#1e293b", lw=2)
+            mpatches.Circle((x2, r2s), r2s, fill=False, edgecolor="#1e293b", lw=2.4)
         )
 
         # External tangent above both circles (same side)
@@ -475,7 +483,7 @@ class FigureGenerator:
         labels = spec.get("labels", {})
 
         fonts = _geometry_fonts()
-        fig, ax = plt.subplots(figsize=(11.5, 9.5), dpi=120)
+        fig, ax = _print_geometry_figure()
         fig.patch.set_facecolor("#ffffff")
         ax.set_facecolor("#ffffff")
         ax.set_aspect("equal")
@@ -500,12 +508,12 @@ class FigureGenerator:
                 centre = (0.0, 0.0)
                 radius = 2.0
                 circle_patch = mpatches.Circle(
-                    centre, radius, fill=False, edgecolor="#1e293b", lw=2
+                    centre, radius, fill=False, edgecolor="#1e293b", lw=2.4
                 )
                 ax.add_patch(circle_patch)
 
         if circle_patch is None:
-            circle_patch = mpatches.Circle((0, 0), 2, fill=False, edgecolor="#1e293b", lw=2)
+            circle_patch = mpatches.Circle((0, 0), 2, fill=False, edgecolor="#1e293b", lw=2.4)
             ax.add_patch(circle_patch)
 
         if inner_radius_ratio is not None and 0 < inner_radius_ratio < 1:
@@ -516,7 +524,7 @@ class FigureGenerator:
                     r_in,
                     fill=False,
                     edgecolor="#475569",
-                    lw=1.6,
+                    lw=2.0,
                     linestyle="--",
                 )
             )

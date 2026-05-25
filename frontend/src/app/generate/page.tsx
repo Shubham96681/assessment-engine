@@ -4,11 +4,14 @@ import { useState, useEffect, useCallback, Suspense } from "react";
 import {
   getDocuments,
   getDocumentTopicProfile,
+  getChapters,
+  getChapterProfile,
   generateAssessment,
   getAssessments,
   checkBackendHealth,
   formatApiError,
   type TopicProfile,
+  type ChapterOption,
 } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Settings2, Layers, BookOpen, BrainCircuit, Loader2, RefreshCw } from "lucide-react";
@@ -38,6 +41,10 @@ function GeneratePageContent() {
   const [loading, setLoading] = useState(false);
 
   const [docId, setDocId] = useState("");
+  const [useChapterPdf, setUseChapterPdf] = useState(false);
+  const [chapters, setChapters] = useState<ChapterOption[]>([]);
+  const [chaptersLoading, setChaptersLoading] = useState(true);
+  const [selectedChapter, setSelectedChapter] = useState("");
   const [title, setTitle] = useState("");
   const [totalQuestions, setTotalQuestions] = useState(5);
   const [topicFocus, setTopicFocus] = useState("");
@@ -50,7 +57,8 @@ function GeneratePageContent() {
   const [topicLoading, setTopicLoading] = useState(false);
   const [topicError, setTopicError] = useState("");
 
-  const allTypes = [
+  const [selectedTypes, setSelectedTypes] = useState<string[]>(["MCQ", "ShortAnswer"]);
+  const [availableTypes, setAvailableTypes] = useState<string[]>([
     "MCQ",
     "ShortAnswer",
     "LongAnswer",
@@ -60,8 +68,7 @@ function GeneratePageContent() {
     "AssertionReason",
     "MatchColumn",
     "CaseStudy",
-  ];
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(["MCQ", "ShortAnswer"]);
+  ]);
 
   const [easy, setEasy] = useState(10);
   const [medium, setMedium] = useState(30);
@@ -96,6 +103,20 @@ function GeneratePageContent() {
   useEffect(() => {
     checkBackendHealth().then(setBackendUp);
     loadDocuments();
+    (async () => {
+      setChaptersLoading(true);
+      try {
+        const data = await getChapters();
+        setChapters(data.chapters || []);
+        if (data.chapters?.length) {
+          setSelectedChapter((cur) => cur || data.chapters[0].chapter_key);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setChaptersLoading(false);
+      }
+    })();
   }, [loadDocuments]);
 
   // Poll while any document is still processing (e.g. after upload)
@@ -112,18 +133,55 @@ function GeneratePageContent() {
 
   const selectedDoc = documents.find((d) => d.id === docId);
 
+  const selectedChapterMeta = chapters.find((c) => c.chapter_key === selectedChapter);
+
   useEffect(() => {
-    if (!docId || selectedDoc?.status !== "ready") {
+    if (!selectedChapterMeta) return;
+    const relevant = selectedChapterMeta.relevant_question_types;
+    setAvailableTypes(relevant);
+    setSelectedTypes((prev) => {
+      const kept = prev.filter((t) => relevant.includes(t));
+      return kept.length > 0 ? kept : relevant.slice(0, Math.min(2, relevant.length));
+    });
+  }, [selectedChapter, selectedChapterMeta?.chapter_key]);
+
+  useEffect(() => {
+    if (!selectedChapter) {
       setTopicProfile(null);
       setTopicError("");
       return;
+    }
+    const usePdf = useChapterPdf && docId && selectedDoc?.status === "ready";
+    if (docId && selectedDoc?.status !== "ready") {
+      if (!usePdf) {
+        setTopicProfile(null);
+      }
+      if (selectedDoc?.status === "processing" || selectedDoc?.status === "failed") {
+        return;
+      }
     }
     let cancelled = false;
     const load = async () => {
       setTopicLoading(true);
       setTopicError("");
       try {
-        const profile = await getDocumentTopicProfile(docId, topicFocus || undefined);
+        let profile: TopicProfile;
+        if (usePdf) {
+          profile = await getDocumentTopicProfile(docId, topicFocus || undefined);
+          if (selectedChapter) {
+            profile = {
+              ...profile,
+              locked_chapter: selectedChapter,
+              primary_topic:
+                selectedChapterMeta?.display_title || profile.primary_topic,
+            };
+          }
+        } else {
+          profile = await getChapterProfile(selectedChapter, {
+            topicFocus: topicFocus || undefined,
+            classLevel: examLevel || undefined,
+          });
+        }
         if (!cancelled) setTopicProfile(profile);
       } catch (err) {
         if (!cancelled) {
@@ -139,7 +197,22 @@ function GeneratePageContent() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [docId, topicFocus, documents, selectedDoc?.status]);
+  }, [
+    docId,
+    topicFocus,
+    examLevel,
+    documents,
+    selectedDoc?.status,
+    selectedChapter,
+    selectedChapterMeta?.display_title,
+    useChapterPdf,
+  ]);
+
+  useEffect(() => {
+    if (!docId || selectedDoc?.status !== "ready") {
+      setUseChapterPdf(false);
+    }
+  }, [docId, selectedDoc?.status]);
 
   const handleTypeToggle = (type: string) => {
     setSelectedTypes((prev) =>
@@ -148,25 +221,28 @@ function GeneratePageContent() {
   };
 
   const handleGenerate = async () => {
-    if (!docId) return alert("Please select a document first");
-    if (selectedDoc?.status === "processing") {
+    if (!selectedChapter) return alert("Please select a topic first");
+    if (useChapterPdf && docId && selectedDoc?.status === "processing") {
       return alert("Document is still processing. Wait until status is Ready.");
     }
-    if (selectedDoc?.status === "failed") {
+    if (useChapterPdf && docId && selectedDoc?.status === "failed") {
       return alert("This document failed to process. Upload it again.");
     }
     setLoading(true);
 
-    const config = {
-      document_id: docId,
-      title: title || "New Assessment",
+    const chapterTitle = selectedChapterMeta?.display_title || selectedChapter;
+    const config: Record<string, unknown> = {
+      document_id: docId || undefined,
+      use_chapter_pdf: useChapterPdf && !!docId,
+      locked_chapter: selectedChapter,
+      title: title || `${chapterTitle} Assessment`,
       total_questions: totalQuestions,
       question_types: selectedTypes,
       difficulty_distribution: { easy, medium, hard },
       bloom_levels: ["Remember", "Understand", "Apply", "Analyze"],
       figure_types: ["flowchart", "bar_graph", "labeled_diagram"],
-      topic_focus: topicFocus || undefined,
-      subject: selectedDoc?.subject || undefined,
+      topic_focus: topicFocus || chapterTitle,
+      subject: selectedDoc?.subject || "Mathematics",
       class_level: examLevel || selectedDoc?.class_level || undefined,
       language,
       weak_in: weakIn
@@ -220,7 +296,7 @@ function GeneratePageContent() {
       <header>
         <h1 className="text-3xl font-bold text-white mb-2">Configure Generation</h1>
         <p className="text-slate-400">
-          Questions follow CBSE Class 10 Maths Standard PYQ style (see CBSE_PYQ_REFERENCE.md). Upload your chapter PDF for content; PYQ PDFs are style reference only.
+          Select a topic from ingested CBSE papers, or add your chapter PDF for richer RAG. Question types shown match the selected topic.
         </p>
       </header>
 
@@ -240,8 +316,34 @@ function GeneratePageContent() {
             </h2>
             <div className="space-y-4">
               <div>
+                <label className="text-sm font-medium text-slate-300 block mb-2">
+                  Select Topic <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  value={selectedChapter}
+                  onChange={(e) => setSelectedChapter(e.target.value)}
+                  disabled={chaptersLoading || chapters.length === 0}
+                  className="w-full bg-[#0f172a] border border-indigo-500/40 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                >
+                  <option value="" disabled>
+                    {chaptersLoading ? "Loading topics…" : "-- Select a topic --"}
+                  </option>
+                  {chapters.map((ch) => (
+                    <option key={ch.chapter_key} value={ch.chapter_key}>
+                      {ch.display_title}
+                      {ch.cbse_stem_count > 0 ? ` (${ch.cbse_stem_count} CBSE stems)` : ""}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  Topics come from CBSE_QuestionPapers ingestion. Generate without a PDF uses board-style exemplars only.
+                </p>
+              </div>
+              <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-slate-300">Select Document</label>
+                  <label className="text-sm font-medium text-slate-300">
+                    Chapter PDF <span className="text-slate-500 font-normal">(optional)</span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => loadDocuments(false)}
@@ -255,11 +357,11 @@ function GeneratePageContent() {
                 <select
                   value={docId}
                   onChange={(e) => setDocId(e.target.value)}
-                  disabled={docsLoading || documents.length === 0}
+                  disabled={docsLoading}
                   className="w-full bg-[#0f172a] border border-[#334155] rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
                 >
-                  <option value="" disabled>
-                    {docsLoading ? "Loading documents…" : "-- Select a document --"}
+                  <option value="">
+                    {docsLoading ? "Loading documents…" : "— No PDF (CBSE topic only) —"}
                   </option>
                   {documents.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -267,26 +369,60 @@ function GeneratePageContent() {
                     </option>
                   ))}
                 </select>
+                <label
+                  className={`mt-3 flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition-colors ${
+                    docId && selectedDoc?.status === "ready"
+                      ? "border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10"
+                      : "border-[#334155] bg-[#0f172a]/50 opacity-60 cursor-not-allowed"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={useChapterPdf}
+                    onChange={(e) => setUseChapterPdf(e.target.checked)}
+                    disabled={!docId || selectedDoc?.status !== "ready"}
+                    className="mt-1 h-4 w-4 rounded border-[#334155] text-indigo-500 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-slate-300">
+                    <span className="font-medium text-white">Use chapter PDF</span>
+                    <span className="block text-xs text-slate-500 mt-0.5">
+                      {docId && selectedDoc?.status === "ready"
+                        ? "Checked: RAG pulls from your uploaded PDF plus CBSE board style for the selected topic."
+                        : "Select a ready PDF above to enable textbook RAG. Unchecked uses CBSE topic exemplars only."}
+                    </span>
+                  </span>
+                </label>
                 {docsError && (
                   <p className="text-rose-400 text-xs mt-2">{docsError}</p>
                 )}
                 {!docsError && !docsLoading && documents.length === 0 && (
-                  <p className="text-rose-400 text-xs mt-2">
-                    No documents found.{" "}
+                  <p className="text-slate-500 text-xs mt-2">
+                    No PDF uploaded — generation uses CBSE board stems for the selected topic.{" "}
                     <a href="/upload" className="underline text-indigo-400">
-                      Upload one first
-                    </a>
-                    .
+                      Upload a chapter PDF
+                    </a>{" "}
+                    for textbook RAG.
                   </p>
                 )}
-                {selectedDoc?.status === "ready" && (
+                {useChapterPdf && selectedDoc?.status === "ready" && (
                   <p className="text-slate-400 text-xs mt-2">
-                    Questions use this PDF only (RAG). Set <strong className="text-slate-300">Topic focus</strong> to narrow the chapter — RD Sharma / RS Aggarwal exercise depth.
+                    PDF + selected topic: RAG from your PDF, style from CBSE index for{" "}
+                    <strong className="text-slate-300">{selectedChapterMeta?.display_title}</strong>.
                   </p>
                 )}
-                {selectedDoc?.status === "ready" && (
+                {docId && !useChapterPdf && selectedChapter && (
+                  <p className="text-slate-400 text-xs mt-2">
+                    PDF selected but not used — generation uses CBSE board stems for{" "}
+                    <strong className="text-slate-300">{selectedChapterMeta?.display_title}</strong> only.
+                  </p>
+                )}
+                {selectedChapter && (
                   <div className="mt-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 text-sm">
-                    <p className="text-indigo-300 font-medium mb-2">Extracted topics (from PDF)</p>
+                    <p className="text-indigo-300 font-medium mb-2">
+                      {useChapterPdf && docId && selectedDoc?.status === "ready"
+                        ? "Topic + PDF profile"
+                        : "CBSE topic profile"}
+                    </p>
                     {topicLoading && (
                       <p className="text-slate-400 text-xs flex items-center gap-2">
                         <Loader2 className="w-3 h-3 animate-spin" />
@@ -301,7 +437,7 @@ function GeneratePageContent() {
                           <p className="text-slate-500">
                             Restart the backend after pulling latest code (needs{" "}
                             <code className="text-indigo-300">GET /documents/…/topic-profile</code>
-                            ). Or check Docker + Qdrant are running.
+                            ). Or restart the backend (FAISS index loads from backend/data/faiss).
                           </p>
                         )}
                       </div>
@@ -312,9 +448,9 @@ function GeneratePageContent() {
                           (topicProfile.total_chunks_db ?? 0) > 0 && (
                             <p className="text-amber-400 text-xs">
                               PDF is indexed in DB ({topicProfile.total_chunks_db} chunks) but
-                              Qdrant returned 0 chunks — start Qdrant (
-                              <code className="text-indigo-300">docker compose up -d</code>
-                              ) and re-upload, or check QDRANT_URL.
+                              FAISS returned 0 chunks — re-upload the PDF or restart the backend
+                              so indexing writes to{" "}
+                              <code className="text-indigo-300">backend/data/faiss/documents</code>.
                             </p>
                           )}
                         {topicProfile.chunk_count_used === 0 &&
@@ -376,21 +512,21 @@ function GeneratePageContent() {
                         ) : (
                           <p className="text-xs text-slate-500">
                             No subtopics from PDF text yet — chapter locked from filename (
-                            {topicProfile.locked_chapter}). Add Topic focus or re-index with Qdrant
-                            running.
+                            {topicProfile.locked_chapter}). Add Topic focus or re-upload the PDF
+                            to rebuild the local FAISS index.
                           </p>
                         )}
                       </div>
                     )}
                   </div>
                 )}
-                {selectedDoc?.status === "processing" && (
+                {docId && selectedDoc?.status === "processing" && (
                   <p className="text-amber-400 text-xs mt-2">
                     Indexing in background (usually 1–3 min). You can refresh — the list updates without blocking.
                     Use Upload → page range for faster indexing.
                   </p>
                 )}
-                {selectedDoc?.status === "failed" && selectedDoc?.error_message && (
+                {docId && selectedDoc?.status === "failed" && selectedDoc?.error_message && (
                   <p className="text-rose-400 text-xs mt-2">{selectedDoc.error_message}</p>
                 )}
               </div>
@@ -509,8 +645,18 @@ function GeneratePageContent() {
               <Layers className="w-5 h-5 text-pink-400" />
               Question Types
             </h2>
+            {selectedChapter && (
+              <p className="text-xs text-slate-500 mb-3">
+                Showing types relevant to{" "}
+                <strong className="text-slate-400">{selectedChapterMeta?.display_title}</strong>
+                {selectedChapterMeta?.relevant_question_types?.includes("FigureBased") &&
+                  selectedChapterMeta.max_figure_based > 0 &&
+                  ` (up to ${selectedChapterMeta.max_figure_based} figure-based)`}
+                .
+              </p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {allTypes.map((type) => {
+              {availableTypes.map((type) => {
                 const isSelected = selectedTypes.includes(type);
                 return (
                   <div
@@ -619,8 +765,8 @@ function GeneratePageContent() {
             onClick={handleGenerate}
             disabled={
               loading ||
-              !docId ||
-              selectedDoc?.status !== "ready" ||
+              !selectedChapter ||
+              (!!docId && selectedDoc?.status !== "ready") ||
               easy + medium + hard !== 100 ||
               selectedTypes.length === 0
             }

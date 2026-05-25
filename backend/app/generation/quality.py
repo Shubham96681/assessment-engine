@@ -119,6 +119,14 @@ class QualityScorer:
         q.update(
             reasoning_depth_score(q, slot_band=band, ui_difficulty=ui_difficulty)
         )
+        if settings.ENABLE_MATH_STEM_VALIDATION:
+            from app.generation.math_stem_validator import evaluate_math_stem
+            from app.generation.topic_isolation import get_current_topic_state
+
+            locked_ch = (get_current_topic_state() or {}).get("locked_chapter", "")
+            q.update(evaluate_math_stem(q, locked_chapter=locked_ch))
+            if not q.get("math_stem_ok", True):
+                q["combined_score"] = max(0.0, q.get("combined_score", 0) - 0.45)
         self.authenticity.score_question(q, slot_band=band)
         q["quality_score"] = self._heuristic_score(q, band)
         awkward = detect_awkward_idiom(q.get("content") or "")
@@ -197,6 +205,17 @@ class QualityScorer:
                 q, band, ui_difficulty=ui, slot_meta=meta
             )
         annotate_paper_reasoning(questions, ui_difficulty=ui)
+        if settings.ENABLE_CHAPTER_PAPER_QUALITY:
+            from app.generation.topic_isolation import get_current_topic_state
+            from app.generation.chapter_paper_quality import (
+                annotate_chapter_paper_quality,
+                normalize_chapter_paper_marks,
+            )
+
+            ch = (get_current_topic_state() or {}).get("locked_chapter", "")
+            if ch:
+                annotate_chapter_paper_quality(questions, chapter=ch)
+                normalize_chapter_paper_marks(questions, chapter=ch)
         for q in questions:
             idx = min(q.get("order_index", 0), len(bands) - 1)
             band = bands[idx] if bands else "L3"
@@ -214,6 +233,27 @@ class QualityScorer:
                 await self._llm_score_sample(sample)
             except Exception as e:
                 logger.warning(f"LLM quality scoring failed (using heuristic): {e}")
+        if settings.ENABLE_RL_REWARD:
+            try:
+                from app.rl.reward_scorer import apply_rl_reward
+
+                apply_rl_reward(questions)
+            except Exception as e:
+                logger.warning("RL reward scoring failed: %s", e)
+        if settings.ENABLE_CBSE_BENCHMARK:
+            try:
+                from app.generation.cbse_benchmark import apply_cbse_benchmark_to_questions
+                from app.generation.topic_isolation import get_current_topic_state
+
+                state = get_current_topic_state() or {}
+                cl = (
+                    state.get("class_level")
+                    or (state.get("topic_map") or {}).get("class_level")
+                    or "10"
+                )
+                apply_cbse_benchmark_to_questions(questions, class_level=str(cl))
+            except Exception as e:
+                logger.warning("CBSE benchmark scoring failed: %s", e)
         return questions
 
     def curate_batch(
@@ -292,15 +332,30 @@ class QualityScorer:
         ):
             return True
         if should_reject_shallow_reasoning(
-            q, slot_band=band, ui_difficulty=ui_difficulty
+            q,
+            slot_band=band,
+            ui_difficulty=ui_difficulty,
+            full_hard=bool((slot_meta or {}).get("full_hard")),
         ):
             return True
         if should_reject_numeric(q):
             return True
         if locked and should_reject_topic_drift(q, locked_chapter=locked):
             return True
+        if settings.ENABLE_MATH_STEM_VALIDATION:
+            from app.generation.math_stem_validator import should_reject_math_stem
+
+            if should_reject_math_stem(q, locked_chapter=locked or ""):
+                return True
         if should_reject_angle_target(q):
             return True
+        if settings.ENABLE_CHAPTER_PAPER_QUALITY and locked:
+            from app.generation.chapter_paper_quality import (
+                should_reject_chapter_paper_quality,
+            )
+
+            if should_reject_chapter_paper_quality(q, chapter=locked):
+                return True
         if q.get("theorem_equivalent_duplicate"):
             return True
         from app.core.config import settings
@@ -372,8 +427,23 @@ class QualityScorer:
             ui_difficulty=ui_difficulty,
         ):
             return True
-        if q.get("combined_score", 0) < 0.38:
-            return True
+        try:
+            from app.generation.cbse_benchmark import (
+                evaluate_against_cbse,
+                get_dynamic_combined_floor,
+            )
+            from app.generation.topic_isolation import get_current_topic_state
+
+            cl = (get_current_topic_state() or {}).get("class_level") or "10"
+            floor = get_dynamic_combined_floor(cl)
+            if q.get("combined_score", 0) < floor:
+                return True
+            cbse = evaluate_against_cbse(q, class_level=cl, slot_band=band)
+            if cbse.get("cbse_reject") and settings.ENABLE_CBSE_BENCHMARK:
+                return True
+        except Exception:
+            if q.get("combined_score", 0) < 0.38:
+                return True
         return False
 
     def _heuristic_score(self, q: Dict, band: str = "L3") -> float:

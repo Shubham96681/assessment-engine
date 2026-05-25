@@ -4,6 +4,7 @@ RD Sharma / RS Aggarwal — archetypes, chapter fingerprints, human sequencing, 
 from __future__ import annotations
 
 import random
+import re
 from typing import List, Dict, Any, Optional
 
 from app.generation.textbook_constants import (
@@ -206,6 +207,63 @@ QUADRATIC_ARCHETYPES: List[Dict[str, str]] = [
     },
 ]
 
+TRIGONOMETRY_ARCHETYPES: List[Dict[str, str]] = [
+    {
+        "id": "radian_degree",
+        "name": "Radian–degree conversion",
+        "skill_family": "conversion",
+        "marks_min": "4",
+        "marks_max": "5",
+        "stem_hint": "Convert between degrees and radians; standard angles.",
+        "example": "Express 105° in radian measure.",
+    },
+    {
+        "id": "standard_angle",
+        "name": "Standard angle values",
+        "skill_family": "period_reduction",
+        "marks_min": "2",
+        "marks_max": "3",
+        "stem_hint": "sin/cos/tan of special angles; quadrant reduction.",
+        "example": "Find the value of sin 765°.",
+    },
+    {
+        "id": "ratio_find",
+        "name": "Trig ratio from one function",
+        "skill_family": "ratio_from_one",
+        "marks_min": "5",
+        "marks_max": "6",
+        "stem_hint": "Given sin or cos in a quadrant, find other ratios.",
+        "example": "If sin θ = 5/13 and θ lies in quadrant II, find cos θ and tan θ.",
+    },
+    {
+        "id": "identity_prove",
+        "name": "Identity proof",
+        "skill_family": "identity_proof",
+        "marks_min": "3",
+        "marks_max": "4",
+        "stem_hint": "Prove trigonometric identities using Pythagorean relations.",
+        "example": "Prove that (1 + tan²θ)(1 − sin²θ) = 1.",
+    },
+    {
+        "id": "quadrant_reduction",
+        "name": "Quadrant reduction",
+        "skill_family": "period_reduction",
+        "marks_min": "3",
+        "marks_max": "4",
+        "stem_hint": "Reduce angles beyond 360° or negative angles.",
+        "example": "Find tan(−15π/4).",
+    },
+    {
+        "id": "hots_trig",
+        "name": "HOTS trig fusion",
+        "skill_family": "hots_fusion",
+        "marks_min": "5",
+        "marks_max": "6",
+        "stem_hint": "Hence chain: ratio + identity or reduction combined.",
+        "example": "Using a prior result, verify sin²45° + cos²45° = 1.",
+    },
+]
+
 GENERIC_ARCHETYPES: List[Dict[str, str]] = [
     {
         "id": "concept_apply",
@@ -261,6 +319,14 @@ CHAPTER_PATTERNS_FULL_HARD: Dict[str, List[tuple[str, float]]] = {
 }
 
 CHAPTER_PATTERNS_HARD: Dict[str, List[tuple[str, float]]] = {
+    "trigonometry": [
+        ("radian_degree", 0.20),
+        ("ratio_find", 0.20),
+        ("standard_angle", 0.18),
+        ("identity_prove", 0.18),
+        ("quadrant_reduction", 0.14),
+        ("hots_trig", 0.10),
+    ],
     "circles": [
         ("hidden_theorem", 0.18),
         ("concentric", 0.16),
@@ -315,6 +381,14 @@ CHAPTER_PATTERNS_HARD: Dict[str, List[tuple[str, float]]] = {
 
 # Chapter statistical fingerprints (weight = relative frequency)
 CHAPTER_PATTERNS: Dict[str, List[tuple[str, float]]] = {
+    "trigonometry": [
+        ("radian_degree", 0.22),
+        ("ratio_find", 0.20),
+        ("standard_angle", 0.18),
+        ("identity_prove", 0.16),
+        ("quadrant_reduction", 0.14),
+        ("hots_trig", 0.10),
+    ],
     "quadratic": [
         ("factorisation_roots", 0.22),
         ("nature_of_roots", 0.20),
@@ -412,6 +486,7 @@ ARCHETYPE_BY_ID = {
         CIRCLE_ARCHETYPES
         + QUADRILATERAL_ARCHETYPES
         + QUADRATIC_ARCHETYPES
+        + TRIGONOMETRY_ARCHETYPES
         + GENERIC_ARCHETYPES
     )
 }
@@ -424,6 +499,8 @@ def _chapter_archetype_pool(chapter: str) -> List[Dict[str, str]]:
         return QUADRILATERAL_ARCHETYPES
     if chapter == "circles":
         return CIRCLE_ARCHETYPES
+    if chapter == "trigonometry":
+        return TRIGONOMETRY_ARCHETYPES
     if chapter == "generic":
         return GENERIC_ARCHETYPES
     # Never leak Circles archetypes into other chapters
@@ -437,21 +514,62 @@ _CHAPTER_DETECT_ORDER: List[tuple[str, tuple[str, ...]]] = [
         "quadrilateral", "parallelogram", "rhombus", "trapezium", "trapezoid",
         "rectangle", "square", "midpoint theorem", "mid-point theorem",
     )),
+    ("trigonometry", (
+        "trigonometry",
+        "trigonometric",
+        "sin ",
+        "cos ",
+        "tan ",
+        "cot ",
+        "sec ",
+        "cosec",
+        "radian",
+        "degree measure",
+        "identity",
+        "angle of elevation",
+    )),
     ("triangles", ("triangle", "similar triangles", "congruence", "pythagoras theorem")),
     ("circles", ("circle", "tangent", "circles", "secant", "concentric", "cyclic")),
     ("polynomials", ("polynomial", "zeroes of", "zeros of", "division algorithm")),
     ("coordinate", ("coordinate", "distance formula", "section formula", "slope")),
-    ("trigonometry", ("trigonometry", "sin", "cos", "tan", "identity", "angle of elevation")),
     ("probability", ("probability", "dice", "cards", "random", "event")),
     ("arithmetic", ("arithmetic progression", "ap", "common difference", "nth term", "sum of n terms")),
     ("statistics", ("mean", "median", "mode", "frequency", "histogram")),
 ]
 
 
+_BOUNDARY_KEYS = frozenset(
+    {
+        "triangle",
+        "circle",
+        "circles",
+        "tangent",
+        "secant",
+        "chord",
+        "ap",
+        "sin",
+        "cos",
+        "tan",
+        "cot",
+        "sec",
+    }
+)
+
+
+def _chapter_key_in_blob(key: str, blob: str) -> bool:
+    """Word-boundary match — avoids 'ap' in chapter, 'triangle' in unrelated tokens."""
+    k = (key or "").strip().lower()
+    if not k:
+        return False
+    if len(k) <= 4 and k.isalpha() or k in _BOUNDARY_KEYS:
+        return bool(re.search(rf"\b{re.escape(k)}\b", blob, re.I))
+    return k in blob
+
+
 def detect_chapter_key(topic_focus: str = "", filename: str = "", context: str = "") -> str:
     blob = f"{topic_focus} {filename} {context[:1200]}".lower()
     for chapter, keys in _CHAPTER_DETECT_ORDER:
-        if any(k in blob for k in keys):
+        if any(_chapter_key_in_blob(k, blob) for k in keys):
             return chapter
     return "generic"
 
@@ -490,6 +608,13 @@ def pick_weighted_archetypes(
     full_hard: bool = False,
 ) -> List[Dict[str, str]]:
     ui = (ui_difficulty or "medium").lower()
+    from app.generation.chapter_paper_quality import planned_archetype_ids
+
+    planned = planned_archetype_ids(chapter, n, ui_difficulty=ui)
+    if planned and len(planned) >= n:
+        picked = [ARCHETYPE_BY_ID[i] for i in planned[:n] if i in ARCHETYPE_BY_ID]
+        if len(picked) >= n:
+            return picked[:n]
     pool_ids_set = {a["id"] for a in _chapter_archetype_pool(chapter)}
     if ui in ("hard", "difficult"):
         if full_hard and chapter in CHAPTER_PATTERNS_FULL_HARD:
@@ -630,7 +755,9 @@ def get_slot_metadata(
     memory = build_exercise_memory_plan(question_count, locked_chapter=chapter)
     teach_idx = memory[0]["teach_index"] if memory else -1
     reuse_idx = memory[0]["reuse_index"] if memory else -1
-    sequence_slots = sequence_slots_for_chapter(chapter, ui, full_hard=fh)
+    sequence_slots = sequence_slots_for_chapter(
+        chapter, ui, full_hard=fh, question_count=question_count
+    )
     bands = get_slot_bands(
         question_count,
         ui_difficulty=ui,

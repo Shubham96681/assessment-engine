@@ -10,8 +10,18 @@ import re
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
-# Archetype id → coarse family (blueprint picker)
-ARCHETYPE_REASONING_FAMILY: Dict[str, str] = {
+def _skill_family_for_archetype(archetype_id: str) -> str:
+    from app.generation.rd_archetypes import ARCHETYPE_BY_ID
+
+    arch = ARCHETYPE_BY_ID.get(archetype_id, {})
+    fam = (arch.get("skill_family") or "").strip()
+    if fam:
+        return fam
+    return ARCHETYPE_REASONING_FAMILY_LEGACY.get(archetype_id, archetype_id)
+
+
+# Legacy fallback when archetype row has no skill_family (geometry / quadratic pools)
+ARCHETYPE_REASONING_FAMILY_LEGACY: Dict[str, str] = {
     "angle_theorem": "tangent_pair_angle",
     "cyclic_angle": "tangent_angle_chase",
     "hidden_theorem": "tangent_length_trap",
@@ -32,6 +42,8 @@ ARCHETYPE_REASONING_FAMILY: Dict[str, str] = {
     "formula_roots": "quadratic_formula",
     "hots_quad": "hots_quadratic_fusion",
 }
+
+ARCHETYPE_REASONING_FAMILY: Dict[str, str] = ARCHETYPE_REASONING_FAMILY_LEGACY
 
 # One signature key per paper for hard mode (max 1 unless slot forces teach/reuse)
 HARD_PAPER_MAX_PER_SIGNATURE: Dict[str, int] = {
@@ -161,7 +173,9 @@ def extract_reasoning_signature(
             sig.append("similarity")
     if re.search(r"\bsecant\b", low) and re.search(r"\bTA\s*[·x×]?\s*TD|TC\s*[·x×]?\s*TD", stem, re.I):
         sig.append("power_of_point")
-    if re.search(r"\bhence\b.*\bfind\b", low) or (" or " in low and "prove" in low):
+    if re.search(r"\bhence\b.*\bfind\b", low) or (
+        re.search(r"\bor\b", stem, re.I) and re.search(r"\bprove\b", low)
+    ):
         sig.append("fusion")
 
     if not sig and archetype_id:
@@ -311,6 +325,15 @@ def reasoning_diversity_ok(
             )
             if pyth_n >= 2:
                 return False, "direct_pythagoras_cluster"
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    pack = get_chapter_rule_pack(chapter)
+    if pack.paper_quality and pack.paper_quality.enabled:
+        from app.generation.chapter_paper_quality import (
+            reasoning_diversity_ok_for_chapter,
+        )
+
+        return reasoning_diversity_ok_for_chapter(questions, chapter=chapter)
     return True, ""
 
 
@@ -340,6 +363,11 @@ def pick_diverse_archetype_ids(
 
     ids = [w[0] for w in weights]
     probs = [w[1] for w in weights]
+    from app.generation.chapter_rule_packs import get_chapter_rule_pack
+
+    pq = get_chapter_rule_pack(chapter).paper_quality
+    capped_families = pq.max_family_dict() if pq and pq.enabled else {}
+
     chosen: List[str] = []
     used_families: set[str] = set()
     pool_ids, pool_probs = list(ids), list(probs)
@@ -351,10 +379,12 @@ def pick_diverse_archetype_ids(
         candidates = []
         candidate_probs = []
         for aid, p in zip(pool_ids, pool_probs):
-            fam = ARCHETYPE_REASONING_FAMILY.get(aid, aid)
+            fam = _skill_family_for_archetype(aid)
             if chapter in ("quadrilaterals", "quadratic", "triangles"):
                 if fam in ("tangent_pair_angle", "tangent_angle_chase"):
                     continue
+            if fam in capped_families and fam in used_families:
+                continue
             if ui in ("hard", "difficult") and fam in used_families:
                 if fam in ("tangent_pair_angle", "tangent_angle_chase"):
                     continue
@@ -364,7 +394,7 @@ def pick_diverse_archetype_ids(
             candidates, candidate_probs = pool_ids, pool_probs
         pick = rng.choices(candidates, weights=candidate_probs, k=1)[0]
         chosen.append(pick)
-        used_families.add(ARCHETYPE_REASONING_FAMILY.get(pick, pick))
+        used_families.add(_skill_family_for_archetype(pick))
         if pick in pool_ids:
             idx = pool_ids.index(pick)
             pool_ids.pop(idx)
