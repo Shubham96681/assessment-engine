@@ -76,7 +76,22 @@ async def main(assessment_id: str) -> None:
         if not ok_unique and force:
             print("Uniqueness warnings (forced):", uniq_issues[:8])
 
-        parsed = filter_structural_duplicates(parsed, min_keep=cfg.total_questions)
+        from app.generation.generation_oversample import pool_question_count
+        from app.generation.quadratic_generation_pipeline import (
+            run_quadratic_pool_pipeline,
+            structural_dedup_pool,
+        )
+
+        if (cfg.locked_chapter or "").lower() == "quadratic":
+            parsed, _ = run_quadratic_pool_pipeline(
+                parsed,
+                delivery_count=cfg.total_questions,
+                drop_failed_stems=True,
+                apply_structural_dedup=False,
+            )
+        parsed = structural_dedup_pool(
+            parsed, delivery_count=cfg.total_questions
+        )
         parsed = filter_theorem_equivalence_duplicates(parsed)
         if cfg.question_types and any(
             str(t) == "FigureBased" or getattr(t, "value", None) == "FigureBased"

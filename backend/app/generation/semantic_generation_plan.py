@@ -35,6 +35,7 @@ class SlotPlan:
     theorem_graph: str = ""
     depends_on_slots: List[int] = field(default_factory=list)
     paper_derives: List[str] = field(default_factory=list)
+    stem_format: str = ""
 
 
 @dataclass
@@ -86,34 +87,17 @@ class SemanticGenerationPlan:
         return d if d > 0 else self.question_count
 
     def effective_question_types(self) -> List[str]:
-        """
-        Chapter-native type mix — overrides UI 'all FigureBased' for algebra chapters.
-        """
-        pack = self.rule_pack
-        preferred = list(pack.preferred_question_types)
+        """Chapter-native type mix with geometry FigureBased floor."""
+        from app.generation.question_type_planner import resolve_effective_question_types
+
         requested = [str(t) for t in self.question_types if t]
-        if not requested:
-            return preferred[: self.question_count] or ["ShortAnswer"]
-        if self.locked_chapter == "quadratic" and all(
-            t == "FigureBased" for t in requested
-        ):
-            return preferred[: self.question_count]
-        if self.locked_chapter == "circles":
-            return [
-                requested[i % len(requested)]
-                for i in range(self.question_count)
-            ]
-        if len(requested) == 1 and self.question_count > 1:
-            return [
-                requested[0]
-                if i < pack.max_figure_based_count or requested[0] != "FigureBased"
-                else preferred[i % len(preferred)]
-                for i in range(self.question_count)
-            ]
-        out: List[str] = []
-        for i in range(self.question_count):
-            out.append(requested[i % len(requested)])
-        return out
+        return resolve_effective_question_types(
+            chapter=self.locked_chapter,
+            pack=self.rule_pack,
+            types=requested,
+            question_count=self.question_count,
+            ui_difficulty=self.difficulty,
+        )
 
 
 def _retrieval_mode(
@@ -225,21 +209,15 @@ def build_semantic_plan(
     types = [
         t.value if hasattr(t, "value") else str(t) for t in question_types
     ]
-    effective_types = list(pack.preferred_question_types)
-    if chapter == "quadratic" and types and all(t == "FigureBased" for t in types):
-        effective_types = list(pack.preferred_question_types)[:question_count]
-    elif types:
-        if len(types) == 1 and question_count > 1:
-            effective_types = [
-                types[0]
-                if i < pack.max_figure_based_count or types[0] != "FigureBased"
-                else pack.preferred_question_types[
-                    i % len(pack.preferred_question_types)
-                ]
-                for i in range(question_count)
-            ]
-        else:
-            effective_types = [types[i % len(types)] for i in range(question_count)]
+    from app.generation.question_type_planner import resolve_effective_question_types
+
+    effective_types = resolve_effective_question_types(
+        chapter=chapter,
+        pack=pack,
+        types=types,
+        question_count=question_count,
+        ui_difficulty=ui,
+    )
 
     slot_meta = get_slot_metadata(
         question_count,
@@ -290,6 +268,7 @@ def build_semantic_plan(
                 theorem_graph=plan_theorem_graph(aid, chapter),
                 depends_on_slots=list(slot_dep.depends_on_slots) if slot_dep else [],
                 paper_derives=list(slot_dep.derives) if slot_dep else [],
+                stem_format=str(meta.get("stem_format") or ""),
             )
         )
 

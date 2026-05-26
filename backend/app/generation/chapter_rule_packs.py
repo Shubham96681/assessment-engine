@@ -262,12 +262,15 @@ class ChapterRulePack:
             cog = getattr(s, "cognitive_type", None) or s.get("cognitive_type", "")
             role = getattr(s, "role", None) or s.get("role", "")
             fig = getattr(s, "figure_hint", None) or s.get("figure_hint", "")
+            stem_fmt = getattr(s, "stem_format", None) or s.get("stem_format", "")
+            fmt_note = f" | stem_format={stem_fmt}" if stem_fmt else ""
             lines.append(
                 f'  id "{slot_num}": [{arch}] band {band} | {cog}'
+                + fmt_note
                 + (f" | figure: {fig}" if fig else "")
             )
         stem_len = (
-            "STEM LENGTH: L5 HOTS 35–60 words every slot; ban one-line value recall."
+            "STEM LENGTH: L5 HOTS 35–60 words on multi-part slots; sparse/direct slots 12–28 words."
             if full_hard
             else "STEM LENGTH: L1 12–25 | L2–L3 20–40 | L5 HOTS 35–60 words."
         )
@@ -278,6 +281,24 @@ class ChapterRulePack:
                 "TRAPS: invisible in stem; theorems named only in answers.",
             ]
         )
+        if self.chapter_key == "trigonometry" or full_hard:
+            from app.generation.stem_pattern_variety import (
+                assign_stem_patterns,
+                stem_pattern_prompt_block,
+            )
+
+            pats = [
+                getattr(s, "stem_format", None) or s.get("stem_format", "")
+                for s in slots
+            ]
+            if not any(pats):
+                pats = assign_stem_patterns(
+                    len(slots) or 5,
+                    chapter=self.chapter_key,
+                    full_hard=full_hard,
+                )
+            roles = [getattr(s, "role", None) or s.get("role", "") for s in slots]
+            lines.extend(["", stem_pattern_prompt_block(pats, roles=roles)])
         from app.generation.chapter_paper_quality import chapter_paper_quality_prompt_block
 
         qc = chapter_paper_quality_prompt_block(
@@ -528,8 +549,8 @@ CHAPTER_RULES: Dict[str, ChapterRulePack] = {
         preferred_question_types=(
             "FigureBased",
             "FigureBased",
-            "ShortAnswer",
-            "LongAnswer",
+            "FigureBased",
+            "FigureBased",
             "FigureBased",
         ),
         max_figure_based_count=5,
@@ -553,9 +574,9 @@ CHAPTER_RULES: Dict[str, ChapterRulePack] = {
             "- Prove equal tangents: name external point and both tangents."
         ),
         preferred_types_figure_note=(
-            "- FigureBased is primary for Circles (up to 5 items): "
-            "labeled_diagram with centre, radii (dashed), tangents (solid), angles marked.\n"
-            "- ShortAnswer/LongAnswer for proofs and numeric finds without over-drawing."
+            "- At least 4 of 5 items MUST be FigureBased with figure_spec (labeled_diagram).\n"
+            "- Each FigureBased stem: centre O, dashed radii to contacts, tangents/secants marked.\n"
+            "- L4/L5 FigureBased: (i)(ii) sub-parts or fusion — not a one-line find."
         ),
         uniqueness_variation_hint=(
             "- Change radii pairs, tangent lengths, and external point names every generation"

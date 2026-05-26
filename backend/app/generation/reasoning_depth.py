@@ -121,8 +121,13 @@ def should_reject_shallow_reasoning(
         return True
     if full_hard:
         stem = (q.get("content") or q.get("question") or "").strip()
+        from app.generation.topic_isolation import get_current_topic_state
+
+        ch = (get_current_topic_state() or {}).get("locked_chapter", "")
+        if ch == "quadratic" and q.get("stem_quality_ok"):
+            return False
         if len(stem.split()) < 28 and not re.search(
-            r"\(i\)|\(ii\)|\bor\b", stem, re.I
+            r"\(i\)|\(ii\)|\(a\)|\(b\)|\bor\b", stem, re.I
         ):
             return True
     return False

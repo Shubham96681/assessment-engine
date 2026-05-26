@@ -234,30 +234,43 @@ class PromptBuilder:
                 f"- Keep mathematical symbols and numbers universal; use {language} for wording only.\n"
             )
 
-        compiler = PromptCompiler.from_plan(semantic_plan)
-        core = compiler.compile_core()
-        effective = semantic_plan.effective_question_types()
-        if len(set(effective)) > 1 or (
-            chapter == "quadratic" and type_str == "FigureBased"
-        ):
-            type_tail = self._mixed_chapter_paper_tail(
-                semantic_plan, difficulty, bloom_str, verbs, figure_types
-            )
-        elif type_str == "FigureBased":
-            type_tail = self._figure_based_prompt(
-                count, difficulty, bloom_str, verbs, figure_types, chapter=chapter
-            )
+        from app.core.config import settings
+        from app.generation.production_prompts import resolve_production_prompt
+
+        production_core = None
+        if settings.RAG_FILE_AGENT_ENABLED:
+            production_core = resolve_production_prompt(semantic_plan)
+
+        if production_core:
+            core = production_core
+            type_tail = ""
         else:
-            type_tail = builder(count, difficulty, bloom_str, verbs, figure_types)
+            compiler = PromptCompiler.from_plan(semantic_plan)
+            core = compiler.compile_core()
+            effective = semantic_plan.effective_question_types()
+            if len(set(effective)) > 1 or (
+                chapter == "quadratic" and type_str == "FigureBased"
+            ):
+                type_tail = self._mixed_chapter_paper_tail(
+                    semantic_plan, difficulty, bloom_str, verbs, figure_types
+                )
+            elif type_str == "FigureBased":
+                type_tail = self._figure_based_prompt(
+                    count, difficulty, bloom_str, verbs, figure_types, chapter=chapter
+                )
+            else:
+                type_tail = builder(count, difficulty, bloom_str, verbs, figure_types)
         extra = ""
         if lang_block:
             extra += lang_block
-        if instructions:
+        if instructions and not production_core:
             extra += f"\nSpecial Instructions: {instructions}\n"
-        if topic_focus:
+        if topic_focus and not production_core:
             extra += f"\nTopic Focus: {topic_focus}\n"
         if exclude_topics:
             extra += f"\nExclude: {exclude_topics}\n"
+        if production_core:
+            return core + extra
         return core + "\n\nTYPE-SPECIFIC OUTPUT:\n" + type_tail + extra
 
     def _mcq_prompt(self, count, difficulty, bloom, verbs, _):

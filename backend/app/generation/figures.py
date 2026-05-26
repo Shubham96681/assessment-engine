@@ -64,6 +64,7 @@ class FigureGenerator:
                 "venn_diagram": self._venn,
                 "table": self._table,
                 "labeled_diagram": self._labeled_diagram,
+                "unit_circle": self._unit_circle,
             }
             fn = dispatch.get(figure_type, self._flowchart)
             loop = asyncio.get_event_loop()
@@ -93,6 +94,117 @@ class FigureGenerator:
         )
         plt.close(fig)
         return f"/uploads/figures/{name}_{fig_id}.png"
+
+    def _unit_circle(self, spec: Dict, fig_id: str) -> str:
+        """NCERT-style unit circle with θ in standard position."""
+        import math
+
+        import matplotlib.patches as mpatches
+
+        angle_deg = float(spec.get("angle_deg", 45)) % 360
+        theta_label = str(spec.get("theta_label") or "θ")
+        title = spec.get("title", "Diagram")
+        fonts = _geometry_fonts()
+
+        fig, ax = _print_geometry_figure()
+        fig.patch.set_facecolor("#ffffff")
+        ax.set_facecolor("#ffffff")
+        ax.set_aspect("equal")
+        ax.axis("off")
+
+        r = 1.0
+        pad = 0.42
+        ax.set_xlim(-r - pad, r + pad)
+        ax.set_ylim(-r - pad, r + pad)
+
+        if spec.get("show_axes", True):
+            ax.axhline(0, color="#94a3b8", lw=0.9, zorder=1)
+            ax.axvline(0, color="#94a3b8", lw=0.9, zorder=1)
+            ax.annotate(
+                "",
+                xy=(r + 0.28, 0),
+                xytext=(r + 0.05, 0),
+                arrowprops=dict(arrowstyle="-|>", color="#64748b", lw=1.0),
+            )
+            ax.annotate(
+                "",
+                xy=(0, r + 0.28),
+                xytext=(0, r + 0.05),
+                arrowprops=dict(arrowstyle="-|>", color="#64748b", lw=1.0),
+            )
+
+        ax.add_patch(
+            mpatches.Circle(
+                (0, 0),
+                r,
+                fill=False,
+                edgecolor="#1e293b",
+                lw=2.2,
+                zorder=2,
+            )
+        )
+
+        rad = math.radians(angle_deg)
+        x_end, y_end = math.cos(rad), math.sin(rad)
+        ax.plot([0, x_end], [0, y_end], color="#4f46e5", lw=2.0, zorder=4)
+        ax.plot(x_end, y_end, "o", color="#4f46e5", markersize=fonts["marker"], zorder=5)
+
+        arc_r = 0.38
+        theta2 = angle_deg if angle_deg >= 0 else angle_deg + 360
+        ax.add_patch(
+            mpatches.Arc(
+                (0, 0),
+                2 * arc_r,
+                2 * arc_r,
+                angle=0,
+                theta1=0,
+                theta2=theta2,
+                color="#4f46e5",
+                lw=1.6,
+                zorder=3,
+            )
+        )
+        mid = math.radians(theta2 / 2.0)
+        ax.text(
+            arc_r * 1.15 * math.cos(mid),
+            arc_r * 1.15 * math.sin(mid),
+            theta_label,
+            ha="center",
+            va="center",
+            fontsize=fonts["segment_label"],
+            color="#4f46e5",
+            fontweight="bold",
+        )
+        ax.text(
+            x_end + 0.08,
+            y_end + 0.08,
+            f"{int(angle_deg) if angle_deg == int(angle_deg) else angle_deg}°",
+            fontsize=fonts["segment_label"],
+            color="#1e293b",
+        )
+
+        if spec.get("show_quadrant_labels"):
+            qpos = [(0.55, 0.55), (-0.55, 0.55), (-0.55, -0.55), (0.55, -0.55)]
+            for i, (qx, qy) in enumerate(qpos, start=1):
+                ax.text(
+                    qx,
+                    qy,
+                    f"Q{i}",
+                    ha="center",
+                    va="center",
+                    fontsize=fonts["segment_label"],
+                    color="#64748b",
+                )
+
+        ax.set_title(
+            title,
+            color="#000000",
+            fontsize=fonts["title"],
+            fontweight="bold",
+            pad=10,
+            loc="left",
+        )
+        return self._save(fig, "diagram", fig_id, facecolor="#ffffff")
 
     def _flowchart(self, spec: Dict, fig_id: str) -> str:
         import matplotlib.pyplot as plt

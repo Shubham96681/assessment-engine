@@ -166,6 +166,10 @@ def expand_sequence_slots(
         from app.generation.trigonometry_hard_benchmark import benchmark_slots
 
         return benchmark_slots(question_count)
+    if full_hard and ch == "quadratic":
+        from app.generation.quadratic_hard_benchmark import benchmark_slots
+
+        return benchmark_slots(question_count)
     spec = get_chapter_quality_spec(chapter)
     if not spec:
         return []

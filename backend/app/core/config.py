@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     RAG_FILE_SLOT_REGEN_TIMEOUT_SECONDS: int = 120
     RAG_FILE_POLL_INTERVAL_SECONDS: float = 0.2
     RAG_FILE_MAX_RETRIES: int = 6
+    # Compact self-contained prompt for quadratic full-hard (replaces verbose compiler stack)
+    QUADRATIC_PRODUCTION_PROMPT_ENABLED: bool = True
+    # Extended L5 stem + paper audits (Hence, OR balance, constraint fatigue)
+    ENABLE_QUADRATIC_QUALITY_MONITOR: bool = True
+    QUADRATIC_QUALITY_BLOCK_DELIVERY: bool = True
+    # Factor-pair / D=0 / factorisation expansion checks on stems + model answers
+    ENABLE_QUADRATIC_MATH_VERIFY: bool = True
+    # When true, math verification failures block delivery on every path (incl. force apply)
+    QUADRATIC_MATH_VERIFY_BLOCK_DELIVERY: bool = True
     # False = never use local_llm template stubs; use Cursor rag_response.txt and/or cloud APIs only
     ENABLE_LOCAL_LLM_FALLBACK: bool = False
     PRIMARY_LLM: str = "gemini"
@@ -78,6 +87,7 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION_HISTORY: str = "generation_history"
     QDRANT_COLLECTION_DOCUMENTS: str = "documents"
     QDRANT_COLLECTION_CBSE_REFERENCE: str = "cbse_reference"
+    QDRANT_COLLECTION_GATE_REFERENCE: str = "gate_reference"
 
     # Database — SQLite by default (no Docker); set postgresql+asyncpg://... for Postgres
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/assessment.db"
@@ -211,6 +221,21 @@ class Settings(BaseSettings):
     CBSE_REFERENCE_TOP_K: int = 8
     CBSE_REFERENCE_AUTO_BUILD: bool = True
     CBSE_REFERENCE_MIN_CHAPTER_CONF: float = 0.28
+    # GATE exam papers — GATE_QuestionPapers/*.pdf
+    ENABLE_GATE_BENCHMARK: bool = True
+    ENABLE_GATE_REFERENCE: bool = True
+    ENABLE_GATE_REFERENCE_FOR_BOARD: bool = True
+    GATE_BENCHMARK_ROOT: str = "GATE_QuestionPapers"
+    GATE_REFERENCE_ROOT: str = "GATE_QuestionPapers"
+    GATE_BENCHMARK_CACHE_PATH: str = "./data/gate_benchmark/benchmark.json"
+    GATE_REFERENCE_CACHE_PATH: str = "./data/gate_reference/manifest.json"
+    GATE_BENCHMARK_MAX_AGE_HOURS: int = 168
+    GATE_BENCHMARK_AUTO_BUILD: bool = True
+    GATE_REFERENCE_AUTO_BUILD: bool = True
+    GATE_REFERENCE_TOP_K: int = 6
+    GATE_REFERENCE_MIN_CHAPTER_CONF: float = 0.22
+    # Hard / full-hard papers: calibrate stems to GATE_QuestionPapers benchmark
+    ENABLE_GATE_LEVEL_FOR_HARD: bool = True
 
     @staticmethod
     def _normalize_vector_store_backend(value: object) -> str:

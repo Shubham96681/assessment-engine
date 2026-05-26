@@ -254,6 +254,27 @@ class QualityScorer:
                 apply_cbse_benchmark_to_questions(questions, class_level=str(cl))
             except Exception as e:
                 logger.warning("CBSE benchmark scoring failed: %s", e)
+        if settings.ENABLE_GATE_BENCHMARK:
+            try:
+                from app.generation.gate_benchmark import (
+                    apply_gate_benchmark_to_questions,
+                    gate_level_active,
+                )
+                from app.generation.topic_isolation import get_current_topic_state
+
+                state = get_current_topic_state() or {}
+                track = state.get("exam_track") or "board"
+                ui = (state.get("ui_difficulty") or ui_difficulty or "medium").lower()
+                active = gate_level_active(
+                    exam_track=track,
+                    ui_difficulty=ui,
+                    difficulty_distribution=state.get("difficulty_distribution"),
+                    full_hard=bool(state.get("full_hard")),
+                    instructions=state.get("instructions") or "",
+                )
+                apply_gate_benchmark_to_questions(questions, gate_active=active)
+            except Exception as e:
+                logger.warning("GATE benchmark scoring failed: %s", e)
         return questions
 
     def curate_batch(
@@ -347,6 +368,15 @@ class QualityScorer:
 
             if should_reject_math_stem(q, locked_chapter=locked or ""):
                 return True
+        if (
+            settings.ENABLE_QUADRATIC_MATH_VERIFY
+            and settings.QUADRATIC_MATH_VERIFY_BLOCK_DELIVERY
+            and (locked or "").lower() == "quadratic"
+        ):
+            from app.generation.quadratic_math_gate import should_block_quadratic_math
+
+            if should_block_quadratic_math(q):
+                return True
         if should_reject_angle_target(q):
             return True
         if settings.ENABLE_CHAPTER_PAPER_QUALITY and locked:
@@ -436,11 +466,35 @@ class QualityScorer:
 
             cl = (get_current_topic_state() or {}).get("class_level") or "10"
             floor = get_dynamic_combined_floor(cl)
+            gate_active = False
+            if settings.ENABLE_GATE_BENCHMARK:
+                from app.generation.gate_benchmark import (
+                    evaluate_against_gate,
+                    gate_level_active,
+                    get_gate_combined_floor,
+                )
+
+                state = get_current_topic_state() or {}
+                gate_active = gate_level_active(
+                    exam_track=state.get("exam_track") or "board",
+                    ui_difficulty=ui_difficulty,
+                    difficulty_distribution=state.get("difficulty_distribution"),
+                    full_hard=bool(state.get("full_hard")),
+                    instructions=state.get("instructions") or "",
+                )
+                if gate_active:
+                    gate_floor = get_gate_combined_floor()
+                    if gate_floor > 0:
+                        floor = max(floor, gate_floor)
             if q.get("combined_score", 0) < floor:
                 return True
             cbse = evaluate_against_cbse(q, class_level=cl, slot_band=band)
-            if cbse.get("cbse_reject") and settings.ENABLE_CBSE_BENCHMARK:
+            if cbse.get("cbse_reject") and settings.ENABLE_CBSE_BENCHMARK and not gate_active:
                 return True
+            if settings.ENABLE_GATE_BENCHMARK and gate_active:
+                gate = evaluate_against_gate(q, slot_band=band)
+                if gate.get("gate_reject"):
+                    return True
         except Exception:
             if q.get("combined_score", 0) < 0.38:
                 return True

@@ -35,3 +35,4 @@ Details: [RAG_FILE_AGENT.md](./RAG_FILE_AGENT.md)
 | [RD_SHARMA_CLASS10_REFERENCE.md](./RD_SHARMA_CLASS10_REFERENCE.md) | Compact exam-style calibration (`RD_Sharma_Class10_Maths.pdf`) |
 | [CURSOR_AI_README.md](./CURSOR_AI_README.md) | Cursor Agent — what to do with RAG files |
 | [RAG_FILE_AGENT.md](./RAG_FILE_AGENT.md) | Short RAG reference |
+| [GATE_QuestionPapers/README.md](./GATE_QuestionPapers/README.md) | GATE MA PDF corpus for difficulty floors and RAG exemplars |

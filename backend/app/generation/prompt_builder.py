@@ -62,17 +62,22 @@ Answer: Identity proof → ratio signs → double-angle numeric.
 === FULL HARD (equation + interval) ===
 "Solve 2 cos²x − cos x − 1 = 0 for x ∈ [0, 2π). (i) Factor. (ii) List solutions. (iii) Count distinct solutions."
 Answer: (2 cos x + 1)(cos x − 1) = 0 with quadrant-aware root list.
+
+=== JEE ADVANCED (Q19 series — 6 marks) ===
+"Evaluate exactly: sin²(π/8)+sin²(3π/8)+sin²(5π/8)+sin²(7π/8). Hence find Σ sin²(kπ/(2n+1)) from k=1 to n."
+Answer: Pair angles → reduce to cos 2θ form → numeric 3/2 → general formula (2n+1)/4.
 """
 
     FEW_SHOT_CIRCLES = """
 EXAMPLE STYLES — CIRCLES (do not copy stems):
 
-=== BOARD L4 (tangent length) ===
-"PA and PB are tangents from P to a circle with centre O, radius 5 cm. If OP = 13 cm, find PA."
-Answer: Right triangle OTP with TA² = OP² − r².
+=== BOARD L4 (FigureBased, rephrased multi-part) ===
+"Circle centre O, radius 6 cm. Tangents PA and PB from P with OP = 10 cm. (i) Find PA. (ii) If angle APB = 80°, find angle AOB."
+Answer: Pythagoras on OPA → central angle from tangent pair theorem.
 
-=== BOARD L5 (prove + Hence) ===
-"Prove that tangents drawn from an external point to a circle are equal. Hence find length of tangent when r = 7 cm and distance from P to O is 25 cm."
+=== BOARD L5 (FigureBased fusion) ===
+"Concentric circles centre O, radii 15 cm and 9 cm. Chord KL of the outer circle touches the inner at M. From external point Q, tangent QT = 20 cm and secant QUV with QU = 5 cm. (i) Find KL. (ii) Find QV and verify QT² = QU × QV."
+Answer: Chord ⟂ radius → bisect → Pythagoras; tangent–secant power on outer circle.
 """
 
     FEW_SHOT_QUADRATIC = """
@@ -192,14 +197,27 @@ CRITICAL GUIDELINES:
             f"TARGET LEVEL: {level}/9 (peak slot band {peak_band}).",
             cls.DIFFICULTY_GUIDE.strip(),
         ]
-        lines.extend(f"  • {ln}" for ln in regime_calibration_lines(regime, p.locked_chapter))
-        if fh:
-            from app.generation.trigonometry_hard_benchmark import (
-                benchmark_calibration_lines,
-                benchmark_prompt_block,
+        lines.extend(
+            f"  • {ln}"
+            for ln in regime_calibration_lines(
+                regime, p.locked_chapter, exam_track=p.exam_track
             )
-
+        )
+        if fh:
             if p.locked_chapter == "trigonometry":
+                from app.generation.trigonometry_hard_benchmark import (
+                    benchmark_calibration_lines,
+                    benchmark_prompt_block,
+                )
+
+                lines.extend(f"  • {ln}" for ln in benchmark_calibration_lines())
+                lines.append(benchmark_prompt_block())
+            elif p.locked_chapter == "quadratic":
+                from app.generation.quadratic_hard_benchmark import (
+                    benchmark_calibration_lines,
+                    benchmark_prompt_block,
+                )
+
                 lines.extend(f"  • {ln}" for ln in benchmark_calibration_lines())
                 lines.append(benchmark_prompt_block())
             else:
@@ -219,7 +237,10 @@ CRITICAL GUIDELINES:
         block = cls.CHAPTER_FEW_SHOTS.get(ch, cls.FEW_SHOT_GENERIC)
         header = "FEW-SHOT STYLE (chapter-scoped; do not copy verbatim):"
         if full_hard and ch == "trigonometry":
-            header += "\n[Full-hard benchmark: 6 marks/item; section A–F spread; OR on last slot.]"
+            header += (
+                "\n[Full-hard: 20 Hardest Trigonometry Questions — 122 marks, Sections A–F; "
+                "compound/multiple angles → equations → identities → inverse → triangle → optimization capstone.]"
+            )
         return f"{header}\n{block.strip()}"
 
     @classmethod

@@ -88,7 +88,59 @@ def _centre_label(stem: str, labels: Set[str]) -> str:
     return "O"
 
 
+_UNIT_CIRCLE_RE = re.compile(
+    r"unit\s+circle|standard\s+position|quadrant\s+(?:of\s+)?θ|quadrant\s+of\s+theta",
+    re.I,
+)
+_ANGLE_DEG_RE = re.compile(
+    r"(?:∠\s*)?(?:angle\s+)?θ\s*=\s*(-?\d+(?:\.\d+)?)\s*°|"
+    r"(-?\d+(?:\.\d+)?)\s*°\s+in\s+standard\s+position|"
+    r"shows\s+(?:∠\s*)?θ\s*=\s*(-?\d+(?:\.\d+)?)\s*°",
+    re.I,
+)
+
+
+def _is_unit_circle_stem(stem: str) -> bool:
+    return bool(_UNIT_CIRCLE_RE.search(stem or ""))
+
+
+def _extract_angle_degrees(stem: str) -> Optional[float]:
+    for m in _ANGLE_DEG_RE.finditer(stem or ""):
+        for g in m.groups():
+            if g is not None:
+                try:
+                    return float(g)
+                except ValueError:
+                    continue
+    m = re.search(r"\b(\d{2,3})\s*°\b", stem or "")
+    if m and _is_unit_circle_stem(stem):
+        try:
+            return float(m.group(1))
+        except ValueError:
+            pass
+    return None
+
+
+def _build_unit_circle_spec(stem: str) -> Optional[Dict[str, Any]]:
+    """Unit circle with θ in standard position (trigonometry FigureBased)."""
+    if not _is_unit_circle_stem(stem):
+        return None
+    angle = _extract_angle_degrees(stem)
+    if angle is None:
+        angle = 45.0
+    return {
+        "type": "unit_circle",
+        "title": "Diagram",
+        "angle_deg": angle % 360,
+        "theta_label": "θ",
+        "show_axes": True,
+        "show_quadrant_labels": False,
+    }
+
+
 def _is_circle_stem(stem: str) -> bool:
+    if _is_unit_circle_stem(stem):
+        return False
     low = (stem or "").lower()
     return any(
         k in low
@@ -521,6 +573,12 @@ def enrich_figure_spec(stem: str, spec: Optional[Dict[str, Any]]) -> Dict[str, A
     """
     spec = dict(spec or {})
     stem = stem or ""
+
+    unit = _build_unit_circle_spec(stem)
+    if unit:
+        if spec.get("angle_deg") is not None:
+            unit["angle_deg"] = float(spec["angle_deg"]) % 360
+        return unit
 
     built = _build_from_stem(stem)
     if built:

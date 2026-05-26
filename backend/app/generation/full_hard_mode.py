@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Optional, Union
 # Slot bands when hard ≥ threshold and easy+medium negligible
 FULL_HARD_THRESHOLD = 90
 FULL_HARD_MAX_EASY_MEDIUM = 10
+ELEVATED_HARD_THRESHOLD = 55
+ELEVATED_HARD_MAX_EASY_MEDIUM = 35
 
 CIRCLES_FULL_HARD_SEQUENCE_SLOTS: List[Dict[str, Any]] = [
     {
@@ -85,12 +87,15 @@ def _trigonometry_full_hard_rules() -> str:
 
     return (
         """
-FULL HARD (100% hard UI) — Trigonometry — ALL SLOTS L5 (benchmark-aligned):
-- Reference paper: 20 questions × 6 marks (122 total, 3 h); deliver 10×6 (+8 on last) for board runs.
-- EVERY item: (i)(ii)(iii) or balanced OR; 5+ answer steps; marks 6 (slot 10 → 8 if count≥8).
-- BAN: bare "Find cos 255° exactly" / one-line recall; L3/L4 warm-up; duplicate reduction pair.
-- REQUIRE: section spread — compound prove+Hence → equation/identity → reduction → OR fusion.
-- REQUIRE: Q2 teaches identity chain → Q5 disguised reuse (new givens, same inference).
+FULL HARD (100% hard UI) — Trigonometry — ALL SLOTS L5 (20 Hardest Trigonometry Questions):
+- Reference: 20 questions, 122 marks, 3 h — Sections A–F (compound → equations → identities → inverse → triangle → optimization).
+- Scaled papers: 10Q samples slots 1,3,5,7,9,12,14,17,19,20 (~62 marks); 5Q samples 1,5,9,13,20 (~32 marks).
+- Capstone (Q20 style, 8 marks): f(x)=sin⁶x+cos⁶x or balanced OR with 4+ parts.
+- 5+ answer steps (Q1–2); 6–10 steps on equation / general-solution slots.
+- STEM VARIETY: follow per-slot stem_format — NOT every question with (i)(ii)(iii).
+- Mix: prove-only, direct find, (i)(ii), (i)(ii)(iii), sparse stem, balanced OR (max ~40% triple-part).
+- BAN: bare "Find cos 255° exactly" / one-line recall; identical sub-part template on every slot.
+- REQUIRE: topic spread — compound prove+Hence → equation/identity → reduction → OR fusion.
 - Model answers: Given → Step 1 → Step 2 → Step 3 → Hence; theorems only in answers.
 """
         + "\n"
@@ -113,11 +118,28 @@ TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS: List[Dict[str, Any]] = [
     {"slot": 10, "band": "L5", "role": "HOTS balanced OR — both branches prove+find, same difficulty", "one_line_ok": False, "memory": "reuse"},
 ]
 
+def _quadratic_full_hard_rules() -> str:
+    from app.generation.quadratic_hard_benchmark import benchmark_prompt_block
+
+    return (
+        GENERIC_FULL_HARD_RULES
+        + """
+
+FULL HARD (100% hard UI) — Quadratic Equations — ALL SLOTS L5:
+- BAN bare factorisation / bare discriminant / thin "Find k" (one skill, no chain).
+- BAN circle, tangent, secant, radius, chord vocabulary.
+- REQUIRE: parameter traps, without solving, word model + reject invalid root, OR fusion.
+- Model answers: 5–7 steps; theorems named only in answers.
+"""
+        + "\n"
+        + benchmark_prompt_block()
+    )
+
+
 CHAPTER_FULL_HARD_RULES: Dict[str, str] = {
     "circles": CIRCLES_FULL_HARD_RULES,
     "trigonometry": TRIGONOMETRY_FULL_HARD_RULES,
-    "quadratic": GENERIC_FULL_HARD_RULES
-    + "\n- Quadratic L5: parameter fusion, discriminant traps, word model + Hence verify.",
+    "quadratic": _quadratic_full_hard_rules(),
     "generic": GENERIC_FULL_HARD_RULES,
 }
 
@@ -153,6 +175,16 @@ def is_full_hard_paper(
     return hard >= FULL_HARD_THRESHOLD and (easy + medium) <= FULL_HARD_MAX_EASY_MEDIUM
 
 
+def is_elevated_hard_paper(
+    difficulty_distribution: Optional[Union[Any, Dict[str, int]]] = None,
+) -> bool:
+    """True when hard slider is majority but below full_hard — use L4/L5 mix."""
+    if is_full_hard_paper(difficulty_distribution):
+        return False
+    easy, medium, hard = _dist_values(difficulty_distribution)
+    return hard >= ELEVATED_HARD_THRESHOLD and (easy + medium) <= ELEVATED_HARD_MAX_EASY_MEDIUM
+
+
 def full_hard_prompt_block(chapter: str) -> str:
     from app.generation.chapter_prompt_isolation import normalize_chapter
 
@@ -170,6 +202,10 @@ def full_hard_calibration_lines(chapter: str) -> tuple[str, ...]:
         )
     if ch == "trigonometry":
         from app.generation.trigonometry_hard_benchmark import benchmark_calibration_lines
+
+        return benchmark_calibration_lines()
+    if ch == "quadratic":
+        from app.generation.quadratic_hard_benchmark import benchmark_calibration_lines
 
         return benchmark_calibration_lines()
     return (

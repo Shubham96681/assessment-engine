@@ -33,6 +33,7 @@ def collect_rejection_feedback(q: Dict[str, Any]) -> str:
         "numeric_flags",
         "geometry_flags",
         "authenticity_flags",
+        "stem_quality_flags",
     ):
         flags = q.get(key) or []
         for f in flags:
@@ -90,6 +91,7 @@ def build_cursor_slot_regen_question(
     exclude_stems: List[str],
     ui_difficulty: str,
     locked_chapter: str = "",
+    difficulty_distribution: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Prompt body for rag_query.txt — Cursor agent regenerates one rejected slot."""
     arch_id = slot_meta.get("archetype_id", "")
@@ -117,6 +119,7 @@ def build_cursor_slot_regen_question(
         profile=profile,
         context=context,
         exclude_prior_stems=exclude_stems,
+        difficulty_distribution=difficulty_distribution,
     )
     compiler = PromptCompiler.from_plan(plan)
 
@@ -130,11 +133,18 @@ def build_cursor_slot_regen_question(
         reject_feedback=reject_feedback,
         rejected_stem=rejected_stem,
     )
+    stem_fmt = slot_meta.get("stem_format") or ""
+    from app.generation.stem_pattern_variety import pattern_hint
+
+    fmt_line = ""
+    if stem_fmt:
+        fmt_line = f"- Stem layout (mandatory): {stem_fmt} — {pattern_hint(stem_fmt)}\n"
     return (
         regen_header
         + f"\n\nREGENERATION TARGET:\n"
         f"- Type: {qtype} | Difficulty: {task.get('difficulty', 'hard')} | Bloom: {task.get('bloom_level', 'Analyze')}\n"
         f"- Archetype hint: {hint}\n"
+        f"{fmt_line}"
         f"{exclude_block}\n"
         f"\nCHAPTER CONTEXT (use only):\n---\n{context[:4000]}\n---"
     )

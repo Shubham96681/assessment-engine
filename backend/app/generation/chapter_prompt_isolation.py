@@ -14,6 +14,12 @@ from app.generation.strict_topic_gate import CHAPTER_FORBIDDEN
 
 CIRCLES_HARD_RULES = """
 HARD MODE — Circles (mandatory when UI difficulty is hard):
+STEM REPHRASING (raise difficulty — do not copy NCERT one-liners):
+- Combine two ideas in one stem: e.g. concentric chord find + external tangent–secant on the same figure.
+- Use (i)(ii) or (i)(ii)(iii) on L4/L5 instead of a single "Find AB".
+- State indirect givens first (distances OP, OQ, radii) before the ask — trap stays invisible.
+- FigureBased slots: full figure_spec required; stem may say "In the figure" but never "Use the diagram".
+- BAN bare drills: "Find PQ" with only OP and OQ; "Prove tangent at T" without numeric follow-up on L4+.
 - NOT an easy exercise set — minimum reasoning depth per slot band below.
 - BAN as Q1/Q2: single-step Pythagoras after radius ⟂ tangent only.
 - BAN: "Name the secant and tangent" unless slot explicitly allows ONE cooldown (max 1 per paper).
@@ -59,7 +65,8 @@ TRIGONOMETRY_HARD_RULES = """
 HARD MODE — Trigonometry only:
 - Spread: radian/degree conversion, identities, quadrant signs, standard angles, proofs.
 - BAN: circle geometry, secant, concentric, parallelogram, quadratic, tangent at contact point.
-- L4/L5: 3+ steps (Given → identity/ratio → simplify → Hence).
+- L4/L5: 3+ steps in answers; stems vary — not every item labeled (i)(ii)(iii).
+- Use per-slot stem_format: single prove, direct find, (i)(ii) only, OR, or full triple where assigned.
 """
 
 GENERIC_HARD_RULES = """
@@ -221,11 +228,11 @@ CHAPTER_FIGURE_COMPLEXITY: Dict[str, List[str]] = {
 }
 
 QUADRATIC_HARD_SEQUENCE_SLOTS = [
-    {"slot": 1, "band": "L3", "role": "Factorisation or messy coefficients", "one_line_ok": False, "memory": "teach"},
-    {"slot": 2, "band": "L3", "role": "Discriminant and nature of roots", "one_line_ok": False, "memory": "teach"},
-    {"slot": 3, "band": "L5", "role": "Sparse hard — parameter k or proof of nature", "one_line_ok": False, "sparse_hard": True},
-    {"slot": 4, "band": "L3", "role": "Area or speed word problem → quadratic", "one_line_ok": False},
-    {"slot": 5, "band": "L5", "role": "HOTS — disguised reuse or OR fusion", "one_line_ok": False, "memory": "reuse"},
+    {"slot": 1, "band": "L5", "role": "Discriminant + nature + verify relations", "one_line_ok": False, "memory": "teach"},
+    {"slot": 2, "band": "L5", "role": "Messy factorisation or middle-term split", "one_line_ok": False, "memory": "teach"},
+    {"slot": 3, "band": "L5", "role": "Sparse — equal roots parameter; verify double root", "one_line_ok": False, "sparse_hard": True},
+    {"slot": 4, "band": "L5", "role": "Area or speed word problem → reject invalid root", "one_line_ok": False},
+    {"slot": 5, "band": "L5", "role": "HOTS OR fusion — disguised reuse", "one_line_ok": False, "memory": "reuse"},
 ]
 
 from app.generation.full_hard_mode import (
@@ -248,8 +255,8 @@ CHAPTER_REAL_DIFFICULTY_NOTE: Dict[str, str] = {
         "Q4 multi-concept; Q5 HOTS fusion. Max ONE tangent-pair→quadrilateral→central angle item."
     ),
     "quadratic": (
-        "- HARD UI: Q1 factorisation trap; Q2 discriminant; Q3 parameter k; Q4 word problem; "
-        "Q5 HOTS OR/fusion. NO circle/tangent items."
+        "- HARD UI: ALL slots L5 — parameter, without solving, word+reject, OR; "
+        "BAN bare factorise/discriminant drills. NO circle/tangent items."
     ),
     "quadrilaterals": (
         "- HARD UI: mix proofs and finds; diagonals / midpoint / area; no circle templates."
@@ -320,6 +327,7 @@ def sequence_slots_for_chapter(
     *,
     full_hard: bool = False,
     question_count: int = 10,
+    elevated_hard: bool = False,
 ) -> List[Dict[str, Any]]:
     from app.generation.rd_archetypes import HARD_SEQUENCE_SLOTS, HUMAN_SEQUENCE_SLOTS
 
@@ -328,6 +336,10 @@ def sequence_slots_for_chapter(
     if ui in ("hard", "difficult"):
         if full_hard and ch == "trigonometry":
             from app.generation.trigonometry_hard_benchmark import benchmark_slots
+
+            return benchmark_slots(question_count)
+        if (full_hard or elevated_hard) and ch == "quadratic":
+            from app.generation.quadratic_hard_benchmark import benchmark_slots
 
             return benchmark_slots(question_count)
         if full_hard and ch in CHAPTER_FULL_HARD_SEQUENCE_SLOTS:

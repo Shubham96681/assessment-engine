@@ -138,6 +138,12 @@ def infer_exam_track(
         )
     ):
         return "jee_advanced"
+    if any(k in blob for k in ("gate ma", "gate exam", "gate maths", "gate mathematics")):
+        return "gate"
+    if re.search(r"\bgate\b", blob) and any(
+        k in blob for k in ("ma", "mathematics", "cs", "ph")
+    ):
+        return "gate"
     if any(
         k in blob
         for k in (
@@ -173,6 +179,8 @@ def _style_for_track(exam_track: str, subject: str) -> str:
         return f"NEET-level {subject} application and diagram-based drill"
     if exam_track == "olympiad":
         return "Olympiad-style non-routine problems"
+    if exam_track == "gate":
+        return "GATE MA postgraduate aptitude — multi-part stems, exact surds, proof chains"
     if exam_track == "foundation":
         return f"Class 6–9 foundation {subject} exercises"
     if "physics" in subj:
@@ -191,6 +199,7 @@ def build_content_profile(
     class_level: str = "",
     instructions: str = "",
     difficulty: str = "medium",
+    difficulty_distribution: Any = None,
 ) -> ContentProfile:
     hints = parse_filename_hints(filename)
     headline = extract_context_headline(context)
@@ -207,6 +216,15 @@ def build_content_profile(
         filename=filename,
         topic_focus=topic_focus,
     )
+    from app.core.config import settings
+
+    if settings.ENABLE_GATE_LEVEL_FOR_HARD and settings.ENABLE_GATE_BENCHMARK:
+        from app.generation.full_hard_mode import is_full_hard_paper
+
+        if difficulty_distribution and is_full_hard_paper(difficulty_distribution):
+            exam_track = "gate"
+        elif (difficulty or "").lower() == "hard":
+            exam_track = "gate"
 
     chapter_title = hints.get("chapter_title") or headline or topic_focus or ""
     if not chapter_title and chapter_key != "generic":
@@ -219,6 +237,8 @@ def build_content_profile(
         class_label = "JEE Main"
     if not class_label and exam_track == "jee_advanced":
         class_label = "JEE Advanced"
+    if not class_label and exam_track == "gate":
+        class_label = "GATE MA"
 
     subj = (subject or hints.get("subject_hint") or "Mathematics").strip()
 
@@ -392,6 +412,19 @@ def build_chapter_alignment(profile: ContentProfile) -> str:
         )
     elif profile.exam_track == "foundation":
         lines.append("- Foundation level: clear givens, 2–4 steps, no JEE-only tricks.")
+    elif profile.exam_track == "gate":
+        lines.append(
+            "- GATE MA paper level: match indexed GATE stems — multi-step (i)(ii)(iii), "
+            "prove+Hence or evaluate chains, exact values; no board one-liners."
+        )
+        try:
+            from app.generation.gate_benchmark import gate_benchmark_prompt_hints
+
+            gh = gate_benchmark_prompt_hints()
+            if gh:
+                lines.append(f"- {gh}")
+        except Exception:
+            pass
 
     if profile.chapter_key == "circles":
         lines.append("- HARD MODE geometry rules in this prompt apply to Circles only.")
@@ -414,6 +447,13 @@ def build_figure_stem_example(profile: ContentProfile) -> str:
 
 def build_difficulty_rubric(profile: ContentProfile, difficulty: str) -> str:
     diff = (difficulty or "medium").lower()
+    if profile.exam_track == "gate":
+        return {
+            "easy": "GATE-style: minimum 3 sub-parts or 4 steps; one identity or reduction chain.",
+            "medium": "GATE-style: (i)(ii) mandatory; 5+ steps; combine two ideas; exact surd/rational answers.",
+            "hard": "GATE MA paper: every slot L5 depth — prove+Hence OR balanced OR; "
+            "hidden condition; 6+ answer steps; stem ~35+ words; match GATE benchmark compression.",
+        }.get(diff, "GATE MA multi-step stems.")
     if profile.exam_track == "jee_advanced":
         return {
             "easy": "Minimum 3–4 steps; one core idea from CONTEXT.",

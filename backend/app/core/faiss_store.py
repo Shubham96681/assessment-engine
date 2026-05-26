@@ -246,6 +246,7 @@ async def init_faiss_store() -> None:
         settings.QDRANT_COLLECTION_QUESTIONS,
         settings.QDRANT_COLLECTION_HISTORY,
         settings.QDRANT_COLLECTION_CBSE_REFERENCE,
+        settings.QDRANT_COLLECTION_GATE_REFERENCE,
     ):
         faiss_client._collection(name)
     logger.info("FAISS vector store ready at %s", settings.FAISS_DATA_PATH)

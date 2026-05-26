@@ -126,8 +126,10 @@ class PromptCompiler:
             type_note = f" | type={qtype}" if qtype else ""
             graph = getattr(s, "theorem_graph", "") or ""
             graph_note = f" | graph: {graph}" if graph else ""
+            fmt = getattr(s, "stem_format", "") or ""
+            fmt_note = f" | stem_format={fmt}" if fmt else ""
             lines.append(
-                f"  Q{s.slot} [{s.band}] {s.cognitive_type} | archetype={s.archetype_id}{type_note}{graph_note}"
+                f"  Q{s.slot} [{s.band}] {s.cognitive_type} | archetype={s.archetype_id}{type_note}{fmt_note}{graph_note}"
             )
         graph_block = blueprint_theorem_graph_section(self.plan.slots, self._locked)
         if graph_block:
@@ -356,13 +358,20 @@ OUTPUT CONTRACT:
         s = p.slots[slot_index] if slot_index < len(p.slots) else None
         arch_hint = f"Archetype: {s.archetype_id} | {s.cognitive_type}" if s else ""
         qtype = getattr(s, "question_type", "") if s else ""
+        from app.generation.quadratic_generation_pipeline import (
+            resolve_quadratic_regen_prompt_body,
+        )
+
+        body = resolve_quadratic_regen_prompt_body(p)
+        if not body:
+            body = self.compile_full_prompt()
         return (
             f"QUALITY REGENERATION — slot {slot_index + 1} | {p.chapter_title} ONLY.\n"
             f"{arch_hint}\n"
             f"Required type: {qtype}\n"
             f"FIX: {reject_feedback}\n"
             f"REJECTED: {rejected_stem[:400]}\n\n"
-            + self.compile_full_prompt()
+            + body
             + f"\n\nANSWER: one JSON object; id={slot_index + 1}; type={qtype}"
         )
 
@@ -375,18 +384,36 @@ def build_generation_prompt(
     file_agent: bool = False,
     strict_purity: bool = True,
 ) -> str:
-    compiler = PromptCompiler.from_plan(plan)
-    if file_agent:
-        prompt = compiler.compile_file_agent_task(types_label=types_label)
+    from app.generation.production_prompts import resolve_production_prompt
+
+    production = resolve_production_prompt(plan) if file_agent else None
+    if production:
+        prompt = production
+        logger.info(
+            "Using production prompt chapter=%s len=%d",
+            plan.locked_chapter,
+            len(prompt),
+        )
     else:
-        prompt = compiler.compile_full_prompt()
-    if type_tail:
+        compiler = PromptCompiler.from_plan(plan)
+        if file_agent:
+            prompt = compiler.compile_file_agent_task(types_label=types_label)
+        else:
+            prompt = compiler.compile_full_prompt()
+    if type_tail and not production:
         tail_hits = find_prompt_contamination(type_tail, plan.locked_chapter)
         if tail_hits:
             logger.warning("Type tail contamination stripped: %s", tail_hits[:5])
             type_tail = sanitize_prompt_lines(type_tail, plan.locked_chapter)
         prompt = prompt + "\n\nTYPE-SPECIFIC OUTPUT:\n" + type_tail
     validate_prompt_purity(prompt, plan.locked_chapter, strict=strict_purity)
+    if production:
+        logger.debug(
+            "Production prompt purity OK chapter=%s len=%d",
+            plan.locked_chapter,
+            len(prompt),
+        )
+        return prompt
     if settings.ENABLE_CBSE_BENCHMARK:
         try:
             from app.generation.cbse_benchmark import benchmark_prompt_hints
@@ -409,6 +436,41 @@ def build_generation_prompt(
                 )
         except Exception as exc:
             logger.debug("CBSE reference prompt hints skipped: %s", exc)
+    if settings.ENABLE_GATE_BENCHMARK:
+        try:
+            from app.generation.full_hard_mode import is_full_hard_paper
+            from app.generation.gate_benchmark import (
+                gate_benchmark_prompt_hints,
+                gate_level_active,
+            )
+
+            fh = is_full_hard_paper(plan.difficulty_distribution)
+            gh = gate_benchmark_prompt_hints(
+                gate_active=gate_level_active(
+                    exam_track=plan.exam_track,
+                    ui_difficulty=plan.difficulty,
+                    difficulty_distribution=plan.difficulty_distribution,
+                    full_hard=fh,
+                    instructions=plan.instructions or "",
+                )
+            )
+            if gh:
+                prompt = prompt + "\n\n" + gh
+        except Exception as exc:
+            logger.debug("GATE benchmark prompt hints skipped: %s", exc)
+    if settings.ENABLE_GATE_REFERENCE and plan.locked_chapter not in ("", "generic"):
+        try:
+            from app.generation.gate_reference_ingest import load_gate_reference_manifest
+
+            gman = load_gate_reference_manifest()
+            gcount = (gman.get("chapters") or {}).get(plan.locked_chapter, 0)
+            if gcount:
+                prompt = prompt + (
+                    f"\n\nGATE index: {gcount} MA/GATE stems for {plan.locked_chapter}; "
+                    f"match postgraduate aptitude depth and multi-part stems."
+                )
+        except Exception as exc:
+            logger.debug("GATE reference prompt hints skipped: %s", exc)
     logger.debug(
         "Prompt purity OK chapter=%s len=%d",
         plan.locked_chapter,

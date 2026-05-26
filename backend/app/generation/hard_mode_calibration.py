@@ -28,6 +28,8 @@ TAG_DIRECT_THEOREM_APPLICATION = "direct_theorem_application"
 TAG_TAUTOLOGICAL_PERP = "tautological_perp_proof"
 TAG_SCAFFOLDED_CHORD = "scaffolded_chord_length"
 TAG_TRIVIAL_TRIG_FIND = "trivial_trig_value_find"
+TAG_TRIVIAL_QUAD_FACTOR = "trivial_quad_factorisation"
+TAG_TRIVIAL_QUAD_DISCRIMINANT = "trivial_quad_discriminant_only"
 TAG_PROOF_WITHOUT_HENCE = "proof_without_hence"
 
 _BAND_ORDER = {"L1": 1, "L2": 2, "L3": 3, "L4": 4, "L5": 5}
@@ -248,6 +250,20 @@ def _classify_quadratic_stem(stem: str) -> List[str]:
         tags.append("speed_time")
     if " or " in low and re.search(r"\bfind\b|\bform\b", low):
         tags.append(TAG_HOTS_MIXED)
+    # Full-hard rejects: bare drills with no fusion chain
+    if re.search(r"^solve\s+", low) and re.search(r"factoris", low):
+        if not re.search(
+            r"\bhence\b|\(i\)|without\s+solv|verify|α|beta|sum|product|nature",
+            low,
+        ):
+            tags.append(TAG_TRIVIAL_QUAD_FACTOR)
+    if re.search(r"^find\s+(?:the\s+)?discriminant\s+of\b", low) and not re.search(
+        r"\(ii\)|\(iii\)|without\s+solv|verify|nature.*and.*root", low
+    ):
+        tags.append(TAG_TRIVIAL_QUAD_DISCRIMINANT)
+    if re.search(r"^find\s+(?:the\s+)?value\s+of\s+k\b", low) and len(low.split()) < 18:
+        if not re.search(r"hence|verify|repeated|common\s+root|\(i\)", low):
+            tags.append(TAG_TRIVIAL_QUAD_FACTOR)
     return tags
 
 
@@ -286,6 +302,51 @@ def evaluate_hard_mode(
                 "hard_mode_flags": flags_pre,
                 "stem_tags": stem_tags,
             }
+        if full_hard:
+            from app.core.config import settings
+            from app.generation.quadratic_paper_quality import (
+                evaluate_quadratic_stem_quality,
+            )
+
+            qgate = evaluate_quadratic_stem_quality(
+                stem, sparse_hard=bool(meta.get("sparse_hard"))
+            )
+            q.update(
+                {
+                    "quadratic_fusion_score": qgate.get("quadratic_fusion_score"),
+                    "stem_quality_ok": qgate.get("stem_quality_ok"),
+                }
+            )
+            qflags = qgate.get("stem_quality_flags") or qgate.get(
+                "quadratic_hard_stem_flags"
+            ) or []
+            if qflags:
+                return {
+                    "hard_mode_ok": False,
+                    "hard_mode_score": 0.25,
+                    "hard_mode_flags": list(qflags),
+                    "stem_tags": stem_tags,
+                }
+    elif chapter == "trigonometry":
+        stem_tags = classify_stem(stem)
+        if full_hard:
+            from app.generation.trigonometry_hard_stem_gate import (
+                evaluate_trigonometry_full_hard_stem,
+            )
+
+            tgate = evaluate_trigonometry_full_hard_stem(
+                stem,
+                sparse_hard=bool(meta.get("sparse_hard")),
+                slot_meta=meta,
+            )
+            tflags = tgate.get("trig_hard_stem_flags") or []
+            if tflags:
+                return {
+                    "hard_mode_ok": False,
+                    "hard_mode_score": 0.25,
+                    "hard_mode_flags": list(tflags),
+                    "stem_tags": stem_tags,
+                }
     else:
         stem_tags = classify_stem(stem)
 
@@ -334,6 +395,11 @@ def evaluate_hard_mode(
         if full_hard
         else SLOT_FORBIDDEN_STEM_TAGS.get(band, ())
     )
+    if full_hard and chapter == "quadratic":
+        forbidden = forbidden + (
+            TAG_TRIVIAL_QUAD_FACTOR,
+            TAG_TRIVIAL_QUAD_DISCRIMINANT,
+        )
     if meta.get("sparse_hard") and TAG_STANDARD_PROOF in stem_tags:
         forbidden = tuple(t for t in forbidden if t != TAG_STANDARD_PROOF)
     for tag in stem_tags:
@@ -472,6 +538,8 @@ def should_reject_hard_mode(
         "architect_forbidden_angle",
         "hence_verify_definition",
     )
-    if locked_chapter == "quadratic" and any("geometry_leak" in f for f in flags):
+    if locked_chapter == "quadratic" and any(
+        "geometry_leak" in f or "quad_" in f for f in flags
+    ):
         return True
     return any(any(c in f for c in critical) for f in flags)

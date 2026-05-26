@@ -53,6 +53,7 @@ def write_rag_query(
     exclude_prior_stems: Optional[list] = None,
     topic_state: Optional[dict] = None,
     uniqueness_block: str = "",
+    compact_query: bool = False,
 ) -> None:
     """Write query file; invalidates stale rag_response when topic_state marks a chapter change."""
     t0 = time.time()
@@ -88,9 +89,14 @@ def write_rag_query(
             if val:
                 parts.append(f"{key}: {val}")
         parts.append("")
-    if retrieval_query.strip():
+    if retrieval_query.strip() and not compact_query:
         parts.append(f"RETRIEVAL QUERY:\n{retrieval_query.strip()}\n")
-    if exclude_prior_stems:
+    if compact_query:
+        parts.append(
+            "COMPACT PROMPT MODE: follow the QUESTION block only. "
+            "Prior stems and rejection corpus are omitted; backend dedup still applies after parse.\n"
+        )
+    if exclude_prior_stems and not compact_query:
         parts.append("PRIOR QUESTIONS — DO NOT REPEAT OR PARAPHRASE:")
         for stem in exclude_prior_stems[:25]:
             if stem:
@@ -109,10 +115,20 @@ def write_rag_query(
                 parts.append("")
         except Exception:
             pass
-    if uniqueness_block and uniqueness_block.strip():
+    if uniqueness_block and uniqueness_block.strip() and not compact_query:
         parts.append(uniqueness_block.strip())
         parts.append("")
-    parts.append(f"CONTEXT:\n{context.strip()}\n")
+    if compact_query:
+        ctx_body = (context or "").strip()
+        if ctx_body:
+            parts.append(f"CONTEXT:\n{ctx_body[:4000]}\n")
+        else:
+            parts.append(
+                "CONTEXT:\nCurriculum mode — use the QUESTION blueprint only; "
+                "invent fresh Class 10 quadratic stems.\n"
+            )
+    else:
+        parts.append(f"CONTEXT:\n{context.strip()}\n")
     parts.append(f"QUESTION:\n{question.strip()}\n")
     content = "\n".join(parts)
     QUERY_FILE.write_text(content, encoding="utf-8")
@@ -276,12 +292,13 @@ async def request_rag_file_response(
     Write rag_query.txt and poll rag_response.txt until the agent fills it in.
     Returns parsed JSON answer string, or None if missing/invalid.
     """
+    ts = topic_state or {}
+    compact = bool(ts.get("compact_rag_query"))
     ub = uniqueness_block
-    if not ub and exclude_prior_stems:
+    if not compact and not ub and exclude_prior_stems:
         try:
             from app.generation.paper_uniqueness import build_rag_uniqueness_block
 
-            ts = topic_state or {}
             ub = build_rag_uniqueness_block(
                 generation_num=generation_num,
                 prior_stems=list(exclude_prior_stems),
@@ -296,9 +313,10 @@ async def request_rag_file_response(
         question,
         document_meta=document_meta,
         retrieval_query=retrieval_query,
-        exclude_prior_stems=exclude_prior_stems,
+        exclude_prior_stems=None if compact else exclude_prior_stems,
         topic_state=topic_state,
-        uniqueness_block=ub,
+        uniqueness_block="" if compact else ub,
+        compact_query=compact,
     )
     query_mtime = QUERY_FILE.stat().st_mtime
     if generation_attempt > 1:
@@ -343,6 +361,22 @@ async def request_rag_file_response(
         logger.info("Received rag_response.txt (%d chars answer)", len(answer))
         if sources:
             logger.debug("Sources: %s", sources[:200])
+        locked = str(ts.get("locked_chapter") or "").strip().lower()
+        if locked == "quadratic":
+            from app.core.config import settings as app_settings
+            from app.generation.quadratic_math_gate import validate_rag_answer_json
+
+            if app_settings.ENABLE_QUADRATIC_MATH_VERIFY:
+                try:
+                    validate_rag_answer_json(answer, chapter=locked)
+                except ValueError as exc:
+                    logger.error(
+                        "rag_response.txt failed quadratic math verification — "
+                        "fix rag_response.txt before apply: %s",
+                        exc,
+                    )
+                    if app_settings.QUADRATIC_MATH_VERIFY_BLOCK_DELIVERY:
+                        return None
         return answer
     if settings.RAG_FILE_AGENT_ONLY:
         logger.error(

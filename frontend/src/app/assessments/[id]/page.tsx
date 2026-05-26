@@ -276,17 +276,28 @@ export default function AssessmentDetails() {
     assessment.status === "failed" &&
     !(assessment.questions && assessment.questions.length > 0)
   ) {
+    const failureDetail =
+      (assessment.config?.failure_detail as string) ||
+      "Generation did not produce any questions.";
+    const needed =
+      (assessment.config?.total_questions as number) ||
+      (assessment.config?.delivery_count as number) ||
+      5;
+    const topic = (assessment.config?.topic_focus as string) || "this chapter";
     return (
       <div className="flex flex-col h-[80vh] items-center justify-center space-y-6 px-4">
-        <div className="relative w-24 h-24">
-          <div className="absolute inset-0 border-4 border-indigo-500/20 rounded-full"></div>
-          <div className="absolute inset-0 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+          <span className="text-rose-400 text-2xl font-bold">!</span>
         </div>
         <div className="text-center max-w-lg">
-          <h2 className="text-2xl font-bold text-white mb-2">Preparing your assessment</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Generation failed</h2>
+          <p className="text-rose-300/90 text-sm mb-3 font-medium">{failureDetail}</p>
           <p className="text-slate-400 text-sm mb-4">
-            Questions appear here as soon as they are ready. You can also apply a saved response file
-            if you use the file agent workflow.
+            Put a JSON array with ids &quot;1&quot; through &quot;{needed}&quot; (or more for
+            oversample) in <code className="text-slate-300">rag_response.txt</code> at the project
+            root for <strong className="text-slate-300">{topic}</strong>, then apply it here.
+            The file must match the chapter you generated — trigonometry items will not load a
+            Circles paper.
           </p>
           <button
             type="button"
@@ -294,11 +305,15 @@ export default function AssessmentDetails() {
             disabled={applyingRag}
             className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium"
           >
-            {applyingRag ? "Applying…" : "Apply saved response — finish now"}
+            {applyingRag ? "Applying…" : `Apply rag_response.txt (${needed} questions)`}
           </button>
           <p className="text-slate-500 text-xs mt-4">
             <Link href="/generate" className="text-indigo-400 underline">
               Back to Generate
+            </Link>
+            {" · "}
+            <Link href="/assessments" className="text-indigo-400 underline">
+              All assessments
             </Link>
           </p>
         </div>

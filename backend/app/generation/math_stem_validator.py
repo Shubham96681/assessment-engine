@@ -149,6 +149,12 @@ def evaluate_math_stem(
 
     ch = (locked_chapter or q.get("locked_chapter") or "").strip().lower()
     trig_sympy_critical: List[str] = []
+    if ch == "quadratic":
+        from app.core.config import settings
+        from app.generation.quadratic_math_gate import should_block_quadratic_math
+
+        if settings.ENABLE_QUADRATIC_MATH_VERIFY and should_block_quadratic_math(q):
+            flags.append("quadratic_math_verification_failed")
     if ch == "trigonometry":
         if _CALCULUS.search(stem):
             flags.append("calculus_outside_trigonometry")
@@ -171,6 +177,7 @@ def evaluate_math_stem(
         flags.append("answer_not_a_solution")
 
     critical = {
+        "quadratic_math_verification_failed",
         "unicode_encoding_corruption",
         "false_tan_a_plus_b_formula",
         "false_tan_multiple_angle_identity",

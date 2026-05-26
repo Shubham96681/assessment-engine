@@ -14,8 +14,10 @@ from app.generation.textbook_constants import (
     HARD_DIFFICULTY_MIX_8,
     FULL_HARD_DIFFICULTY_MIX_5,
     FULL_HARD_DIFFICULTY_MIX_8,
+    ELEVATED_HARD_DIFFICULTY_MIX_5,
+    ELEVATED_HARD_DIFFICULTY_MIX_8,
 )
-from app.generation.full_hard_mode import is_full_hard_paper
+from app.generation.full_hard_mode import is_elevated_hard_paper, is_full_hard_paper
 from app.generation.chapter_prompt_isolation import (
     build_chapter_hard_prompt_stack,
     filter_archetypes_to_chapter,
@@ -655,12 +657,19 @@ def get_slot_bands(
 ) -> List[str]:
     ui = (ui_difficulty or "medium").lower()
     fh = full_hard or is_full_hard_paper(difficulty_distribution)
+    elev = is_elevated_hard_paper(difficulty_distribution)
     if ui in ("hard", "difficult"):
         if fh:
             mix = (
                 FULL_HARD_DIFFICULTY_MIX_5
                 if question_count <= 5
                 else FULL_HARD_DIFFICULTY_MIX_8
+            )
+        elif elev:
+            mix = (
+                ELEVATED_HARD_DIFFICULTY_MIX_5
+                if question_count <= 5
+                else ELEVATED_HARD_DIFFICULTY_MIX_8
             )
         else:
             mix = HARD_DIFFICULTY_MIX_5 if question_count <= 5 else HARD_DIFFICULTY_MIX_8
@@ -755,8 +764,13 @@ def get_slot_metadata(
     memory = build_exercise_memory_plan(question_count, locked_chapter=chapter)
     teach_idx = memory[0]["teach_index"] if memory else -1
     reuse_idx = memory[0]["reuse_index"] if memory else -1
+    elev = is_elevated_hard_paper(difficulty_distribution)
     sequence_slots = sequence_slots_for_chapter(
-        chapter, ui, full_hard=fh, question_count=question_count
+        chapter,
+        ui,
+        full_hard=fh,
+        question_count=question_count,
+        elevated_hard=elev,
     )
     bands = get_slot_bands(
         question_count,
@@ -765,6 +779,11 @@ def get_slot_metadata(
         difficulty_distribution=difficulty_distribution,
     )
 
+    from app.generation.stem_pattern_variety import assign_stem_patterns
+
+    default_patterns = assign_stem_patterns(
+        question_count, chapter=chapter, full_hard=fh
+    )
     meta: List[Dict[str, Any]] = []
     for i in range(question_count):
         seq = sequence_slots[i % len(sequence_slots)]
@@ -786,6 +805,7 @@ def get_slot_metadata(
                 "figure_complexity": figure_complexity_for_chapter(chapter, i),
                 "locked_chapter": chapter,
                 "visual_hints": profile.visual.figure_spec_hints,
+                "stem_format": seq.get("stem_format") or default_patterns[i],
             }
         )
     return meta

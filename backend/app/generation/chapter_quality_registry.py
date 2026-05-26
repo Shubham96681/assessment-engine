@@ -188,4 +188,25 @@ def _register_trigonometry() -> None:
     )
 
 
+def _register_circles() -> None:
+    register_escalation(
+        "circles",
+        DifficultyEscalationConfig(
+            tier_labels=("ncert", "rd_sharma", "hots_fusion"),
+            prompt_lines=(
+                "Rephrase every stem — new labels, numbers, and proof order; no NCERT paraphrase.",
+                "At least 4 items FigureBased with figure_spec (centre, dashed radii, contacts).",
+                "Include one sparse proof slot and one HOTS fusion (concentric + tangent–secant).",
+                "L4/L5: (i)(ii) sub-parts or Hence chain — not single-step Pythagoras.",
+                "Prefer angle chase or secant–tangent power over a third concentric chord drill.",
+            ),
+            min_identity_proof_items=1,
+            min_prove_hence_chains=1,
+            prove_stem_pattern=r"\bprove\b",
+            hence_stem_pattern=r"\bhence\b",
+        ),
+    )
+
+
 _register_trigonometry()
+_register_circles()

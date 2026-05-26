@@ -262,9 +262,22 @@ class QuestionGenerator:
             context="",
             subject=config.subject or "Mathematics",
             class_level=config.class_level or "10",
+            instructions=config.instructions or "",
             difficulty=_diff,
+            difficulty_distribution=config.difficulty_distribution,
         )
         _preview_profile.chapter_key = locked_chapter
+        from app.generation.full_hard_mode import is_full_hard_paper
+        from app.generation.topic_isolation import persist_generation_calibration
+
+        persist_generation_calibration(
+            exam_track=_preview_profile.exam_track,
+            ui_difficulty=_diff,
+            full_hard=is_full_hard_paper(config.difficulty_distribution),
+            difficulty_distribution=config.difficulty_distribution,
+            instructions=config.instructions or "",
+            class_level=config.class_level or "10",
+        )
         try:
             _plan = _build_plan(
                 locked_chapter=locked_chapter,
@@ -416,14 +429,17 @@ class QuestionGenerator:
                         required_theorems=required_theorems,
                         retrieval_confidence=retrieval_meta["score"],
                     )
-                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+                    from app.generation.gate_reference_context import (
+                        enrich_context_with_exam_references,
+                    )
 
-                    context = await enrich_context_with_cbse_reference(
+                    context = await enrich_context_with_exam_references(
                         context,
                         query=query,
                         locked_chapter=locked_chapter,
                         class_level=config.class_level
                         or (document_meta or {}).get("class_level", ""),
+                        exam_track=profile.exam_track,
                     )
                     last_context = context
                     last_task = task
@@ -452,14 +468,17 @@ class QuestionGenerator:
                         difficulty=task.get("difficulty", "medium"),
                     )
                     context = build_context_fallback(profile)
-                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+                    from app.generation.gate_reference_context import (
+                        enrich_context_with_exam_references,
+                    )
 
-                    context = await enrich_context_with_cbse_reference(
+                    context = await enrich_context_with_exam_references(
                         context,
                         query=query,
                         locked_chapter=locked_chapter,
                         class_level=config.class_level
                         or (document_meta or {}).get("class_level", ""),
+                        exam_track=profile.exam_track,
                     )
                     last_context = context
                     last_task = task
@@ -468,14 +487,17 @@ class QuestionGenerator:
                     rag_chunk_summaries = []
                 else:
                     context = "\n\n---\n\n".join([c["text"] for c in chunks[:settings.MAX_RETRIEVAL_CHUNKS]])
-                    from app.generation.cbse_reference_context import enrich_context_with_cbse_reference
+                    from app.generation.gate_reference_context import (
+                        enrich_context_with_exam_references,
+                    )
 
-                    context = await enrich_context_with_cbse_reference(
+                    context = await enrich_context_with_exam_references(
                         context,
                         query=query,
                         locked_chapter=locked_chapter,
                         class_level=config.class_level
                         or (document_meta or {}).get("class_level", ""),
+                        exam_track=profile.exam_track,
                     )
                     profile = build_content_profile(
                         topic_focus=config.topic_focus or "",
@@ -555,7 +577,22 @@ class QuestionGenerator:
                         len(topic_rejected),
                         locked_chapter,
                     )
-                parsed = filter_structural_duplicates(parsed)
+                from app.generation.quadratic_generation_pipeline import (
+                    structural_dedup_pool,
+                )
+
+                _fh = is_full_hard_paper(config.difficulty_distribution)
+                parsed = structural_dedup_pool(
+                    parsed, delivery_count=config.total_questions
+                )
+                parsed = self._apply_quadratic_quality_gate(
+                    parsed,
+                    locked_chapter=locked_chapter,
+                    full_hard=_fh,
+                    generation_log=generation_log,
+                    stage=f"post_parse_attempt_{attempt}",
+                    delivery_count=config.total_questions,
+                )
 
                 if task["type"] == QuestionType.FIGURE_BASED and settings.ENABLE_FIGURE_GENERATION:
                     parsed = await self._attach_figures(parsed)
@@ -589,7 +626,13 @@ class QuestionGenerator:
             for i, q in enumerate(all_questions):
                 q["order_index"] = i
 
-            all_questions = filter_structural_duplicates(all_questions)
+            from app.generation.quadratic_generation_pipeline import (
+                structural_dedup_pool,
+            )
+
+            all_questions = structural_dedup_pool(
+                all_questions, delivery_count=config.total_questions
+            )
             skip_history = "local" in attempt_llm_modes
             if skip_history:
                 logger.info(
@@ -851,6 +894,14 @@ class QuestionGenerator:
                 logger.warning("record_paper_memory failed: %s", e)
 
         if final:
+            final = self._apply_quadratic_quality_gate(
+                final,
+                locked_chapter=locked_chapter,
+                full_hard=_full_hard,
+                generation_log=generation_log,
+                stage="pre_delivery",
+                delivery_count=config.total_questions,
+            )
             final = self._finalize_paper_delivery(
                 final,
                 config=config,
@@ -879,6 +930,100 @@ class QuestionGenerator:
             len(all_questions),
         )
         return final, generation_log
+
+    def _apply_quadratic_quality_gate(
+        self,
+        questions: List[Dict[str, Any]],
+        *,
+        locked_chapter: str,
+        full_hard: bool,
+        generation_log: List[Dict[str, Any]],
+        stage: str,
+        delivery_count: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Computational math gate (all quadratic) + L5 stem audits (full-hard)."""
+        if (locked_chapter or "").lower() != "quadratic" or not questions:
+            return questions
+        from app.generation.quadratic_math_gate import filter_quadratic_math_verified
+
+        questions, math_rej = filter_quadratic_math_verified(
+            questions,
+            drop=bool(settings.QUADRATIC_MATH_VERIFY_BLOCK_DELIVERY),
+        )
+        if math_rej:
+            generation_log.append(
+                {
+                    "step": "quadratic_math_reject",
+                    "stage": stage,
+                    "rejected_count": len(math_rej),
+                    "flags": [
+                        (q.get("math_verification_flags") or [])[:3] for q in math_rej[:6]
+                    ],
+                }
+            )
+        if (
+            not settings.ENABLE_QUADRATIC_QUALITY_MONITOR
+            or not full_hard
+        ):
+            return questions
+        from app.generation.quadratic_paper_quality import audit_pipeline_stage
+        from app.generation.quadratic_generation_pipeline import (
+            filter_failed_quadratic_stems,
+            run_quadratic_pool_pipeline,
+        )
+
+        generation_log.append(
+            audit_pipeline_stage(stage, questions, extra={"full_hard": True})
+        )
+        drop = bool(settings.QUADRATIC_QUALITY_BLOCK_DELIVERY)
+        kept, rejected = filter_failed_quadratic_stems(questions, drop=drop)
+        if rejected:
+            logger.warning(
+                "Quadratic quality gate (%s): dropped %d/%d stems",
+                stage,
+                len(rejected),
+                len(questions),
+            )
+            generation_log.append(
+                {
+                    "step": "quadratic_quality_reject",
+                    "stage": stage,
+                    "rejected_count": len(rejected),
+                    "rejected_previews": rejected[:8],
+                }
+            )
+        _, paper_report = run_quadratic_pool_pipeline(
+            kept,
+            delivery_count=delivery_count,
+            drop_failed_stems=False,
+            apply_structural_dedup=False,
+        )
+        generation_log.append(
+            {
+                "step": "quadratic_paper_quality",
+                "stage": stage,
+                **{
+                    k: paper_report.get(k)
+                    for k in (
+                        "paper_block",
+                        "paper_reasons",
+                        "pool_count",
+                    )
+                },
+                "paper_flags": (paper_report.get("paper_quality") or {}).get(
+                    "paper_quality_flags"
+                ),
+            }
+        )
+        if paper_report.get("paper_block") and drop:
+            logger.warning(
+                "Quadratic paper quality (%s): %s",
+                stage,
+                paper_report.get("paper_reasons"),
+            )
+        if drop and not kept and questions:
+            logger.error("Quadratic quality gate removed all questions at %s", stage)
+        return kept if kept else questions
 
     def _finalize_paper_delivery(
         self,
@@ -1452,6 +1597,7 @@ class QuestionGenerator:
                     exclude_stems=exclude_stems,
                     ui_difficulty=dominant_diff,
                     locked_chapter=locked_chapter,
+                    difficulty_distribution=config.difficulty_distribution,
                 )
                 try:
                     raw, regen_source = await self._regenerate_slot_raw(
@@ -1797,6 +1943,16 @@ class QuestionGenerator:
             meta = document_meta or {}
             ts["question_count"] = int(meta.get("question_count") or (task or {}).get("count") or 5)
             ts["full_hard"] = str(meta.get("full_hard", "0")).lower() in ("1", "true", "yes")
+            from app.generation.full_hard_mode import is_full_hard_paper
+
+            locked = (ts.get("locked_chapter") or "").strip().lower()
+            if (
+                settings.QUADRATIC_PRODUCTION_PROMPT_ENABLED
+                and locked == "quadratic"
+                and ts["full_hard"]
+            ):
+                ts["compact_rag_query"] = True
+            rag_context = "" if ts.get("compact_rag_query") else context
             profile = build_content_profile(
                 topic_focus=meta.get("topic_focus", ""),
                 filename=meta.get("filename", ""),
@@ -1820,7 +1976,7 @@ class QuestionGenerator:
             file_answer = None
             for try_num in range(1, max_tries + 1):
                 file_answer = await request_rag_file_response(
-                    context,
+                    rag_context,
                     prompt,
                     document_meta=document_meta,
                     retrieval_query=retrieval_query or dynamic_retrieval,
@@ -2209,17 +2365,53 @@ class QuestionGenerator:
             spec["elements"] = elements
         return spec
 
+    async def attach_figures_for_figure_based(
+        self, questions: List[Dict]
+    ) -> List[Dict]:
+        """Enrich missing specs and render PNGs for every FigureBased item."""
+        if not settings.ENABLE_FIGURE_GENERATION:
+            return questions
+        from app.generation.figure_spec_builder import enrich_figure_spec
+
+        out = list(questions)
+        idxs = [i for i, q in enumerate(out) if q.get("question_type") == "FigureBased"]
+        if not idxs:
+            return out
+        subset: List[Dict] = []
+        for i in idxs:
+            q = dict(out[i])
+            if not q.get("figure_spec"):
+                auto = enrich_figure_spec(q.get("content", ""), None)
+                if auto.get("type") == "unit_circle" or auto.get("elements"):
+                    q["figure_spec"] = auto
+                    q["figure_type"] = auto.get("type", "labeled_diagram")
+            subset.append(q)
+        attached = await self._attach_figures(subset)
+        for j, i in enumerate(idxs):
+            out[i] = attached[j]
+        return out
+
     def _prepare_figure_questions(self, questions: List[Dict]) -> List[Dict]:
         """Sync Fig. numbers, captions, and question↔figure point labels."""
+        from app.generation.figure_spec_builder import enrich_figure_spec
+
         prepared = []
         fig_idx = 0
         for q in questions:
             q = dict(q)
-            if q.get("question_type") != "FigureBased" or not q.get("figure_spec"):
+            if q.get("question_type") != "FigureBased":
+                prepared.append(q)
+                continue
+            content = q.get("content", "")
+            if not q.get("figure_spec"):
+                auto = enrich_figure_spec(content, None)
+                if auto.get("type") == "unit_circle" or auto.get("elements"):
+                    q["figure_spec"] = auto
+                    q["figure_type"] = auto.get("type", "labeled_diagram")
+            if not q.get("figure_spec"):
                 prepared.append(q)
                 continue
             fig_idx += 1
-            content = q.get("content", "")
             # Do not inject "Fig. N" into stems — captions are rendered in pdf_builder only.
             content = re.sub(r"(?i)\s*fig\.?\s*\d+\s*", " ", content).strip()
             q["content"] = content
@@ -2240,7 +2432,11 @@ class QuestionGenerator:
         questions = self._prepare_figure_questions(questions)
         async def _gen_one(q: Dict) -> Dict:
             spec = q.get("figure_spec")
-            fig_type = q.get("figure_type", "labeled_diagram")
+            fig_type = (
+                q.get("figure_type")
+                or (spec.get("type") if isinstance(spec, dict) else None)
+                or "labeled_diagram"
+            )
             if not spec:
                 return q
             try:

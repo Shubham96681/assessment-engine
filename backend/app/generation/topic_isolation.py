@@ -117,6 +117,32 @@ def get_current_topic_state() -> dict:
     return _read_state()
 
 
+def persist_generation_calibration(
+    *,
+    exam_track: str = "board",
+    ui_difficulty: str = "medium",
+    full_hard: bool = False,
+    difficulty_distribution: object = None,
+    instructions: str = "",
+    class_level: str = "",
+) -> None:
+    """Persist exam track + difficulty for GATE/CBSE benchmark scoring in quality.py."""
+    state = _read_state()
+    state["exam_track"] = (exam_track or "board").strip().lower()
+    state["ui_difficulty"] = (ui_difficulty or "medium").strip().lower()
+    state["full_hard"] = bool(full_hard)
+    if instructions:
+        state["instructions"] = instructions
+    if class_level:
+        state["class_level"] = class_level
+    if difficulty_distribution is not None:
+        if hasattr(difficulty_distribution, "model_dump"):
+            state["difficulty_distribution"] = difficulty_distribution.model_dump()
+        elif isinstance(difficulty_distribution, dict):
+            state["difficulty_distribution"] = difficulty_distribution
+    _write_state(state)
+
+
 def persist_paper_template_id(template_id: str) -> None:
     """Keep semantic-plan template id for integrity/finalize (survives save_topic_map)."""
     tid = (template_id or "").strip()

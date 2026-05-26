@@ -57,7 +57,11 @@ function GeneratePageContent() {
   const [topicLoading, setTopicLoading] = useState(false);
   const [topicError, setTopicError] = useState("");
 
-  const [selectedTypes, setSelectedTypes] = useState<string[]>(["MCQ", "ShortAnswer"]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([
+    "FigureBased",
+    "ShortAnswer",
+    "LongAnswer",
+  ]);
   const [availableTypes, setAvailableTypes] = useState<string[]>([
     "MCQ",
     "ShortAnswer",
@@ -70,9 +74,9 @@ function GeneratePageContent() {
     "CaseStudy",
   ]);
 
-  const [easy, setEasy] = useState(10);
-  const [medium, setMedium] = useState(30);
-  const [hard, setHard] = useState(60);
+  const [easy, setEasy] = useState(0);
+  const [medium, setMedium] = useState(0);
+  const [hard, setHard] = useState(100);
 
   const loadDocuments = useCallback(async (silent = false) => {
     if (!silent) setDocsLoading(true);
@@ -141,7 +145,17 @@ function GeneratePageContent() {
     setAvailableTypes(relevant);
     setSelectedTypes((prev) => {
       const kept = prev.filter((t) => relevant.includes(t));
-      return kept.length > 0 ? kept : relevant.slice(0, Math.min(2, relevant.length));
+      const base =
+        kept.length > 0 ? kept : relevant.slice(0, Math.min(3, relevant.length));
+      const maxFig = selectedChapterMeta.max_figure_based ?? 0;
+      if (
+        maxFig >= 2 &&
+        relevant.includes("FigureBased") &&
+        !base.includes("FigureBased")
+      ) {
+        return ["FigureBased", ...base].slice(0, Math.max(3, base.length + 1));
+      }
+      return base;
     });
   }, [selectedChapter, selectedChapterMeta?.chapter_key]);
 
@@ -705,7 +719,8 @@ function GeneratePageContent() {
               <div className="space-y-4 pt-4 border-t border-[#334155]">
                 <h3 className="text-sm font-medium text-white">Difficulty Split (%)</h3>
                 <p className="text-xs text-slate-500">
-                  Default targets RD Sharma / RS Aggarwal exercise depth (60% hard). Even &quot;easy&quot; items need 2–3 steps.
+                  Default is <strong className="text-rose-300">100% hard</strong> (full-hard / L5 every slot, GATE floors when enabled).
+                  Lower hard % only if you want a mixed paper.
                 </p>
 
                 <div>

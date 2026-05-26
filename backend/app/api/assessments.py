@@ -530,6 +530,8 @@ async def apply_rag_response(
     if not a:
         raise HTTPException(status_code=404, detail="Not found")
 
+    recover_failed = force and a.status == "failed"
+
     raw = read_rag_response()
     if not raw:
         raise HTTPException(
@@ -633,9 +635,6 @@ async def apply_rag_response(
             ),
         )
 
-    parsed = filter_structural_duplicates(parsed, min_keep=delivery_n)
-    parsed = filter_theorem_equivalence_duplicates(parsed)
-
     for i, q in enumerate(parsed):
         sn = q.get("slot_number")
         if sn is None or int(sn) < 1:
@@ -651,8 +650,15 @@ async def apply_rag_response(
         document_id=cfg.document_id,
         filename=doc_row.filename if doc_row else "",
         topic_focus=cfg.topic_focus or "",
+        force_invalidate_response=not recover_failed,
     )
     locked = topic_state.get("locked_chapter", "generic")
+    if recover_failed and (cfg.topic_focus or "").strip():
+        from app.generation.rd_archetypes import detect_chapter_key
+
+        tf = detect_chapter_key(topic_focus=cfg.topic_focus or "")
+        if tf and tf != "generic":
+            locked = tf
     parsed = disambiguate_duplicate_signatures(parsed, chapter=locked)
 
     from app.generation.question_type_resolver import (
@@ -660,13 +666,61 @@ async def apply_rag_response(
         user_selected_figure_based,
     )
 
-    if user_selected_figure_based(cfg.question_types):
-        parsed = gen._prepare_figure_questions(parsed)
-        if settings.ENABLE_FIGURE_GENERATION:
-            parsed = await gen._attach_figures(parsed)
-    else:
+    parsed = await gen.attach_figures_for_figure_based(parsed)
+    if not user_selected_figure_based(cfg.question_types):
         parsed = coerce_exportable_question_types(parsed, locked)
     full_hard = is_full_hard_paper(getattr(cfg, "difficulty_distribution", None))
+    if (
+        full_hard
+        and locked == "quadratic"
+        and settings.ENABLE_QUADRATIC_QUALITY_MONITOR
+    ):
+        from app.generation.quadratic_generation_pipeline import (
+            run_quadratic_pool_pipeline,
+        )
+
+        drop_stems = (
+            settings.QUADRATIC_QUALITY_BLOCK_DELIVERY and not force
+        )
+        parsed, pq_report = run_quadratic_pool_pipeline(
+            parsed,
+            delivery_count=delivery_n,
+            drop_failed_stems=drop_stems,
+            apply_structural_dedup=False,
+        )
+        if settings.ENABLE_QUADRATIC_MATH_VERIFY:
+            from app.generation.quadratic_math_gate import (
+                pool_math_verification_report,
+                require_quadratic_pool_math_verified,
+            )
+
+            try:
+                require_quadratic_pool_math_verified(parsed)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            _math_ok, _math_reasons = pool_math_verification_report(parsed)
+            if not _math_ok:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "rag_response.txt failed quadratic math verification: "
+                        + "; ".join(_math_reasons[:10])
+                    ),
+                )
+        if pq_report.get("paper_block"):
+            detail = (
+                "rag_response.txt failed quadratic L5 paper quality: "
+                + "; ".join(pq_report.get("paper_reasons") or [])[:8]
+            )
+            if settings.QUADRATIC_QUALITY_BLOCK_DELIVERY and not force:
+                raise HTTPException(status_code=400, detail=detail)
+            logger.warning("apply-rag-response: %s (force=%s)", detail, force)
+
+    from app.generation.quadratic_generation_pipeline import structural_dedup_pool
+
+    parsed = structural_dedup_pool(parsed, delivery_count=delivery_n)
+    parsed = filter_theorem_equivalence_duplicates(parsed)
+
     mark_theorem_equivalence_duplicates(parsed)
     variety_ok, variety_issues = validate_paper_theorem_variety(
         parsed,
@@ -715,11 +769,19 @@ async def apply_rag_response(
     from app.generation.paper_repair import fill_missing_paper_slots
     from app.generation.paper_integrity import normalize_paper_slot_order
 
-    min_required = pool_n if is_oversample_active(delivery_n) and not slot_merge else delivery_n
+    min_required = delivery_n if recover_failed else (
+        pool_n if is_oversample_active(delivery_n) and not slot_merge else delivery_n
+    )
     if len(parsed) < min_required and not slot_merge:
         from app.core.config import settings as app_settings
 
-        if not getattr(app_settings, "ENABLE_LOCAL_LLM_FALLBACK", False):
+        if force and len(parsed) >= delivery_n:
+            logger.warning(
+                "apply-rag-response: pool %d/%d (force apply continues)",
+                len(parsed),
+                min_required,
+            )
+        elif not getattr(app_settings, "ENABLE_LOCAL_LLM_FALLBACK", False):
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -761,7 +823,7 @@ async def apply_rag_response(
             parsed, chapter=locked, full_hard=full_hard
         )
         cq = validate_chapter_paper_quality(parsed, chapter=locked)
-        if not cq.get("chapter_quality_ok") and not slot_merge:
+        if not cq.get("chapter_quality_ok") and not slot_merge and not force:
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -771,6 +833,71 @@ async def apply_rag_response(
                     )
                 ),
             )
+        if not cq.get("chapter_quality_ok") and force:
+            logger.warning(
+                "apply-rag-response: chapter quality warnings (force apply): %s",
+                (cq.get("chapter_quality_critical") or cq.get("chapter_quality_flags", []))[:8],
+            )
+    from app.generation.content_profile import build_content_profile
+    from app.generation.gate_benchmark import (
+        gate_level_active,
+        validate_paper_against_gate,
+    )
+
+    _apply_profile = build_content_profile(
+        topic_focus=cfg.topic_focus or "",
+        filename=doc_row.filename if doc_row else "",
+        context=(parsed[0].get("content") or "") if parsed else "",
+        subject=cfg.subject or "",
+        class_level=cfg.class_level or "",
+        instructions=cfg.instructions or "",
+        difficulty=difficulty,
+        difficulty_distribution=getattr(cfg, "difficulty_distribution", None),
+    )
+    _gate_active = gate_level_active(
+        exam_track=_apply_profile.exam_track,
+        ui_difficulty=difficulty,
+        difficulty_distribution=getattr(cfg, "difficulty_distribution", None),
+        full_hard=full_hard,
+        instructions=cfg.instructions or "",
+    )
+    if _gate_active and not slot_merge:
+        from app.generation.author_styles import resolve_author_style
+        from app.generation.rd_archetypes import get_slot_metadata
+
+        _gate_meta = get_slot_metadata(
+            delivery_n,
+            resolve_author_style(instructions=cfg.instructions or ""),
+            ui_difficulty=difficulty,
+            locked_chapter=locked,
+            full_hard=full_hard,
+            difficulty_distribution=getattr(cfg, "difficulty_distribution", None),
+        )
+        _gate_report = validate_paper_against_gate(
+            parsed[:delivery_n],
+            ui_difficulty=difficulty,
+            slot_metadata=_gate_meta,
+            exam_track=_apply_profile.exam_track,
+            difficulty_distribution=getattr(cfg, "difficulty_distribution", None),
+            full_hard=full_hard,
+            instructions=cfg.instructions or "",
+        )
+        if not _gate_report.get("gate_paper_ok") and not force:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "GATE paper level: rag_response.txt below GATE benchmark — "
+                    f"target ~{int(_gate_report.get('gate_target_words', 90))} words per stem, "
+                    "(i)(ii) sub-parts, prove+Hence chains. "
+                    + "; ".join((_gate_report.get("gate_paper_flags") or [])[:6])
+                ),
+            )
+        if not _gate_report.get("gate_paper_ok") and force:
+            logger.warning(
+                "apply-rag-response: GATE level warnings (force apply): %s",
+                (_gate_report.get("gate_paper_flags") or [])[:6],
+            )
+
     if full_hard and not slot_merge:
         from app.generation.author_styles import resolve_author_style
         from app.generation.rd_archetypes import get_slot_metadata
@@ -797,17 +924,15 @@ async def apply_rag_response(
                     or ""
                 )[:140]
                 _fh_rejects.append(f"Q{_i + 1}: {_stem}")
-        if _fh_rejects and not force:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "FULL HARD (100%): rag_response.txt has items below L5 depth — "
-                    "use (i)(ii) sub-parts, prove+Hence chains, 5+ answer steps; "
-                    "ban bare Find cos/sin/tan X° one-liners. "
-                    + "; ".join(_fh_rejects[:6])
-                ),
+        if _fh_rejects and not slot_merge:
+            detail = (
+                "FULL HARD (100%): rag_response.txt has items below L5 depth — "
+                "each stem needs fusion (e.g. without solving + α²+β², word model + reject root, "
+                "balanced OR, parameter interval). Ban bare factorise / bare Find k. "
+                + "; ".join(_fh_rejects[:6])
             )
-        if _fh_rejects and force:
+            if not force:
+                raise HTTPException(status_code=400, detail=detail)
             logger.warning(
                 "apply-rag-response: full_hard quality warnings (force apply): %s",
                 _fh_rejects[:6],
@@ -867,7 +992,12 @@ async def apply_rag_response(
         expected_count=integrity_expected,
         paper_template_id=_apply_tmpl.id,
     )
-    if not integrity.get("paper_integrity_ok") and not slot_merge:
+    if (
+        not integrity.get("paper_integrity_ok")
+        and not slot_merge
+        and not recover_failed
+        and not force
+    ):
         logger.error("apply-rag-response paper integrity failed: %s", integrity)
         raise HTTPException(
             status_code=400,
@@ -876,20 +1006,28 @@ async def apply_rag_response(
                 + "; ".join(integrity.get("paper_integrity_flags", [])[:6])
             ),
         )
-    if not integrity.get("paper_integrity_ok") and slot_merge:
+    if not integrity.get("paper_integrity_ok") and force:
+        logger.warning(
+            "apply-rag-response: paper integrity warnings (force apply): %s",
+            integrity.get("paper_integrity_flags", [])[:6],
+        )
+    if not integrity.get("paper_integrity_ok") and (slot_merge or recover_failed):
         logger.warning(
             "apply-rag-response slot merge: integrity flags logged only: %s",
             integrity.get("paper_integrity_flags", [])[:6],
         )
     pre_apply = list(parsed)
-    unique = await gen.dedup.filter(
-        parsed,
-        DEMO_USER_ID,
-        cfg.subject or "Mathematics",
-        cfg.class_level or "10",
-        document_id=cfg.document_id,
-        skip_history=False,
-    )
+    if recover_failed:
+        unique = pre_apply[:pool_n]
+    else:
+        unique = await gen.dedup.filter(
+            parsed,
+            DEMO_USER_ID,
+            cfg.subject or "Mathematics",
+            cfg.class_level or "10",
+            document_id=cfg.document_id,
+            skip_history=False,
+        )
     if len(unique) < delivery_n or slot_merge:
         logger.warning(
             "apply-rag-response: dedup reduced %d→%d — keeping repaired paper slots",
@@ -897,9 +1035,12 @@ async def apply_rag_response(
             len(unique),
         )
         unique = pre_apply[:delivery_n] if slot_merge else pre_apply[:pool_n]
-    filtered, _ = filter_questions_by_topic(unique, locked_chapter=locked)
-    if len(filtered) < delivery_n and unique:
-        filtered = unique[:pool_n]
+    if recover_failed:
+        filtered = unique
+    else:
+        filtered, _ = filter_questions_by_topic(unique, locked_chapter=locked)
+        if len(filtered) < delivery_n and unique:
+            filtered = unique[:pool_n]
     if not filtered:
         raise HTTPException(
             status_code=400,
@@ -918,6 +1059,9 @@ async def apply_rag_response(
                 "regenerate rag_response.txt with unique slots."
             ),
         )
+    from app.generation.author_styles import resolve_author_style
+    from app.generation.rd_archetypes import get_slot_bands, get_slot_metadata
+
     slot_bands = get_slot_bands(
         len(parsed),
         ui_difficulty=difficulty,
@@ -932,6 +1076,17 @@ async def apply_rag_response(
     )
     if slot_merge:
         oversample_meta = {"slot_merge": True, "slot": regen_slot_number}
+    elif recover_failed:
+        from app.generation.generation_oversample import select_best_questions
+
+        parsed, oversample_meta = select_best_questions(
+            parsed,
+            delivery_n,
+            quality_gate=None,
+            ui_difficulty=difficulty,
+            chapter=locked,
+        )
+        logger.info("apply-rag recover_failed selection: %s", oversample_meta)
     else:
         parsed, oversample_meta = await score_and_select_best(
             parsed,
@@ -962,7 +1117,12 @@ async def apply_rag_response(
         expected_count=delivery_n,
         paper_template_id=_apply_tmpl.id,
     )
-    if not integrity_final.get("paper_integrity_ok") and not slot_merge:
+    if (
+        not integrity_final.get("paper_integrity_ok")
+        and not slot_merge
+        and not recover_failed
+        and not force
+    ):
         raise HTTPException(
             status_code=400,
             detail=(
@@ -970,11 +1130,19 @@ async def apply_rag_response(
                 + "; ".join(integrity_final.get("paper_integrity_flags", [])[:6])
             ),
         )
-    if not integrity_final.get("paper_integrity_ok") and slot_merge:
+    if not integrity_final.get("paper_integrity_ok") and (slot_merge or recover_failed):
         logger.warning(
             "apply-rag slot merge: final integrity flags logged only: %s",
             integrity_final.get("paper_integrity_flags", [])[:6],
         )
+
+    if locked == "quadratic" and settings.ENABLE_QUADRATIC_MATH_VERIFY:
+        from app.generation.quadratic_math_gate import require_quadratic_pool_math_verified
+
+        try:
+            require_quadratic_pool_math_verified(parsed[:delivery_n])
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
     question_ids, total_marks = [], 0.0
@@ -1106,7 +1274,7 @@ def _questions_for_export(
             fixed, _ = apply_idiomatic_fix(content)
             content = fixed
             if q.question_type == "FigureBased":
-                figure_spec = enrich_figure_spec(content, None)
+                figure_spec = enrich_figure_spec(content, q.figure_spec)
         out.append(
             finalize_question_dict(
                 {
@@ -1200,8 +1368,19 @@ async def regenerate_export(assessment_id: str, db: AsyncSession = Depends(get_d
             continue
         spec = qd.get("figure_spec")
         if not spec:
+            from app.generation.figure_spec_builder import enrich_figure_spec
+
+            spec = enrich_figure_spec(qd.get("content") or "", None)
+            if spec.get("type") == "unit_circle" or spec.get("elements"):
+                qd["figure_spec"] = spec
+                q_row.figure_spec = spec
+        if not spec:
             continue
-        fig_type = qd.get("figure_type") or "labeled_diagram"
+        fig_type = (
+            qd.get("figure_type")
+            or spec.get("type")
+            or "labeled_diagram"
+        )
         try:
             new_url = await fig_gen.generate(spec, fig_type)
             if new_url:

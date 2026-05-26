@@ -90,22 +90,42 @@ MIN_STEM_WORDS = {
     "figure_based": 14,
 }
 
-# When UI difficulty is hard — no L1 spikes; medium floor + HOTS density
+# When UI difficulty is hard — no L1 spikes; L4/L5 majority
 HARD_DIFFICULTY_MIX_5 = [
-    {"ui": "hard", "band": "L3"},
     {"ui": "hard", "band": "L4"},
     {"ui": "hard", "band": "L5"},
-    {"ui": "hard", "band": "L3"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L4"},
     {"ui": "hard", "band": "L5"},
 ]
 
 HARD_DIFFICULTY_MIX_8 = [
-    {"ui": "hard", "band": "L3"},
     {"ui": "hard", "band": "L4"},
     {"ui": "hard", "band": "L5"},
-    {"ui": "hard", "band": "L3"},
+    {"ui": "hard", "band": "L5"},
     {"ui": "hard", "band": "L4"},
-    {"ui": "hard", "band": "L3"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L4"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+]
+
+# When hard slider ≥ 55% — every slot L4/L5 (no L3 warm-up)
+ELEVATED_HARD_DIFFICULTY_MIX_5 = [
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L4"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+]
+
+ELEVATED_HARD_DIFFICULTY_MIX_8 = [
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L4"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L5"},
+    {"ui": "hard", "band": "L4"},
     {"ui": "hard", "band": "L5"},
     {"ui": "hard", "band": "L5"},
 ]

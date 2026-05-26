@@ -75,6 +75,10 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_repair_stale_generating_assessments())
     if settings.ENABLE_CBSE_REFERENCE and settings.CBSE_REFERENCE_AUTO_BUILD:
         asyncio.create_task(_build_cbse_reference_if_needed())
+    if settings.ENABLE_GATE_REFERENCE and settings.GATE_REFERENCE_AUTO_BUILD:
+        asyncio.create_task(_build_gate_reference_if_needed())
+    if settings.ENABLE_GATE_BENCHMARK and settings.GATE_BENCHMARK_AUTO_BUILD:
+        asyncio.create_task(_build_gate_benchmark_if_needed())
     yield
     logger.info("Shutting down...")
 
@@ -94,6 +98,37 @@ async def _build_cbse_reference_if_needed():
             )
     except Exception as e:
         logger.warning("CBSE reference auto-build skipped: %s", e)
+
+
+async def _build_gate_reference_if_needed():
+    await asyncio.sleep(5)
+    try:
+        from app.generation.gate_reference_ingest import build_gate_reference_index
+
+        man = await build_gate_reference_index(force=False)
+        if man.get("status") == "built":
+            logger.info(
+                "GATE reference index ready: %s stems, chapters=%s",
+                man.get("stem_count", 0),
+                list((man.get("chapters") or {}).keys())[:8],
+            )
+    except Exception as e:
+        logger.warning("GATE reference auto-build skipped: %s", e)
+
+
+async def _build_gate_benchmark_if_needed():
+    await asyncio.sleep(4)
+    try:
+        from app.generation.gate_benchmark import load_gate_benchmark
+
+        snap = load_gate_benchmark(rebuild_if_stale=True)
+        logger.info(
+            "GATE benchmark ready: %s PDFs, %s stems",
+            snap.pdf_count,
+            snap.stem_count,
+        )
+    except Exception as e:
+        logger.warning("GATE benchmark auto-build skipped: %s", e)
 
 
 async def _repair_stale_generating_assessments():

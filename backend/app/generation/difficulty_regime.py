@@ -26,6 +26,10 @@ def resolve_difficulty_regime(
     track = (exam_track or "board").lower()
     cls = (class_level or "10").lower()
 
+    if track in ("gate",):
+        if ui in ("hard", "difficult"):
+            return BOARD_HARD
+        return BOARD_MEDIUM
     if track in ("jee_mains", "jee_advanced", "jee"):
         if ui in ("hard", "difficult"):
             return OLYMPIAD_INTRO if "10" in cls or "9" in cls else OLYMPIAD_FULL
@@ -40,9 +44,15 @@ def resolve_difficulty_regime(
     return BOARD_MEDIUM
 
 
-def regime_calibration_lines(regime: str, chapter: str) -> Tuple[str, ...]:
+def regime_calibration_lines(
+    regime: str,
+    chapter: str,
+    *,
+    exam_track: str = "board",
+) -> Tuple[str, ...]:
     """Short, non-duplicated difficulty guidance for the compiler."""
     ch = (chapter or "generic").strip().lower()
+    track = (exam_track or "board").lower()
     if regime == BOARD_FULL_HARD:
         from app.generation.full_hard_mode import full_hard_calibration_lines
 
@@ -50,14 +60,21 @@ def regime_calibration_lines(regime: str, chapter: str) -> Tuple[str, ...]:
     if regime == BOARD_HARD:
         if ch == "circles":
             return (
-                "REGIME: board_hard — NCERT/RD Sharma Class 10 Circles depth.",
-                "Target 3–5 inference steps per L4/L5 item; ONE sparse proof slot; no olympiad fusion.",
+                "REGIME: board_hard — NCERT/RD Sharma Class 10 Circles depth (rephrased, not copied).",
+                "Target 3–5 inference steps per L4/L5 item; ≥4 FigureBased with labeled_diagram.",
+                "Rephrase stems: multi-part (i)(ii), fusion on one figure, indirect numeric givens.",
                 "HOTS = disguised reuse + OR with separate givens — not unnamed advanced theorems.",
             )
         if ch == "quadratic":
             return (
                 "REGIME: board_hard — discriminant, parameter k, word models; no geometry.",
                 "L4/L5: form → D or factor → roots → verify (3+ steps).",
+            )
+        if track == "gate":
+            return (
+                "REGIME: GATE/JEE-style — postgraduate aptitude depth on board syllabus.",
+                "Stems ~35–55 words; (i)(ii) chains; exact surds; match indexed GATE MA exemplars.",
+                "Ban one-step recall and NCERT drill paraphrase.",
             )
         return (
             "REGIME: board_hard — textbook exercise depth from SOURCE.",
