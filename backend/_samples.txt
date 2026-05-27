@@ -1,0 +1,5 @@
+('cc912e0b-f85b-4dbb-82ad-6c52c0529446', 'Let α and β be the roots of the monic quadratic x² - sx + t = 0. Define pₙ = αⁿ + βⁿ for positive integers n. (i) Prove that pₙ = s x pₙ₋₁ - t x pₙ₋₂ for all n ≥ 2, and state p₀ and p₁. (ii) Hence fin')
+---
+('cc912e0b-f85b-4dbb-82ad-6c52c0529446', 'Construct a monic quadratic equation with real distinct roots, both negative, such that the sum of the roots is less than -4, the product of the roots is greater than 10, and the discriminant is a per')
+---
+('cc912e0b-f85b-4dbb-82ad-6c52c0529446', 'Prove that there is no monic quadratic equation x² + bx + c = 0 with b and c positive integers such that the discriminant is a prime number and both roots are negative integers. If you believe such an')

@@ -1,0 +1,285 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "Two concentric circles have centre O and radii 20 cm and 12 cm. A chord CD of the larger circle touches the smaller circle at T. Find CD.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.6},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "T", "position": "on_circle"},
+        {"shape": "point", "label": "C", "position": "on_circle"},
+        {"shape": "point", "label": "D", "position": "on_circle"},
+        {"shape": "segment", "from": "C", "to": "D"},
+        {"shape": "segment", "from": "O", "to": "T", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "T": "T", "C": "C", "D": "D"},
+      "show_right_angle": true,
+      "right_angle_at": "T",
+      "right_angle_legs": ["O", "C"],
+      "tangent_marks": ["T"],
+      "chord_bisect_at": "T"
+    },
+    "correct_answer": "Given: inner radius OT = 12 cm, outer radius OC = 20 cm; chord CD touches the inner circle at T. Step 1: CD is tangent to the inner circle at T, so OT is perpendicular to CD. Step 2: A perpendicular from the centre to a chord bisects it, so T is the midpoint of CD. Step 3: In right triangle OTC, CT² = 20² − 12² = 256. Step 4: CT = 16 cm, hence CD = 2CT = 32 cm. Hence CD = 32 cm.",
+    "theorem_tags": ["concentric_chord", "tangent_radius_perpendicular"],
+    "archetype_id": "concentric_chord"
+  },
+  {
+    "id": "2",
+    "type": "FigureBased",
+    "question": "Using the configuration in Question 1, from external point N tangent NE = 15 cm touches the outer circle at E; secant NFK meets the circle at F (nearer N) and K with NF = 9 cm. Find NK and verify NE² = NF × NK.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "N", "position": "outside"},
+        {"shape": "point", "label": "E", "position": "on_circle"},
+        {"shape": "point", "label": "F", "position": "on_circle"},
+        {"shape": "point", "label": "K", "position": "on_circle"},
+        {"shape": "segment", "from": "N", "to": "E"},
+        {"shape": "segment", "from": "F", "to": "K"},
+        {"shape": "segment", "from": "O", "to": "E", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "N": "N", "E": "E", "F": "F", "K": "K"},
+      "show_right_angle": true,
+      "right_angle_at": "E",
+      "right_angle_legs": ["O", "N"]
+    },
+    "correct_answer": "Given: outer radius OE = 20 cm, NE = 15 cm, NF = 9 cm. Step 1: Tangent–secant power gives NE² = NF × NK. Step 2: 225 = 9 × NK. Step 3: NK = 25 cm. Step 4: Check 9 × 25 = 225 = NE². Hence NK = 25 cm.",
+    "theorem_tags": ["secant_tangent_power"],
+    "archetype_id": "secant_tangent_power"
+  },
+  {
+    "id": "3",
+    "type": "FigureBased",
+    "question": "A circle has centre O. Line m passes through V on the circle and meets the circle only at V. Radius OV is perpendicular to m at V. Prove that m is the tangent to the circle at V.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "V", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "V", "style": "dashed"},
+        {"shape": "segment", "from": "V", "to": "W"}
+      ],
+      "labels": {"O": "O", "V": "V", "W": "W"},
+      "show_right_angle": true,
+      "right_angle_at": "V",
+      "right_angle_legs": ["O", "W"],
+      "tangent_marks": ["V"]
+    },
+    "correct_answer": "Given: line through V meets the circle only at V; OV ⟂ line at V. Step 1: If the line met the circle again at U ≠ V, then OU < OV, so U lies inside — impossible. Step 2: Hence the line meets the circle only at V. Step 3: A line through a point on a circle perpendicular to the radius there is tangent. Hence m is tangent at V.",
+    "theorem_tags": ["tangent_radius_perpendicular"],
+    "archetype_id": "tangent_perpendicular_proof"
+  },
+  {
+    "id": "4",
+    "type": "FigureBased",
+    "question": "Circles with centres P and Q have radii 5 cm and 13 cm respectively. If PQ = 17 cm, find the length of the direct common external tangent RS touching both circles.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "two_circle_external_tangent",
+      "centres": ["P", "Q"],
+      "radii": {"P": 5, "Q": 13},
+      "centre_distance": 17,
+      "tangent_segment": ["R", "S"],
+      "elements": [
+        {"shape": "circle", "centre": "P", "radius_ratio": 1.0},
+        {"shape": "circle", "centre": "Q", "radius_ratio": 3.0},
+        {"shape": "point", "label": "P", "position": "centre"},
+        {"shape": "point", "label": "Q", "position": "centre"},
+        {"shape": "point", "label": "R", "position": "on_circle"},
+        {"shape": "point", "label": "S", "position": "on_circle"},
+        {"shape": "segment", "from": "R", "to": "S"},
+        {"shape": "segment", "from": "P", "to": "Q", "style": "dashed"}
+      ],
+      "labels": {"P": "P", "Q": "Q", "R": "R", "S": "S"},
+      "common_tangent": "external"
+    },
+    "correct_answer": "Given: radii 5 cm and 13 cm, PQ = 17 cm. Step 1: Offset along PQ is 13 − 5 = 8 cm. Step 2: Right triangle hypotenuse 17, leg 8. Step 3: RS = √(17² − 8²) = 15 cm. Hence RS = 15 cm.",
+    "theorem_tags": ["common_external_tangent"],
+    "archetype_id": "common_external_tangent"
+  },
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "In the configuration of Question 1, with NE = 15 cm from Question 2. (i) Find ON. (ii) Point L is 37 cm from O; tangent LM touches the outer circle at M. Secant LJK meets the circle at J (nearer L) with LJ = 17 cm. Find LK and verify LM² = LJ × LK.",
+    "marks": 7,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "fusion_q5",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "N", "position": "outside"},
+        {"shape": "point", "label": "E", "position": "on_circle"},
+        {"shape": "point", "label": "L", "position": "outside"},
+        {"shape": "point", "label": "M", "position": "on_circle"},
+        {"shape": "point", "label": "J", "position": "on_circle"},
+        {"shape": "point", "label": "K", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "E", "style": "dashed"},
+        {"shape": "segment", "from": "N", "to": "E"},
+        {"shape": "segment", "from": "L", "to": "M"},
+        {"shape": "segment", "from": "J", "to": "K"}
+      ],
+      "labels": {"O": "O", "N": "N", "E": "E", "L": "L", "M": "M", "J": "J", "K": "K"}
+    },
+    "correct_answer": "Given: OE = 20 cm, NE = 15 cm, OL = 37 cm, LJ = 17 cm. (i) Step 1: ON² = 20² + 15² = 625, ON = 25 cm. (ii) Step 2: LM² = 37² − 20² = 969. Step 3: 969 = 17 × LK, LK = 57 cm. Step 4: Check 17 × 57 = 969. Hence ON = 25 cm, LK = 57 cm.",
+    "theorem_tags": ["secant_tangent_power", "fusion_hots"],
+    "archetype_id": "fusion_hots"
+  },
+  {
+    "id": "6",
+    "type": "FigureBased",
+    "question": "From external point X, tangents XA and XB touch a circle with centre O at A and B. If OA = 6 cm and OX = 10 cm, (i) find XA. (ii) Prove that XA = XB.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "X", "position": "outside"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "segment", "from": "X", "to": "A"},
+        {"shape": "segment", "from": "X", "to": "B"},
+        {"shape": "segment", "from": "O", "to": "A", "style": "dashed"},
+        {"shape": "segment", "from": "O", "to": "B", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "X": "X", "A": "A", "B": "B"},
+      "tangent_marks": ["A", "B"]
+    },
+    "correct_answer": "Given: OA = 6 cm, OX = 10 cm. Step 1: Right triangle OAX gives XA² = 10² − 6² = 64. Step 2: XA = 8 cm. Step 3: Triangles OAX and OBX are congruent (RHS). Step 4: Hence XA = XB. Hence XA = 8 cm and XA = XB.",
+    "theorem_tags": ["tangent_lengths_equal"],
+    "archetype_id": "tangent_lengths_equal"
+  },
+  {
+    "id": "7",
+    "type": "FigureBased",
+    "question": "Chord AB of a circle and tangent PT at P on the circle meet at T. If angle APT = 52°, find angle ABP.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "P", "position": "on_circle"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "T", "position": "outside"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "P", "to": "T"}
+      ],
+      "labels": {"P": "P", "A": "A", "B": "B", "T": "T"},
+      "tangent_marks": ["P"]
+    },
+    "correct_answer": "Given: angle APT = 52°. Step 1: Angle between tangent and chord equals angle in alternate segment. Step 2: Angle ABP equals angle APT. Step 3: Hence angle ABP = 52°.",
+    "theorem_tags": ["alternate_segment_angle"],
+    "archetype_id": "alternate_segment_angle"
+  },
+  {
+    "id": "8",
+    "type": "FigureBased",
+    "question": "Points A, B, C, D lie on a circle with centre O. If angle AOD = 140° and angle BOC = 100°, find angle ABC.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "A", "position": "on_circle"},
+        {"shape": "point", "label": "B", "position": "on_circle"},
+        {"shape": "point", "label": "C", "position": "on_circle"},
+        {"shape": "point", "label": "D", "position": "on_circle"},
+        {"shape": "segment", "from": "A", "to": "B"},
+        {"shape": "segment", "from": "B", "to": "C"},
+        {"shape": "segment", "from": "C", "to": "D"},
+        {"shape": "segment", "from": "D", "to": "A"}
+      ],
+      "labels": {"O": "O", "A": "A", "B": "B", "C": "C", "D": "D"}
+    },
+    "correct_answer": "Given: cyclic quadrilateral ABCD, angle AOD = 140°, angle BOC = 100°. Step 1: Arc AD subtends 140° at centre. Step 2: Angle ABD = 70° (inscribed half). Step 3: Arc BC gives angle BAC = 50°. Step 4: Angle ABC = 180° − 70° − 50° = 60°. Hence angle ABC = 60°.",
+    "theorem_tags": ["cyclic_or_similarity"],
+    "archetype_id": "cyclic_or_similarity"
+  },
+  {
+    "id": "9",
+    "type": "FigureBased",
+    "question": "Two concentric circles have centre O and radii 25 cm and 15 cm. Chord GH of the larger circle touches the smaller circle at S. Find GH.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "elements": [
+        {"shape": "circle", "label": "outer"},
+        {"shape": "circle", "label": "inner", "radius_ratio": 0.6},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "S", "position": "on_circle"},
+        {"shape": "point", "label": "G", "position": "on_circle"},
+        {"shape": "point", "label": "H", "position": "on_circle"},
+        {"shape": "segment", "from": "G", "to": "H"},
+        {"shape": "segment", "from": "O", "to": "S", "style": "dashed"}
+      ],
+      "labels": {"O": "O", "S": "S", "G": "G", "H": "H"},
+      "chord_bisect_at": "S"
+    },
+    "correct_answer": "Given: radii 25 cm and 15 cm. Step 1: OS ⟂ GH at S. Step 2: GS² = 25² − 15² = 400. Step 3: GS = 20 cm, GH = 40 cm. Hence GH = 40 cm.",
+    "theorem_tags": ["concentric_chord"],
+    "archetype_id": "concentric_chord_alt"
+  },
+  {
+    "id": "10",
+    "type": "FigureBased",
+    "question": "Circles with centres M and N have radii 4 cm and 9 cm respectively. If MN = 15 cm, find the length of the direct common external tangent UV.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "two_circle_external_tangent",
+      "centres": ["M", "N"],
+      "radii": {"M": 4, "N": 9},
+      "centre_distance": 15,
+      "tangent_segment": ["U", "V"],
+      "elements": [
+        {"shape": "circle", "centre": "M"},
+        {"shape": "circle", "centre": "N"},
+        {"shape": "point", "label": "M", "position": "centre"},
+        {"shape": "point", "label": "N", "position": "centre"},
+        {"shape": "point", "label": "U", "position": "on_circle"},
+        {"shape": "point", "label": "V", "position": "on_circle"},
+        {"shape": "segment", "from": "U", "to": "V"}
+      ],
+      "labels": {"M": "M", "N": "N", "U": "U", "V": "V"},
+      "common_tangent": "external"
+    },
+    "correct_answer": "Given: radii 4 cm and 9 cm, MN = 15 cm. Step 1: Offset 9 − 4 = 5 cm. Step 2: UV = √(15² − 5²) = √200 = 10√2 cm. Hence UV = 10√2 cm.",
+    "theorem_tags": ["common_external_tangent"],
+    "archetype_id": "common_external_tangent_alt"
+  }
+]
+SOURCES USED: NCERT Class 10 Circles — concentric chord, tangent–secant power, tangent perpendicular proof, common external tangent, equal tangents, alternate segment, cyclic quadrilateral.

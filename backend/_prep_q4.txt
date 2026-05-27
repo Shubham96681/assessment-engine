@@ -1,0 +1,1 @@
+Prove that there is no monic quadratic equation x^2 + bx + c = 0 with b and c positive integers such that the discriminant is a prime number and both roots are negative integers. If you believe such an equation exists, construct one and verify every condition; otherwise, give a complete impossibility proof.

@@ -1,0 +1,160 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "FigureBased",
+    "question": "Two concentric circles have centre O and radii 29 cm and 20 cm. Chord UV of the larger circle touches the smaller circle at W. Find UV.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "concentric_chord",
+      "elements": [
+        {"shape": "circle", "label": "Outer"},
+        {"shape": "circle", "label": "Inner"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "U", "position": "on_circle"},
+        {"shape": "point", "label": "V", "position": "on_circle"},
+        {"shape": "point", "label": "W", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "W", "style": "dashed"},
+        {"shape": "segment", "from": "U", "to": "V"}
+      ],
+      "labels": {"O": "O", "U": "U", "V": "V", "W": "W"},
+      "show_right_angle": true,
+      "right_angle_at": "W",
+      "right_angle_legs": ["O", "U"]
+    },
+    "correct_answer": "Given outer radius 29 cm and inner radius 20 cm. Step 1: OW is a radius of the smaller circle and UV touches it at W, so OW is perpendicular to UV (Theorem 10.1). Step 2: W is the midpoint of UV because the perpendicular from O bisects chord UV. Step 3: In right triangle OWU, UW² = 29² − 20² = 441. Step 4: UW = 21 cm. Step 5: Hence UV = 2 × 21 = 42 cm.",
+    "explanation": "Concentric chord via radius perpendicular and chord bisection.",
+    "theorem_tags": ["tangent_radius_perpendicular", "chord_bisection"],
+    "archetype_id": "concentric",
+    "cognitive_type": "hidden_length"
+  },
+  {
+    "id": "2",
+    "type": "FigureBased",
+    "question": "Using Question 1. Hence, from external point T tangent TM = 21 cm touches the outer circle at M; secant TNP meets the circle at N (nearer T) and P with TN = 9 cm. Find TP and verify TM² = TN × TP.",
+    "marks": 6,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "tangent_secant",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "T", "position": "outside"},
+        {"shape": "point", "label": "M", "position": "on_circle"},
+        {"shape": "point", "label": "N", "position": "on_circle"},
+        {"shape": "point", "label": "P", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "M", "style": "dashed"},
+        {"shape": "segment", "from": "T", "to": "M"},
+        {"shape": "segment", "from": "N", "to": "P"},
+        {"shape": "segment", "from": "T", "to": "N"}
+      ],
+      "labels": {"O": "O", "T": "T", "M": "M", "N": "N", "P": "P"},
+      "show_right_angle": true,
+      "right_angle_at": "M",
+      "right_angle_legs": ["O", "T"]
+    },
+    "correct_answer": "From Question 1, outer radius OM = 29 cm. Given TM = 21 cm and TN = 9 cm. Step 1: TM is tangent at M, so OM ⟂ TM. Step 2: Tangent–secant power gives TM² = TN × TP; 441 = 9 × TP. Step 3: Hence TP = 49 cm. Step 4: NP = TP − TN = 40 cm ≤ 58 cm (feasible on outer circle). Step 5: Check TN × TP = 9 × 49 = 441 = TM². Step 6: OT = √(29² + 21²) = √1252 cm is consistent with the tangent length.",
+    "explanation": "Hence-only secant–tangent after Q1 outer radius.",
+    "theorem_tags": ["secant_tangent_power", "tangent_radius_perpendicular"],
+    "archetype_id": "secant_tangent",
+    "cognitive_type": "theorem_chain"
+  },
+  {
+    "id": "3",
+    "type": "FigureBased",
+    "question": "A circle has centre O. Line d through point N on the circle meets the circle only at N. Given ON is perpendicular to d at N, prove d is tangent at N.",
+    "marks": 4,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "converse_tangent",
+      "elements": [
+        {"shape": "circle", "label": "Circle"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "N", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "N", "style": "dashed"},
+        {"shape": "segment", "from": "N", "to": "A"}
+      ],
+      "labels": {"O": "O", "N": "N", "A": "A"},
+      "show_right_angle": true,
+      "right_angle_at": "N",
+      "right_angle_legs": ["O", "A"]
+    },
+    "correct_answer": "Given ON ⟂ line d at N and d meets the circle only at N. Step 1: Suppose d cuts the circle again at X ≠ N. Step 2: Triangle ONX is right at N, so OX < ON. Step 3: X lies inside the circle, contradicting X on the circle. Step 4: Hence d meets the circle only at N. Step 5: By Theorem 10.1 converse, d is tangent at N.",
+    "explanation": "Sparse converse proof; independent of Q1–Q2 numerics.",
+    "theorem_tags": ["tangent_radius_perpendicular", "converse_theorem_10_1"],
+    "archetype_id": "converse_identify",
+    "cognitive_type": "sparse_proof"
+  },
+  {
+    "id": "4",
+    "type": "FigureBased",
+    "question": "Circles with centres G and H have radii 3 cm and 8 cm respectively. If GH = 13 cm, find the length of the direct common external tangent EF.",
+    "marks": 5,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "common_external_tangent",
+      "elements": [
+        {"shape": "circle", "label": "Circle G"},
+        {"shape": "circle", "label": "Circle H"},
+        {"shape": "point", "label": "G", "position": "centre"},
+        {"shape": "point", "label": "H", "position": "centre"},
+        {"shape": "point", "label": "E", "position": "on_circle"},
+        {"shape": "point", "label": "F", "position": "on_circle"},
+        {"shape": "segment", "from": "G", "to": "H", "style": "dashed"},
+        {"shape": "segment", "from": "E", "to": "F"}
+      ],
+      "labels": {"G": "G", "H": "H", "E": "E", "F": "F"}
+    },
+    "correct_answer": "Given radii 3 cm and 8 cm, centre distance GH = 13 cm. Step 1: Radii to contact points are parallel to EF, giving offset 8 − 3 = 5 cm along GH. Step 2: Right triangle on GH has hypotenuse 13 cm and leg 5 cm. Step 3: EF² = 13² − 5² = 144. Step 4: EF = 12 cm. Step 5: Hence the direct common external tangent has length 12 cm.",
+    "explanation": "Independent external tangent; GH > r1 + r2.",
+    "theorem_tags": ["common_external_tangent", "pythagoras"],
+    "archetype_id": "common_tangent",
+    "cognitive_type": "length_find"
+  },
+  {
+    "id": "5",
+    "type": "FigureBased",
+    "question": "Using the outer circle from Question 1, with TM = 21 cm from Question 2 touching the outer circle at M. (i) Find OT. (ii) Hence point G is 34 cm from O; tangent GH touches the outer circle at H; secant GJK with GJ = 9 cm. Find GK and verify GH² = GJ × GK.",
+    "marks": 7,
+    "figure_type": "labeled_diagram",
+    "figure_spec": {
+      "type": "labeled_diagram",
+      "title": "Diagram",
+      "layout": "fusion_secant",
+      "elements": [
+        {"shape": "circle", "label": "Outer"},
+        {"shape": "point", "label": "O", "position": "centre"},
+        {"shape": "point", "label": "G", "position": "outside"},
+        {"shape": "point", "label": "H", "position": "on_circle"},
+        {"shape": "point", "label": "J", "position": "on_circle"},
+        {"shape": "point", "label": "K", "position": "on_circle"},
+        {"shape": "point", "label": "M", "position": "on_circle"},
+        {"shape": "segment", "from": "O", "to": "H", "style": "dashed"},
+        {"shape": "segment", "from": "G", "to": "H"},
+        {"shape": "segment", "from": "J", "to": "K"},
+        {"shape": "segment", "from": "G", "to": "J"}
+      ],
+      "labels": {"O": "O", "G": "G", "H": "H", "J": "J", "K": "K", "M": "M"},
+      "show_right_angle": true,
+      "right_angle_at": "H",
+      "right_angle_legs": ["O", "G"]
+    },
+    "correct_answer": "From Question 1, outer radius = 29 cm. From Question 2, TM = 21 cm at M. (i) Step 1: OM ⟂ TM, so OT² = 29² + 21² = 1252 and OT = 2√313 cm. (ii) Step 2: For G with OG = 34 cm, GH² = 34² − 29² = 315. Step 3: Tangent–secant power gives GH² = GJ × GK with GJ = 9 cm. Step 4: GK = 315 ÷ 9 = 35 cm. Step 5: JK = 26 cm ≤ 58 cm (feasible secant). Step 6: Check GJ × GK = 9 × 35 = 315 = GH². Step 7: Hence GK = 35 cm.",
+    "explanation": "Fusion HOTS: cites Q1 radius and Q2 tangent; disguised secant power.",
+    "theorem_tags": ["secant_tangent_power", "tangent_radius_perpendicular", "pythagoras"],
+    "archetype_id": "hidden_theorem",
+    "cognitive_type": "hots_fusion"
+  }
+]
+
+SOURCES USED:
+NCERT Example 10.1 concentric chord; Exercise 10.2 tangent–secant power; Theorem 10.1 converse; common external tangent offset; fusion from prior slots.

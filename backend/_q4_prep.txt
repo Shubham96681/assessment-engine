@@ -1,0 +1,1 @@
+Let α and β be the roots of the monic quadratic x^2 - sx + t = 0. Define p_n = α^n + β^n for positive integers n. (i) Prove that p_n = s x p_n-1 - t x p_n-2 for all n ≥ 2, and state p_0 and p_1. (ii) Hence find p_4 when the equation is x^2 - 5 x + 6 = 0. (iii) Verify p_4 by finding α and β explicitly and computing α^4 + β^4.

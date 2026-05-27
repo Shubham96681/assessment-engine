@@ -1,0 +1,11 @@
+1 dup=None pt=None rp=None arch=radian_degree
+2 dup=None pt=None rp=None arch=identity_prove
+3 dup=None pt=None rp=None arch=ratio_find
+4 dup=None pt=None rp=None arch=quadrant_reduction
+5 dup=None pt=None rp=None arch=hots_trig
+6 dup=None pt=None rp=None arch=standard_angle
+7 dup=None pt=None rp=None arch=double_angle
+8 dup=None pt=None rp=None arch=trig_equation
+9 dup=None pt=None rp=None arch=sum_product
+10 dup=None pt=None rp=None arch=sec_ratio_find
+kept 10

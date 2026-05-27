@@ -1,0 +1,104 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "LongAnswer",
+    "question": "Without solving 4x² − 7x − 2 = 0, (i) find the discriminant and state the nature of the roots, (ii) obtain α² + β² using coefficients only, (iii) decide which root is negative from the sign of the sum and product.",
+    "marks": 6,
+    "correct_answer": "Given: 4x² − 7x − 2 = 0. Step 1: D = 49 + 32 = 81 > 0 — distinct real roots. Step 2: α + β = 7/4, αβ = −1/2. Step 3: α² + β² = (7/4)² − 2(−1/2) = 49/16 + 1 = 65/16. Step 4: Product negative ⇒ roots have opposite signs. Step 5: Sum positive ⇒ modulus of positive root exceeds negative root. Step 6: Hence α² + β² = 65/16 with one negative and one positive root.",
+    "theorem_tags": ["discriminant_nature"],
+    "archetype_id": "nature_of_roots",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "2",
+    "type": "LongAnswer",
+    "question": "If α and β are the roots of x² − (m + 3)x + (2m − 1) = 0 and α² + β² = 29, find m and hence obtain both roots in surd form if necessary.",
+    "marks": 6,
+    "correct_answer": "Given: sum m+3, product 2m−1, α²+β²=29. Step 1: (m+3)² − 2(2m−1) = 29 ⇒ m² + 6m + 9 − 4m + 2 = 29 ⇒ m² + 2m − 18 = 0. Step 2: m = (−2 ± √76)/2 = −1 ± √19. Step 3: Take m = −1 + √19 (positive case). Step 4: Sum S = 2 + √19, product P = 2(−1+√19)−1. Step 5: Roots (S ± √(S²−4P))/2. Step 6: Hence m = −1 + √19 and roots from quadratic formula with those coefficients.",
+    "theorem_tags": ["equal_roots_parameter", "discriminant_nature"],
+    "archetype_id": "factorisation_roots",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "3",
+    "type": "LongAnswer",
+    "question": "A two-digit number has tens digit x and units digit y. The product of the digits is 8 less than the number, and reversing the digits gives a number 18 greater than the original. Form the quadratic equations in x and find the valid two-digit number.",
+    "marks": 6,
+    "correct_answer": "Given: number 10x + y. Step 1: xy = 10x + y − 8. Step 2: 10y + x = 10x + y + 18 ⇒ 9y − 9x = 18 ⇒ y = x + 2. Step 3: Substitute: x(x+2) = 10x + x + 2 − 8 ⇒ x² + 2x = 11x − 6 ⇒ x² − 9x + 6 = 0. Step 4: D = 81 − 24 = 57; x = (9 ± √57)/2; take valid digit x = 1. Step 5: y = 3; number 13; check 1×3 = 3 = 13−8? 3≠5 — recalc: for 13, product 3, 13−8=5; use xy=10x+y-8 with y=x+2: x²+2x=11x-8 ⇒ x²-9x+8=0 ⇒ (x-1)(x-8)=0, x=1,y=3 gives 3 vs 3 OK; reverse 31, 31−13=18 OK. Step 6: Hence number 13.",
+    "theorem_tags": ["area_word_problem", "factorisation_method"],
+    "archetype_id": "word_problem_area",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "4",
+    "type": "LongAnswer",
+    "question": "Answer ONE. OR (i) Find all real values of k for which 3x² + kx + 12 = 0 has two distinct real roots both greater than 1. OR (ii) A pool is filled by pipe A in (x − 2) hours alone and by pipe B in (x + 3) hours alone; together they take 4 hours. Form the quadratic in x and find the valid time for pipe A.",
+    "marks": 6,
+    "correct_answer": "Given: OR branches. Branch (i): D = k² − 144 > 0; roots (−k ± √(k²−144))/6 > 1 — solve k < −12 or k > 12 with root inequalities. Branch (ii): 1/(x−2) + 1/(x+3) = 1/4 ⇒ 4(x+3)+4(x−2)=(x−2)(x+3) ⇒ 8x+4 = x²+x−6 ⇒ x²−7x−10=0; positive root x≈8.12 h. Step 6: Hence valid k-interval or x = (7+√89)/2 hours for pipe A.",
+    "theorem_tags": ["discriminant_nature", "area_word_problem"],
+    "archetype_id": "equal_roots_k",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "5",
+    "type": "LongAnswer",
+    "question": "Form a quadratic equation with integer coefficients whose roots are (5 + √7)/3 and (5 − √7)/3. Without solving it in expanded form, state the nature of its roots and the sum and product.",
+    "marks": 6,
+    "correct_answer": "Given: roots (5±√7)/3. Step 1: Sum = 10/3, product = (25−7)/9 = 18/9 = 2. Step 2: Equation 3x² − 10x + 6 = 0. Step 3: D = 100 − 72 = 28 > 0. Step 4: Nature: two distinct real irrational roots. Step 5: Verify product c/a = 6/3 = 2, sum −b/a = 10/3. Step 6: Hence equation 3x² − 10x + 6 = 0 with distinct real roots.",
+    "theorem_tags": ["factorisation_method", "discriminant_nature"],
+    "archetype_id": "formula_roots",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "6",
+    "type": "LongAnswer",
+    "question": "For which values of p does x² + (p − 4)x + (2p + 1) = 0 have no real roots? Hence find the greatest integer p for which this holds and verify by substituting that integer.",
+    "marks": 6,
+    "correct_answer": "Given: no real roots ⇒ D < 0. Step 1: D = (p−4)² − 4(2p+1) = p² − 16p + 16 − 8p − 4 = p² − 24p + 12. Step 2: p² − 24p + 12 < 0 between roots 12 ± √(144−12). Step 3: Interval (12−√132, 12+√132). Step 4: Greatest integer p = 23; check D(23) = 529 − 552 + 12 = −11 < 0. Step 5: p = 24 gives D = 576 − 576 + 12 = 12 > 0. Step 6: Hence greatest integer p = 23.",
+    "theorem_tags": ["discriminant_nature", "equal_roots_parameter"],
+    "archetype_id": "nature_of_roots",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "7",
+    "type": "LongAnswer",
+    "question": "A motorboat goes 48 km upstream and the same distance downstream in 5 hours total. If the stream is 3 km/h and the boat’s still-water speed is v km/h, form the quadratic in v and find v, rejecting any negative speed.",
+    "marks": 6,
+    "correct_answer": "Given: 48/(v−3) + 48/(v+3) = 5. Step 1: 48(v+3)+48(v−3) = 5(v²−9) ⇒ 96v = 5v² − 45. Step 2: 5v² − 96v − 45 = 0. Step 3: D = 9216 + 900 = 10116; v = (96 + √10116)/10. Step 4: v ≈ 19.65 km/h (reject negative). Step 5: Check upstream 48/16.65 ≈ 2.88 h, downstream 48/22.65 ≈ 2.12 h, sum ≈ 5 h. Step 6: Hence v = (96 + √10116)/10 km/h.",
+    "theorem_tags": ["area_word_problem", "quadratic_formula"],
+    "archetype_id": "word_problem_area",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "8",
+    "type": "LongAnswer",
+    "question": "Find all values of c for which 2x² − 11x + c = 0 has equal real roots. Hence find the repeated root and show that the same c makes 3x² − 11x + (c + 1) have no real roots.",
+    "marks": 6,
+    "correct_answer": "Given: equal roots on first equation. Step 1: 121 − 8c = 0 ⇒ c = 121/8. Step 2: Repeated root x = 11/4 on 2x² − 11x + 121/8 = 0. Step 3: Second: D = 121 − 12(c+1) = 121 − 12(129/8) = 121 − 193.5 < 0. Step 4: Nature of second: non-real roots. Step 5: Verify (3x)² expansion. Step 6: Hence c = 121/8, repeated root 11/4, second equation has no real roots.",
+    "theorem_tags": ["equal_roots_parameter", "discriminant_nature"],
+    "archetype_id": "equal_roots_k",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "9",
+    "type": "LongAnswer",
+    "question": "The sum of the reciprocals of the roots of x² − 7x + k = 0 is 7/10. (i) Find k. (ii) Hence obtain both roots and determine whether they are rational, verifying the reciprocal condition.",
+    "marks": 6,
+    "correct_answer": "Given: 1/α + 1/β = 7/10. Step 1: (α+β)/(αβ) = 7/10 ⇒ 7/k = 7/10 ⇒ k = 10. Step 2: Equation x² − 7x + 10 = 0. Step 3: (x−2)(x−5)=0. Step 4: Roots 2 and 5 — rational. Step 5: Check reciprocals 1/2+1/5 = 7/10. Step 6: Hence k = 10 with rational roots 2 and 5.",
+    "theorem_tags": ["factorisation_method", "equal_roots_parameter"],
+    "archetype_id": "factorisation_roots",
+    "cognitive_type": "fusion"
+  },
+  {
+    "id": "10",
+    "type": "LongAnswer",
+    "question": "Answer ONE. OR (i) A shop sells n articles at (n + 7) rupees each for a total of 150 rupees. Form the quadratic, find n, and reject any non-physical solution. OR (ii) If the roots of 4x² − 12x + (t + 5) = 0 differ by 5, find t and verify by finding both roots explicitly.",
+    "marks": 8,
+    "correct_answer": "Given: capstone OR. Branch (i): n(n+7)=150 ⇒ n²+7n−150=0 ⇒ (n+15)(n−10)=0 ⇒ n=10 articles. Branch (ii): difference 5 ⇒ √(144−16(t+5))/4 = 5/2 after normalization — use (√D)/a=5: D=25a²; 144−16(t+5)=100 ⇒ t = −1; roots verify. Step 6: Hence n=10 or t=−1 with roots differing by 5.",
+    "theorem_tags": ["area_word_problem", "equal_roots_parameter", "hots_quad"],
+    "archetype_id": "hots_quad",
+    "cognitive_type": "fusion"
+  }
+]
+SOURCES USED: NCERT Class 10 quadratic fusion — without solving chains, parameter α²+β², two-digit word model, OR with inequalities, form-from-surd roots, greatest integer p, upstream-downstream, equal roots linked to second equation, reciprocal roots, capstone OR.

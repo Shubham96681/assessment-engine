@@ -1,0 +1,61 @@
+ANSWER:
+[
+  {
+    "id": "1",
+    "type": "ShortAnswer",
+    "question": "Express 105° in radian measure.",
+    "marks": 4,
+    "correct_answer": "Given 105° = 60° + 45° = 7π/12 rad. Step 1: 180° = π rad. Step 2: 105° = 105 × π/180. Step 3: Simplify to 7π/12 rad. Hence 105° = 7π/12 rad.",
+    "explanation": "Degree–radian conversion anchor.",
+    "theorem_tags": ["radian_measure"],
+    "archetype_id": "radian_degree",
+    "cognitive_type": "direct_application"
+  },
+  {
+    "id": "2",
+    "type": "ShortAnswer",
+    "question": "Using Question 1. Hence, if sin θ = 5/13 and θ lies in quadrant II, find cos θ and tan θ.",
+    "marks": 5,
+    "correct_answer": "From Question 1, angle work uses π rad measure. Given sin θ = 5/13. Step 1: cos²θ = 1 − 25/169 = 144/169. Step 2: In quadrant II, cos θ < 0, so cos θ = −12/13. Step 3: tan θ = sin θ/cos θ = (5/13)/(−12/13) = −5/12. Hence cos θ = −12/13 and tan θ = −5/12.",
+    "explanation": "Hence ratio from prior slot; quadrant sign.",
+    "theorem_tags": ["pythagorean_identity", "quadrant_signs"],
+    "archetype_id": "ratio_find",
+    "cognitive_type": "theorem_chain"
+  },
+  {
+    "id": "3",
+    "type": "LongAnswer",
+    "question": "Prove that (1 + tan²θ)(1 − sin²θ) = 1 for all θ where the expressions are defined.",
+    "marks": 5,
+    "correct_answer": "Given the identity targets. Step 1: 1 − sin²θ = cos²θ. Step 2: 1 + tan²θ = sec²θ. Step 3: Left side = sec²θ · cos²θ = (1/cos²θ)·cos²θ. Step 4: Simplify to 1. Hence (1 + tan²θ)(1 − sin²θ) = 1.",
+    "explanation": "Sparse identity proof.",
+    "theorem_tags": ["pythagorean_identity"],
+    "archetype_id": "identity_prove",
+    "cognitive_type": "sparse_proof"
+  },
+  {
+    "id": "4",
+    "type": "ShortAnswer",
+    "question": "Find the value of sin 765°.",
+    "marks": 4,
+    "correct_answer": "Given sin 765°. Step 1: 765° = 2×360° + 45°. Step 2: sin 765° = sin 45°. Step 3: sin 45° = 1/√2. Hence sin 765° = 1/√2.",
+    "explanation": "Quadrant reduction to acute angle.",
+    "theorem_tags": ["quadrant_reduction", "standard_angle"],
+    "archetype_id": "quadrant_reduction",
+    "cognitive_type": "variation"
+  },
+  {
+    "id": "5",
+    "type": "LongAnswer",
+    "question": "Using results from Questions 2 and 4. Hence, verify sin²45° + cos²45° = 1 and find (1 + tan²45°) when tan 45° = 1.",
+    "marks": 7,
+    "correct_answer": "From Question 2, sin²θ + cos²θ = 1 in any quadrant. From Question 4, sin 45° = cos 45° = 1/√2. Step 1: sin²45° + cos²45° = 1/2 + 1/2 = 1. Step 2: tan 45° = 1. Step 3: 1 + tan²45° = 1 + 1 = 2. Step 4: sec²45° = 2 matches 1 + tan²45°. Hence both checks hold.",
+    "explanation": "HOTS fusion citing prior reductions.",
+    "theorem_tags": ["pythagorean_identity", "standard_angle"],
+    "archetype_id": "hots_trig",
+    "cognitive_type": "hots_fusion"
+  }
+]
+
+SOURCES USED:
+NCERT Exercise 3.1 degree–radian measure; Exercise 3.2 quadrant ratios; Exercise 3.3 identities.

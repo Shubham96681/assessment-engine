@@ -1,0 +1,7 @@
+parsed=10 selected=5 ok=True
+slot=1 content_len=122
+slot=2 content_len=160
+slot=3 content_len=153
+slot=4 content_len=166
+slot=5 content_len=189
+issues: []

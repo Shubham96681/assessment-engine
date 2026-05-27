@@ -1,0 +1,1 @@
+Define p<sub>n</sub> = αⁿ + βⁿ. Prove p<sub>n</sub> = s x p<sub>n-1</sub> - t x p<sub>n-2</sub>

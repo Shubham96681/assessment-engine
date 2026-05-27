@@ -2,167 +2,84 @@ ANSWER:
 [
   {
     "id": "1",
-    "type": "FigureBased",
-    "question": "Two concentric circles have centre O and radii 20 cm and 12 cm. A chord CD of the larger circle touches the smaller circle at T. Find CD.",
+    "type": "LongAnswer",
+    "question": "Without solving for the roots explicitly, use the coefficients of 8x² + 22x + 15 = 0 to determine the sum and product of its roots, then factorise the quadratic completely and confirm your sum and product match the factorised form.",
     "marks": 5,
-    "figure_type": "labeled_diagram",
-    "figure_spec": {
-      "type": "labeled_diagram",
-      "title": "Diagram",
-      "elements": [
-        {"shape": "circle", "label": "outer"},
-        {"shape": "circle", "label": "inner", "radius_ratio": 0.6},
-        {"shape": "point", "label": "O", "position": "centre"},
-        {"shape": "point", "label": "T", "position": "on_circle"},
-        {"shape": "point", "label": "C", "position": "on_circle"},
-        {"shape": "point", "label": "D", "position": "on_circle"},
-        {"shape": "segment", "from": "C", "to": "D"},
-        {"shape": "segment", "from": "O", "to": "T", "style": "dashed"}
-      ],
-      "labels": {"O": "O", "T": "T", "C": "C", "D": "D"},
-      "show_right_angle": true,
-      "right_angle_at": "T",
-      "right_angle_legs": ["O", "C"],
-      "tangent_marks": ["T"],
-      "chord_bisect_at": "T"
-    },
-    "correct_answer": "Given: inner radius OT = 12 cm, outer radius OC = 20 cm; chord CD touches the inner circle at T. Step 1: CD is tangent to the inner circle at T, so OT is perpendicular to CD (Theorem 10.1). Step 2: A perpendicular from the centre to a chord bisects it, so T is the midpoint of CD. Step 3: In right triangle OTC, CT² = 20² − 12² = 256. Step 4: CT = 16 cm, hence CD = 2CT = 32 cm. Step 5: Therefore CD = 32 cm.",
-    "explanation": "Concentric anchor; R² − r² = 256 is a perfect square.",
-    "theorem_tags": ["concentric_chord", "tangent_radius_perpendicular"],
-    "archetype_id": "concentric",
-    "cognitive_type": "computation"
+    "correct_answer": "Step 1: For 8x² + 22x + 15 = 0, sum of roots = −22/8 = −11/4 and product = 15/8. Step 2: Factorise by splitting 22x as 12x + 10x: 8x² + 12x + 10x + 15 = 4x(2x + 3) + 5(2x + 3) = (4x + 5)(2x + 3). Step 3: Roots are −5/4 and −3/2; sum = −5/4 − 3/2 = −11/4 and product = (−5/4)(−3/2) = 15/8. Step 4: Both methods agree. Hence the required sum is −11/4 and product is 15/8.",
+    "explanation": "Coefficient sum/product (1.5) + factorisation (2) + confirmation (1.5) = 5"
   },
   {
     "id": "2",
-    "type": "FigureBased",
-    "question": "Using the configuration in Question 1, from external point N tangent NE = 15 cm touches the outer circle at E; secant NFK meets the circle at F (nearer N) and K with NF = 9 cm. Find NK and verify NE² = NF × NK.",
-    "marks": 6,
-    "figure_type": "labeled_diagram",
-    "figure_spec": {
-      "type": "labeled_diagram",
-      "title": "Diagram",
-      "elements": [
-        {"shape": "circle", "label": "outer"},
-        {"shape": "circle", "label": "inner", "radius_ratio": 0.6},
-        {"shape": "point", "label": "O", "position": "centre"},
-        {"shape": "point", "label": "N", "position": "outside"},
-        {"shape": "point", "label": "E", "position": "on_circle"},
-        {"shape": "point", "label": "F", "position": "on_circle"},
-        {"shape": "point", "label": "K", "position": "on_circle"},
-        {"shape": "segment", "from": "N", "to": "E"},
-        {"shape": "segment", "from": "F", "to": "K"},
-        {"shape": "segment", "from": "O", "to": "E", "style": "dashed"}
-      ],
-      "labels": {"O": "O", "N": "N", "E": "E", "F": "F", "K": "K"},
-      "show_right_angle": true,
-      "right_angle_at": "E",
-      "right_angle_legs": ["O", "N"]
-    },
-    "correct_answer": "From Question 1, outer radius OE = 20 cm. Step 1: On the outer circle, tangent–secant power gives NE² = NF × NK. Step 2: With NE = 15 cm and NF = 9 cm, 225 = 9 × NK. Step 3: Hence NK = 25 cm. Step 4: Check NF × NK = 9 × 25 = 225 = NE². Step 5: Therefore NK = 25 cm.",
-    "explanation": "Tangent–secant power; NK = 25 with NF = 9, NE = 15.",
-    "theorem_tags": ["secant_tangent_power", "tangent_radius_perpendicular"],
-    "archetype_id": "secant_tangent",
-    "cognitive_type": "computation"
+    "type": "LongAnswer",
+    "question": "For 5x² − 13x + 6 = 0, find the discriminant, state the full nature of the roots (distinct real and rational or not), compute α² + β² without finding α and β separately, and explain how the value of D supports your nature statement.",
+    "marks": 5,
+    "correct_answer": "Step 1: D = (−13)² − 4(5)(6) = 169 − 120 = 49 > 0. Step 2: Since D is a perfect square, the roots are distinct real and rational. Step 3: α + β = 13/5 and αβ = 6/5, so α² + β² = (13/5)² − 2(6/5) = 169/25 − 12/5 = 169/25 − 60/25 = 109/25. Step 4: A positive perfect-square discriminant guarantees two unequal rational roots, consistent with factorisation (5x − 3)(x − 2) = 0.",
+    "explanation": "D and nature (1.5) + α²+β² (2) + explanation link (1.5) = 5"
   },
   {
     "id": "3",
-    "type": "FigureBased",
-    "question": "A circle has centre O. Line m passes through a point V on the circle and meets the circle only at V. It is given that radius OV is perpendicular to m at V. Prove that m is the tangent to the circle at V (converse of Theorem 10.1).",
-    "marks": 5,
-    "figure_type": "labeled_diagram",
-    "figure_spec": {
-      "type": "labeled_diagram",
-      "title": "Diagram",
-      "elements": [
-        {"shape": "circle", "label": "Circle"},
-        {"shape": "point", "label": "O", "position": "centre"},
-        {"shape": "point", "label": "V", "position": "on_circle"},
-        {"shape": "segment", "from": "O", "to": "V", "style": "dashed"},
-        {"shape": "segment", "from": "V", "to": "W", "label": "line"}
-      ],
-      "labels": {"O": "O", "V": "V", "W": "W"},
-      "show_right_angle": true,
-      "right_angle_at": "V",
-      "right_angle_legs": ["O", "W"],
-      "tangent_marks": ["V"]
-    },
-    "correct_answer": "Given: the line through V meets the circle only at V; OV is perpendicular to the line at V. Step 1: Suppose the line meets the circle again at a second point U ≠ V. Step 2: OV is perpendicular to the line, so OU < OV, placing U inside the circle — impossible. Step 3: Hence the line meets the circle only at V. Step 4: A line through a point on a circle and perpendicular to the radius there is tangent (converse of Theorem 10.1). Step 5: Therefore the line is tangent to the circle at V.",
-    "explanation": "Converse tangent proof; independent of Q1–Q2 numerics.",
-    "theorem_tags": ["tangent_radius_perpendicular", "converse_tangent"],
-    "archetype_id": "chord_tangent",
-    "cognitive_type": "proof"
+    "type": "LongAnswer",
+    "question": "For which values of k does 9x² − (k + 12)x + 4 = 0 have equal real roots? For each admissible k, state the repeated root and confirm by writing the quadratic as a perfect square.",
+    "marks": 6,
+    "correct_answer": "Step 1: Equal roots require D = (k + 12)² − 4(9)(4) = 0, so (k + 12)² = 144 and k + 12 = ±12. Step 2: k = 0 or k = −24. Step 3: For k = 0, the equation is 9x² − 12x + 4 = 0 = (3x − 2)², repeated root x = 2/3. Step 4: For k = −24, the equation is 9x² + 12x + 4 = 0 = (3x + 2)², repeated root x = −2/3. Step 5: In each case the perfect square form matches the original coefficients. Hence k = 0, 2/3 or k = −24, −2/3.",
+    "explanation": "D = 0 and k values (2) + repeated roots (2) + perfect square check (2) = 6"
   },
   {
     "id": "4",
-    "type": "FigureBased",
-    "question": "Circles with centres P and Q have radii 5 cm and 13 cm respectively. If PQ = 17 cm, find the length of the direct common external tangent RS touching both circles.",
-    "marks": 5,
-    "figure_type": "labeled_diagram",
-    "figure_spec": {
-      "type": "labeled_diagram",
-      "title": "Diagram",
-      "layout": "two_circle_external_tangent",
-      "centres": ["P", "Q"],
-      "radii": {"P": 5, "Q": 13},
-      "centre_distance": 17,
-      "tangent_segment": ["R", "S"],
-      "elements": [
-        {"shape": "circle", "centre": "P", "radius_ratio": 1.0},
-        {"shape": "circle", "centre": "Q", "radius_ratio": 3.0},
-        {"shape": "point", "label": "P", "position": "centre"},
-        {"shape": "point", "label": "Q", "position": "centre"},
-        {"shape": "point", "label": "R", "position": "on_circle"},
-        {"shape": "point", "label": "S", "position": "on_circle"},
-        {"shape": "segment", "from": "R", "to": "S"},
-        {"shape": "segment", "from": "P", "to": "Q", "style": "dashed"}
-      ],
-      "labels": {"P": "P", "Q": "Q", "R": "R", "S": "S"},
-      "show_right_angle": false,
-      "common_tangent": "external"
-    },
-    "correct_answer": "Given: radii 5 cm and 13 cm, centre distance PQ = 17 cm. Step 1: For a direct common external tangent, use offset (13 − 5) = 8 cm along PQ. Step 2: Right triangle with hypotenuse 17 cm and leg 8 cm. Step 3: Tangent length = √(17² − 8²) = √225 = 15 cm. Step 4: Parallel radii to contact points form a right trapezoid with the same tangent segment. Step 5: Hence the direct common external tangent has length 15 cm.",
-    "explanation": "Independent two-circle external tangent.",
-    "theorem_tags": ["common_external_tangent"],
-    "archetype_id": "common_tangent",
-    "cognitive_type": "computation"
+    "type": "LongAnswer",
+    "question": "A rectangle has length (2x + 9) cm and breadth (3x + 1) cm. If its area is 91 cm², form a quadratic in x, solve it, and state the length and breadth after rejecting any value of x that gives a non-positive dimension.",
+    "marks": 6,
+    "correct_answer": "Step 1: (2x + 9)(3x + 1) = 91 gives 6x² + 2x + 27x + 9 = 91, so 6x² + 29x − 82 = 0. Step 2: D = 841 + 1968 = 2809 = 53², hence x = (−29 ± 53)/12, so x = 2 or x = −41/6. Step 3: x = −41/6 gives negative length and breadth, so reject. Step 4: For x = 2, length = 13 cm and breadth = 7 cm. Step 5: Check 13 × 7 = 91 cm². Hence length 13 cm and breadth 7 cm.",
+    "explanation": "Quadratic formation (1.5) + solving (2) + rejection (1) + dimension check (1.5) = 6"
   },
   {
     "id": "5",
-    "type": "FigureBased",
-    "question": "In the configuration of Question 1, with NE = 15 cm from Question 2 touching the outer circle at E. (i) Find ON. (ii) Hence point L is 37 cm from O; tangent LM touches the outer circle at M. Secant LJK meets the circle at J (nearer L) with LJ = 17 cm. Find LK and verify LM² = LJ × LK.",
-    "marks": 7,
-    "figure_type": "labeled_diagram",
-    "figure_spec": {
-      "type": "labeled_diagram",
-      "title": "Diagram",
-      "layout": "fusion_q5",
-      "elements": [
-        {"shape": "circle", "label": "outer"},
-        {"shape": "circle", "label": "inner", "radius_ratio": 0.6},
-        {"shape": "point", "label": "O", "position": "centre"},
-        {"shape": "point", "label": "N", "position": "outside"},
-        {"shape": "point", "label": "E", "position": "on_circle"},
-        {"shape": "point", "label": "L", "position": "outside"},
-        {"shape": "point", "label": "M", "position": "on_circle"},
-        {"shape": "point", "label": "J", "position": "on_circle"},
-        {"shape": "point", "label": "K", "position": "on_circle"},
-        {"shape": "segment", "from": "O", "to": "E", "style": "dashed"},
-        {"shape": "segment", "from": "N", "to": "E"},
-        {"shape": "segment", "from": "L", "to": "M"},
-        {"shape": "segment", "from": "J", "to": "K"}
-      ],
-      "labels": {"O": "O", "N": "N", "E": "E", "L": "L", "M": "M", "J": "J", "K": "K"},
-      "show_right_angle": true,
-      "right_angle_at": "E",
-      "right_angle_legs": ["O", "N"]
-    },
-    "correct_answer": "From Question 1, outer radius OE = 20 cm. From Question 2, NE = 15 cm and OE is perpendicular to NE at E. (i) Step 1: In right triangle ONE, ON² = OE² + NE² = 20² + 15² = 625. Step 2: Hence ON = 25 cm. (ii) Step 3: For L with OL = 37 cm, tangent LM satisfies LM² = OL² − OE² = 37² − 20² = 969. Step 4: Secant power gives LM² = LJ × LK; 969 = 17 × LK. Step 5: Hence LK = 57 cm; check 17 × 57 = 969 = LM².",
-    "explanation": "Fusion cites Q1 outer radius and Q2 tangent length.",
-    "theorem_tags": ["secant_tangent_power", "tangent_radius_perpendicular", "concentric_chord"],
-    "archetype_id": "hidden_theorem",
-    "cognitive_type": "hots_fusion"
+    "type": "LongAnswer",
+    "question": "Answer ONE of the following. (a) Solve 7x² − 5x − 6 = 0 using the quadratic formula and express the roots in simplest surd form. OR (b) For x² + (k − 2)x + (k + 5) = 0, find all real k such that the roots differ by 4.",
+    "marks": 5,
+    "correct_answer": "(a) Step 1: a = 7, b = −5, c = −6, D = 25 + 168 = 193. Step 2: x = (5 ± √193)/14. Step 3: Substitute x = (5 + √193)/14 into 7x² − 5x − 6 to confirm the left side is 0. (b) Step 1: (α − β)² = (k − 2)² − 4(k + 5) = 16. Step 2: k² − 4k + 4 − 4k − 20 = 16, so k² − 8k − 32 = 0. Step 3: k = (8 ± √(64 + 128))/2 = (8 ± √192)/2 = 4 ± 4√3. Step 4: For k = 4 + 4√3 or k = 4 − 4√3, the roots differ by exactly 4.",
+    "explanation": "Either branch: setup (1.5) + algebra (2) + verification (1.5) = 5"
+  },
+  {
+    "id": "6",
+    "type": "LongAnswer",
+    "question": "A journey of 60 km is completed at speed v km/h. If the speed were 10 km/h higher, the journey would take 1/2 hour less. Form the equation in v, solve it, and state the valid speed with a physical reason for rejecting any other root.",
+    "marks": 6,
+    "correct_answer": "Step 1: 60/v − 60/(v + 10) = 1/2. Step 2: Multiply by 2v(v + 10): 120(v + 10) − 120v = v(v + 10), so 1200 = v² + 10v. Step 3: v² + 10v − 1200 = 0 gives v = (−10 + 70)/2 = 30 (reject v = −40). Step 4: At v = 30, time = 2 h; at v = 40, time = 1.5 h; difference 0.5 h. Step 5: Speed must be positive. Hence v = 30 km/h.",
+    "explanation": "Equation (1.5) + solve (2) + time check (1.5) + physical rejection (1) = 6"
+  },
+  {
+    "id": "7",
+    "type": "LongAnswer",
+    "question": "Let α and β be the roots of x² − 7x + 12 = 0. Define p_{n} = α^{n} + β^{n} for positive integers n. (i) Prove that p_{n} = 7·p_{n-1} − 12·p_{n-2} for all n ≥ 2. (ii) Hence find p_{4} without first listing α and β.",
+    "marks": 6,
+    "correct_answer": "(i) Step 1: From x² = 7x − 12, multiply by α^{n−2} and β^{n−2} and add to get p_{n} = 7p_{n−1} − 12p_{n−2}. Step 2: p_{0} = 2 and p_{1} = 7. (ii) Step 3: p_{2} = 7(7) − 12(2) = 49 − 24 = 25. Step 4: p_{3} = 7(25) − 12(7) = 175 − 84 = 91. Step 5: p_{4} = 7(91) − 12(25) = 637 − 300 = 337. Step 6: Check: roots 3 and 4 give 3⁴ + 4⁴ = 81 + 256 = 337. Hence p_{4} = 337.",
+    "explanation": "(i) proof (3) + (ii) iteration to p_{4} (2) + independent check (1) = 6"
+  },
+  {
+    "id": "8",
+    "type": "LongAnswer",
+    "question": "For x² − (m + 4)x + (2m + 1) = 0, where m is real, express the discriminant Δ(m) in factorised form, state when the roots are distinct real, equal real, or non-real, and find the value of m for which one root is double the other.",
+    "marks": 5,
+    "correct_answer": "Step 1: Δ(m) = (m + 4)² − 4(2m + 1) = m² + 8m + 16 − 8m − 4 = m² + 4m + 12 = (m + 2)² + 8. Step 2: (m + 2)² + 8 > 0 for every real m, so the roots are always distinct real. Step 3: If one root is double the other, α = 2β and sum 3β = m + 4, product 2β² = 2m + 1. Step 4: Eliminating β gives m = 2. Step 5: For m = 2, the equation is x² − 6x + 5 = 0 with roots 1 and 5. Hence distinct real for all m; m = 2 gives roots in ratio 1 : 5.",
+    "explanation": "Δ factorisation (2) + nature (1) + ratio condition (2) = 5"
+  },
+  {
+    "id": "9",
+    "type": "LongAnswer",
+    "question": "The quadratic 3x² + (p − 9)x + (p + 3) = 0 has equal real roots. Find all possible values of p, the corresponding repeated root, and the value of p for which this repeated root also equals (p − 1)/2.",
+    "marks": 6,
+    "correct_answer": "Step 1: Equal roots give D = (p − 9)² − 12(p + 3) = 0, so p² − 30p + 45 = 0 and (p − 15)(p − 3) = 0. Step 2: p = 15 or p = 3. Step 3: For p = 15, repeated root = −(15 − 9)/6 = −1 while (p − 1)/2 = 7. Step 4: For p = 3, repeated root = −(3 − 9)/6 = 1 and (p − 1)/2 = 1. Step 5: Expand 3(x − 1)² = 3x² − 6x + 3 to confirm p = 3. Hence p = 3 with repeated root 1.",
+    "explanation": "D = 0 and p values (2) + repeated roots (2) + extra constraint (2) = 6"
+  },
+  {
+    "id": "10",
+    "type": "LongAnswer",
+    "question": "A quadratic with leading coefficient 2 has roots r and s such that r + s = 11/2 and rs = 7. (i) Write the quadratic in standard form. (ii) Solve it and state both roots. (iii) Confirm that the sum and product of your roots match the given conditions.",
+    "marks": 6,
+    "correct_answer": "(i) Step 1: A monic quadratic with roots r, s is x² − (11/2)x + 7, so with leading coefficient 2 the equation is 2x² − 11x + 14 = 0. (ii) Step 2: D = 121 − 112 = 9, so x = (11 ± 3)/4 and roots 7/2 and 2. (iii) Step 3: Sum 7/2 + 2 = 11/2 and product (7/2)(2) = 7. Step 4: Expand 2(x − 7/2)(x − 2) = 2x² − 11x + 14. Step 5: Both coefficient conditions are satisfied. Hence the quadratic is 2x² − 11x + 14 = 0 with roots 7/2 and 2.",
+    "explanation": "(i) formation (1.5) + (ii) solve (2) + (iii) sum/product check (2.5) = 6"
   }
 ]
 
-SOURCES USED:
-NCERT jemh110 Example 1 (concentric chord, Theorem 10.1); Exercise 10.1 Q7; Exercise 10.2 tangent length; Theorem 10.2; tangent–secant power; converse of tangent–radius perpendicular; direct common external tangent.
+SOURCES USED: CBSE Class 10 Quadratic Equations curriculum; RD Sharma / RS Aggarwal style L5 integrated and HOTS items; fresh coefficients verified for factorisation, discriminant, equal roots, area 91 cm², speed 60 km, recurrence on x² − 7x + 12 = 0.
