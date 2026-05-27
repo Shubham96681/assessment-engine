@@ -161,6 +161,7 @@ NUMERIC CONSISTENCY — Quadratics:
 - Area models: (length)×(breadth) equals given area; reject negative dimensions.
 - Speed–time: 1/v_out − 1/v_in = Δt/distance when times differ.
 - Sum of squares: n² + (n+k)² = S must have consistent integer n when required.
+- Equal roots + extra root condition (e.g. ax + b = c): compute r from D = 0 and from the constraint; both must be identical before finalising coefficients.
 """
 
 QUADRILATERALS_NUMERIC_RULES = """
@@ -339,6 +340,14 @@ def sequence_slots_for_chapter(
 
             return benchmark_slots(question_count)
         if (full_hard or elevated_hard) and ch == "quadratic":
+            from app.core.config import settings
+
+            if full_hard and bool(
+                getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)
+            ):
+                from app.generation.quadratic_mtech_benchmark import benchmark_slots
+
+                return benchmark_slots(question_count)
             from app.generation.quadratic_hard_benchmark import benchmark_slots
 
             return benchmark_slots(question_count)

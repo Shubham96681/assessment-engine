@@ -338,7 +338,13 @@ class PDFExporter:
 
         # ─── Header ────────────────────────────────────────────────────────────
         total_marks = sum(q.get("marks", 1.0) for q in questions)
-        title = config.get("title", "Assessment Paper")
+        from app.export.paper_header import header_row_for_config, sanitize_paper_title
+
+        title = sanitize_paper_title(
+            config.get("title", "Assessment Paper"),
+            subject=(config.get("subject") or "").strip() or "Mathematics",
+            topic_focus=(config.get("topic_focus") or "").strip(),
+        )
         subject = (
             (config.get("subject") or "").strip()
             or "Mathematics"
@@ -356,10 +362,10 @@ class PDFExporter:
         story.append(Paragraph(title, styles["title"]))
         story.append(Spacer(1, 3 * mm))
 
-        header_data = [
-            [f"Subject: {subject}", f"Class: {class_level}", f"Date: {date_str}"],
-            [f"Time: 3 Hours", f"Total Marks: {int(total_marks)}", f"Examiner: {teacher_name}"],
-        ]
+        header_data = header_row_for_config(
+            config, total_marks, len(questions)
+        )
+        header_data[1][2] = f"Examiner: {teacher_name}"
         cw = self._page_content_width()
         third = cw / 3
         header_table = Table(header_data, colWidths=[third, third, third])

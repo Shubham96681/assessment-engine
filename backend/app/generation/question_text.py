@@ -64,7 +64,6 @@ _GEO_SYMBOLS: tuple[tuple[str, str], ...] = (
     ("\u2013", "-"),
     ("\u2014", "-"),
     ("\u2212", "-"),
-    ("\u00b7", " x "),
     ("\u00d7", " x "),
 )
 _MATHSF_REMNANT = re.compile(r"\bmathsf\b", re.I)
@@ -166,6 +165,7 @@ def _finalize_display_math(text: str) -> str:
     out = re.sub(r"\b([A-Z]{2,})\^2\b", r"\1²", out)
     out = re.sub(r"\b([A-Z])\s+([A-Z])\^2\b", r"\1\2²", out)
     out = re.sub(r"\b(\d+)\^2\b", r"\1²", out)
+    out = normalize_paper_superscripts(out)
     # PA2= / GH2= / DF2= → PA²= (after LaTeX strip drops caret)
     out = re.sub(
         r"\b([A-Z]{2})2(?=\s*[=×+\-]|\s*=\s*|\s*×\s*|\s*-\s*)",
@@ -340,7 +340,36 @@ def ensure_plain_text(text: str) -> str:
         out = _finalize_display_math(out)
     from app.generation.sympy_math_text import apply_sympy_math_symbols
 
-    return apply_sympy_math_symbols(out)
+    out = apply_sympy_math_symbols(out)
+    out = normalize_unicode_subscripts_for_storage(out)
+    return normalize_paper_math_notation(out)
+
+
+def normalize_unicode_subscripts_for_storage(text: str) -> str:
+    """Unicode subscripts only → p_{n-1} (superscripts stay as ², ³, ^{n} added at render)."""
+    if not text:
+        return text
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c in _SUBSCRIPT_CHARS:
+            j = i + 1
+            while j < n and text[j] in _SUBSCRIPT_CHARS:
+                j += 1
+            sub = _unicode_subscript_to_ascii(text[i:j])
+            out.append(f"_{{{sub}}}")
+            i = j
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def normalize_unicode_math_indices_to_plain(text: str) -> str:
+    """Legacy alias — subscripts to _{…}; keeps Unicode superscripts like x²."""
+    return normalize_unicode_subscripts_for_storage(text)
 
 
 def strip_markdown_bold(text: str) -> str:
@@ -410,15 +439,243 @@ def _protect_measurements_for_markup(text: str) -> str:
     )
 
 
+_SUBSCRIPT_UNICODE: dict[str, str] = {
+    "\u2080": "0",
+    "\u2081": "1",
+    "\u2082": "2",
+    "\u2083": "3",
+    "\u2084": "4",
+    "\u2085": "5",
+    "\u2086": "6",
+    "\u2087": "7",
+    "\u2088": "8",
+    "\u2089": "9",
+    "\u208a": "+",
+    "\u208b": "-",
+    "\u208c": "=",
+    "\u208d": "(",
+    "\u208e": ")",
+    "\u2090": "a",
+    "\u2091": "e",
+    "\u2092": "o",
+    "\u2093": "x",
+    "\u2095": "h",
+    "\u2096": "k",
+    "\u2097": "l",
+    "\u2098": "m",
+    "\u2099": "n",
+    "\u209a": "o",
+    "\u209b": "p",
+    "\u209c": "t",
+}
+
+_SUPERSCRIPT_UNICODE: dict[str, str] = {
+    "\u00b2": "2",
+    "\u00b3": "3",
+    "\u00b9": "1",
+    "\u2070": "0",
+    "\u2071": "i",
+    "\u2074": "4",
+    "\u2075": "5",
+    "\u2076": "6",
+    "\u2077": "7",
+    "\u2078": "8",
+    "\u2079": "9",
+    "\u207a": "+",
+    "\u207b": "-",
+    "\u207f": "n",
+}
+
+_SUBSCRIPT_CHARS = frozenset(_SUBSCRIPT_UNICODE)
+_SUPERSCRIPT_CHARS = frozenset(_SUPERSCRIPT_UNICODE)
+
+_ASCII_EXP_TO_UNICODE = str.maketrans(
+    {
+        "0": "\u2070",
+        "1": "\u00b9",
+        "2": "\u00b2",
+        "3": "\u00b3",
+        "4": "\u2074",
+        "5": "\u2075",
+        "6": "\u2076",
+        "7": "\u2077",
+        "8": "\u2078",
+        "9": "\u2079",
+        "n": "\u207f",
+        "+": "\u207a",
+        "-": "\u207b",
+    }
+)
+
+_CARET_BRACE_EXP = re.compile(
+    r"([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])\^\{([^{}]+)\}"
+)
+_CARET_ASCII_EXP = re.compile(
+    r"([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])\^([0-9n+\-]+)"
+)
+
+
+def _exp_to_unicode_superscript(exp: str) -> str | None:
+    if not exp or not re.fullmatch(r"[0-9n+\-]+", exp):
+        return None
+    return exp.translate(_ASCII_EXP_TO_UNICODE)
+
+
+_SEQ_ASCII_SUB = re.compile(r"\b([a-z])_(?!\{)([a-z0-9+\-]+)\b")
+_P_SEQ_NO_UNDERSCORE = re.compile(
+    r"(?<![A-Za-z])p\s*(?:_)?\s*(n(?:\s*-\s*\d+)?|\d+)\b",
+    re.I,
+)
+
+
+def normalize_paper_sequence_subscripts(text: str) -> str:
+    """Board stems use p_n, p_n-1 → p_{n}, p_{n-1} for subscript rendering."""
+    if not text or "_" not in text:
+        return text
+    return _SEQ_ASCII_SUB.sub(r"\1_{\2}", text)
+
+
+def normalize_missing_p_indices(text: str) -> str:
+    """
+    OCR/LLM sometimes drops '_' entirely: 'p n', 'p0', 'pn-1'.
+    Convert only p-indices to p_{...} so ReportLab <sub> renders.
+    """
+    if not text:
+        return text
+    if "p" not in text and "P" not in text:
+        return text
+
+    def _repl(m: re.Match[str]) -> str:
+        idx = (m.group(1) or "").strip()
+        idx = re.sub(r"\s*-\s*", "-", idx)
+        return f"p_{{{idx}}}"
+
+    return _P_SEQ_NO_UNDERSCORE.sub(_repl, text)
+
+
+def normalize_spurious_x_multiplication(text: str) -> str:
+    """Fix s x p_{n-1} (legacy ×→' x ') → s·p_{n-1}."""
+    if not text or " x " not in text:
+        return text
+    out = re.sub(
+        r"\b([a-zαβγts])\s+x\s+(p_\{)",
+        r"\1·\2",
+        text,
+        flags=re.I,
+    )
+    out = re.sub(
+        r"\b([a-zαβγts])\s+x\s+(p_[a-z0-9])",
+        r"\1·\2",
+        out,
+        flags=re.I,
+    )
+    return out
+
+
+def normalize_paper_math_notation(text: str) -> str:
+    """Single entry: sequence subscripts + Unicode superscripts (PDF/UI)."""
+    if not text:
+        return text
+    out = normalize_missing_p_indices(text)
+    out = normalize_paper_sequence_subscripts(out)
+    out = normalize_paper_superscripts(out)
+    return normalize_spurious_x_multiplication(out)
+
+
+def normalize_paper_superscripts(text: str) -> str:
+    """Board-style exponents: x^2 → x², α^{n} → αⁿ (keeps p_{n} for sub rendering)."""
+    if not text or "^" not in text:
+        return text
+
+    def _br(m: re.Match[str]) -> str:
+        uni = _exp_to_unicode_superscript(m.group(2))
+        return f"{m.group(1)}{uni}" if uni else m.group(0)
+
+    def _plain(m: re.Match[str]) -> str:
+        uni = _exp_to_unicode_superscript(m.group(2))
+        return f"{m.group(1)}{uni}" if uni else m.group(0)
+
+    out = _CARET_BRACE_EXP.sub(_br, text)
+    return _CARET_ASCII_EXP.sub(_plain, out)
+
+
+def _unicode_subscript_to_ascii(run: str) -> str:
+    return "".join(_SUBSCRIPT_UNICODE.get(c, c) for c in run)
+
+
+def _unicode_superscript_to_ascii(run: str) -> str:
+    return "".join(_SUPERSCRIPT_UNICODE.get(c, c) for c in run)
+
+
+_ASCII_SUP_BRACE = re.compile(r"\^\{([^{}]+)\}")
+_ASCII_SUP_SINGLE = re.compile(r"\^([0-9+\-]+)")
+_ASCII_SUB_BRACE = re.compile(r"_\{([^{}]+)\}")
+_ASCII_SUB_SINGLE = re.compile(
+    r"(?<=[A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])_([0-9A-Za-z+\-]+)"
+)
+def _ascii_indices_to_reportlab_markup(text: str) -> str:
+    """Render p_{n} as <sub>; keep board Unicode superscripts (x²) as literal glyphs."""
+    if not text:
+        return text
+
+    text = normalize_paper_math_notation(text)
+
+    def _uni_sub(m: re.Match[str]) -> str:
+        return f"<sub>{escape(_unicode_subscript_to_ascii(m.group(0)))}</sub>"
+
+    def _sup_tag(inner: str) -> str:
+        return f"<sup>{escape(inner)}</sup>"
+
+    def _sub_tag(inner: str) -> str:
+        return f"<sub>{escape(inner)}</sub>"
+
+    def _sup_brace(m: re.Match[str]) -> str:
+        return _sup_tag(m.group(1))
+
+    def _sup_single(m: re.Match[str]) -> str:
+        return _sup_tag(m.group(1))
+
+    def _sub_brace(m: re.Match[str]) -> str:
+        return _sub_tag(m.group(1))
+
+    def _sub_single(m: re.Match[str]) -> str:
+        return _sub_tag(m.group(1))
+
+    out = text
+    out = re.sub(r"[\u2080-\u208e\u2090-\u209c]+", _uni_sub, out)
+    out = _ASCII_SUP_BRACE.sub(_sup_brace, out)
+    out = _ASCII_SUB_BRACE.sub(_sub_brace, out)
+    out = _ASCII_SUP_SINGLE.sub(_sup_single, out)
+    out = _ASCII_SUB_SINGLE.sub(_sub_single, out)
+    # Force adjacency: p<n>, x<sup> (avoid any accidental spaces before tags).
+    out = re.sub(
+        r"([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])\s+(<sub\b)",
+        r"\1\2",
+        out,
+    )
+    out = re.sub(
+        r"([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])\s+(<sup\b)",
+        r"\1\2",
+        out,
+    )
+    return _escape_outside_math_tags(out)
+
+
+_MATH_TAG_SPLIT = re.compile(r"(<su[bp][^>]*>.*?</su[bp]>)")
+
+
+def _escape_outside_math_tags(s: str) -> str:
+    parts = _MATH_TAG_SPLIT.split(s)
+    return "".join(
+        p if re.match(r"<su[bp]", p) else escape(p) for p in parts
+    )
+
+
 def _escape_with_superscripts(text: str) -> str:
-    """² → <sup>2</sup> so PDF renders even without a Unicode body font."""
-    parts: list[str] = []
-    for chunk in re.split(r"(²)", text):
-        if chunk == "²":
-            parts.append("<sup>2</sup>")
-        elif chunk:
-            parts.append(escape(chunk))
-    return "".join(parts)
+    """Map x², p_{n}, x^2 to ReportLab <sup>/<sub>; escape remaining prose."""
+    if not text:
+        return text
+    return _ascii_indices_to_reportlab_markup(text)
 
 
 def to_reportlab_markup(text: str) -> str:

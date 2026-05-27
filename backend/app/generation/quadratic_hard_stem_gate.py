@@ -44,10 +44,19 @@ def evaluate_quadratic_full_hard_stem(
     stem: str,
     *,
     sparse_hard: bool = False,
+    mtech: bool = False,
 ) -> dict:
     """
     Returns ok, fusion_score, flags for quadratic chapter + full_hard UI.
+    mtech=True uses L8–L9 gate (100% hard M.Tech track).
     """
+    if mtech:
+        from app.generation.quadratic_mtech_stem_gate import (
+            evaluate_quadratic_mtech_stem,
+        )
+
+        return evaluate_quadratic_mtech_stem(stem, sparse_hard=sparse_hard)
+
     content = (stem or "").strip()
     n_words = len(content.split())
     signals = fusion_signals(content)

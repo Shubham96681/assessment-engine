@@ -1,0 +1,23 @@
+[
+{%- for q in questions %}
+  {
+    "id": {{ q.id | tojson }},
+    "type": {{ q.type | tojson }},
+    "question": {{ q.question | tojson }},
+    "marks": {{ q.marks | tojson }},
+    "correct_answer": {{ q.correct_answer | tojson }}
+    {%- if q.explanation is defined and q.explanation %},
+    "explanation": {{ q.explanation | tojson }}
+    {%- endif %}
+    {%- if q.options is defined and q.options %},
+    "options": {{ q.options | tojson }}
+    {%- endif %}
+    {%- if q.theorem_tags is defined and q.theorem_tags %},
+    "theorem_tags": {{ q.theorem_tags | tojson }}
+    {%- endif %}
+    {%- if q.cognitive_type is defined and q.cognitive_type %},
+    "cognitive_type": {{ q.cognitive_type | tojson }}
+    {%- endif %}
+  }{% if not loop.last %},{% endif %}
+{%- endfor %}
+]

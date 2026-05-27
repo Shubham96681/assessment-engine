@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.export.pdf_builder import PDFExporter
+from app.export.pdf_export import get_pdf_exporter
 from app.models import Assessment, Question
 
 
@@ -36,7 +36,7 @@ async def store_assessment_pdf_exports(
         qd["order_index"] = i
         qd["slot_number"] = i + 1
 
-    exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
+    exporter = get_pdf_exporter(settings.LOCAL_STORAGE_PATH)
     urls = exporter.export_assessment(
         questions=payload,
         config=cfg_dict,

@@ -80,6 +80,7 @@ def run_quadratic_pool_pipeline(
     delivery_count: int,
     drop_failed_stems: bool = True,
     apply_structural_dedup: bool = True,
+    prior_stems: Optional[List[str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """
     Standard post-parse pool processing for quadratic full-hard.
@@ -92,6 +93,20 @@ def run_quadratic_pool_pipeline(
 
     report: Dict[str, Any] = {"delivery_count": delivery_count}
     out = list(questions)
+
+    if prior_stems:
+        from app.generation.quadratic_duplicate_registry import (
+            filter_questions_matching_prior_registry,
+        )
+
+        out, reg_rej = filter_questions_matching_prior_registry(out, prior_stems)
+        report["registry_rejected_count"] = len(reg_rej)
+        report["registry_rejected_previews"] = reg_rej[:8]
+        if reg_rej:
+            logger.warning(
+                "Quadratic pool: dropped %d exact registry duplicate(s) vs prior papers",
+                len(reg_rej),
+            )
 
     from app.core.config import settings as _settings
     from app.generation.quadratic_math_gate import filter_quadratic_math_verified
@@ -129,6 +144,15 @@ def run_quadratic_pool_pipeline(
 
     paper_q = evaluate_quadratic_paper_quality(out)
     report["paper_quality"] = paper_q
+
+    from app.generation.quadratic_duplicate_registry import evaluate_archetype_coverage
+
+    arch_ok, arch_flags = evaluate_archetype_coverage(out)
+    report["archetype_coverage_ok"] = arch_ok
+    report["archetype_coverage_flags"] = arch_flags
+    if arch_flags:
+        paper_q.setdefault("paper_quality_flags", []).extend(arch_flags)
+        logger.warning("Quadratic archetype coverage: %s", arch_flags)
     block_paper, paper_reasons = should_reject_quadratic_paper(out)
     report["paper_block"] = block_paper
     report["paper_reasons"] = paper_reasons[:8]

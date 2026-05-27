@@ -1,0 +1,31 @@
+{% include 'latex/preamble.tex.j2' %}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries Answer Key}\\[4pt]
+{\normalsize {{ title | latex_escape }} \quad {{ subject | latex_escape }} \quad Total Marks: {{ total_marks | int }}}
+\end{center}
+
+\vspace{6mm}
+
+\begin{enumerate}[
+  leftmargin=1.5em,
+  itemsep=8pt,
+  label=\textbf{Q\arabic*.}
+]
+
+{% for q in questions %}
+\item ({{ q.marks | int }} marks)
+
+{{ q.answer_latex }}
+
+{% if q.explanation_latex %}
+\vspace{2pt}
+{\small\textit{ {{ q.explanation_latex }} }}
+{% endif %}
+
+{% endfor %}
+\end{enumerate}
+
+\end{document}

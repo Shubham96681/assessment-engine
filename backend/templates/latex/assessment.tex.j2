@@ -1,0 +1,35 @@
+{% include 'latex/preamble.tex.j2' %}
+
+\begin{document}
+
+\begin{center}
+{\LARGE\bfseries {{ title | latex_escape }}}\\[8pt]
+{\normalsize
+Subject: {{ subject | latex_escape }} \quad
+Class: {{ class_level | latex_escape }} \quad
+Date: {{ date_str | latex_escape }}\\[2pt]
+Time: {{ duration | latex_escape }} \quad
+Total Marks: {{ total_marks | int }} \quad
+Total Questions: {{ question_count }}\\[2pt]
+{\small Examiner: {{ examiner | latex_escape }} \quad {{ institution | latex_escape }}}
+}
+\end{center}
+
+\vspace{2mm}
+\noindent\rule{\textwidth}{0.4pt}
+\vspace{4mm}
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=10pt, parsep=2pt]
+
+{% for q in questions %}
+\item[\textbf{Q{{ q.number }}.}]
+\hfill\textit{[{{ q.marks | int }} mark{% if q.marks != 1 %}s{% endif %}]}
+
+\vspace{3pt}
+
+{{ q.latex_body }}
+
+{% endfor %}
+\end{enumerate}
+
+\end{document}

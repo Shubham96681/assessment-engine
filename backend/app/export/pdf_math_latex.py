@@ -79,6 +79,17 @@ _INLINE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"√\s*\([^)]{1,40}\)", re.I),
     re.compile(r"(?:[xyz]\s*)?√\s*\(\s*1\s*-\s*[xyz](?:\^2|²)\s*\)", re.I),
     re.compile(r"\d+\s*°\s*≤\s*θ\s*≤\s*\d+\s*°?", re.I),
+    re.compile(
+        r"(?:\d+\s*)?x[²2]\s*[+\-−]\s*(?:\d+|[a-z]+)\s*x\s*[+\-−]\s*(?:\d+|[a-z]+)\s*=\s*0",
+        re.I,
+    ),
+    re.compile(r"x[²2]\s*[+\-−]\s*[a-z]\s*x\s*[+\-−]\s*[a-z]\s*=\s*0", re.I),
+    re.compile(
+        r"p_\{n\}\s*=\s*[sstαβγ]\s*[·]?\s*p_\{n-1\}\s*[-−]\s*[sstαβγ]\s*[·]?\s*p_\{n-2\}",
+        re.I,
+    ),
+    re.compile(r"\b\d+\s*/\s*\d+\b", re.I),
+    re.compile(r"\([A-Za-zαβγ]+\s*\+\s*[A-Za-zαβγ]+\)\s*[²2]", re.I),
 ]
 
 
@@ -187,11 +198,18 @@ def exam_plain_to_latex(plain: str) -> str:
     s = re.sub(r"(\d+)\s*/\s*(\d+)", r"\\frac{\1}{\2}", s)
     s = re.sub(r"(\w+)\s*\*\s*(\d+)", r"\1 \\cdot \2", s)
     s = re.sub(r"([A-Z])\s*\^\s*2\b", r"\1^{2}", s)
+    s = s.replace("α", r"\alpha").replace("β", r"\beta").replace("γ", r"\gamma")
+    s = re.sub(r"([a-z])_\{([^{}]+)\}", r"\1_{\2}", s)
+    s = re.sub(r"\\cdot\s+p_", r"\\,p_", s)
+    s = re.sub(r"\\cdot\s+\\alpha", r"\\,\\alpha", s)
+    s = re.sub(r"\\cdot\s+\\beta", r"\\,\\beta", s)
 
     return re.sub(r"\s+", " ", s).strip()
 
 
 def _should_display_math(latex: str, plain: str) -> bool:
+    if re.search(r"p_\{n\}", latex) and "=" in plain:
+        return True
     if "\\frac" in latex and "=" in plain:
         return True
     if len(plain) > 42 and re.search(r"\\tan|\\sin|\\cos", latex):

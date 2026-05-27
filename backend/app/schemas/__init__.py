@@ -237,6 +237,8 @@ class AssessmentStatusOut(BaseModel):
     status: str
     question_count: int = 0
     total_marks: float = 0.0
+    pdf_url: Optional[str] = None
+    answer_key_url: Optional[str] = None
 
 
 class AssessmentListItemOut(BaseModel):

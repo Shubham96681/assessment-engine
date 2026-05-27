@@ -76,7 +76,12 @@ def build_exam_text_flowable(
         return Paragraph("", style)
 
     enabled = settings.PDF_MATH_LATEX if use_latex is None else use_latex
-    if not enabled:
+    use_images = (
+        enabled
+        and settings.PDF_MATH_USE_IMAGES
+        and (is_answer or settings.PDF_MATH_USE_IMAGES_ON_STEMS)
+    )
+    if not use_images:
         return Paragraph(to_reportlab_markup(plain), style)
 
     parts = segment_with_bold(plain)

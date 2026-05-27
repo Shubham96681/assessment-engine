@@ -6,6 +6,7 @@ import {
   segmentExamMath,
   segmentWithBoldParts,
   splitAnswerSubparts,
+  splitStandardMathSpans,
   type Segment,
 } from "@/lib/mathDisplay";
 
@@ -72,10 +73,37 @@ function MathBlock({
   );
 }
 
-function TextSpan({ value }: { value: string }) {
+function StandardMathText({ value }: { value: string }) {
+  const parts = useMemo(() => splitStandardMathSpans(value), [value]);
   return (
     <span className="whitespace-pre-wrap break-words [word-spacing:normal]">
-      {value}
+      {parts.map((p, i) =>
+        p.kind === "sup" ? (
+          <sup
+            key={i}
+            style={{
+              fontSize: "0.75em",
+              lineHeight: 0,
+              verticalAlign: "super",
+            }}
+          >
+            {p.value}
+          </sup>
+        ) : p.kind === "sub" ? (
+          <sub
+            key={i}
+            style={{
+              fontSize: "0.75em",
+              lineHeight: 0,
+              verticalAlign: "sub",
+            }}
+          >
+            {p.value}
+          </sub>
+        ) : (
+          <span key={i}>{p.value}</span>
+        ),
+      )}
     </span>
   );
 }
@@ -83,7 +111,7 @@ function TextSpan({ value }: { value: string }) {
 function PlainFallback({ text }: { text: string }) {
   return (
     <div className="exam-question-content leading-relaxed whitespace-pre-wrap break-words">
-      {text}
+      <StandardMathText value={formatListLikeAnswer(text)} />
     </div>
   );
 }
@@ -99,7 +127,7 @@ function SegmentList({
     <>
       {segments.map((seg, i) =>
         seg.kind === "text" ? (
-          <TextSpan key={i} value={seg.value} />
+          <StandardMathText key={i} value={seg.value} />
         ) : (
           <MathBlock key={i} latex={seg.latex} display={seg.display} katex={katex} />
         ),

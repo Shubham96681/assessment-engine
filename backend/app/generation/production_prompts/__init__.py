@@ -7,6 +7,9 @@ from app.generation.production_prompts.quadratic_full_hard import (
     QUADRATIC_FULL_HARD_PRODUCTION_PROMPT,
     build_quadratic_full_hard_prompt,
 )
+from app.generation.production_prompts.quadratic_mtech_full_hard import (
+    build_quadratic_mtech_prompt,
+)
 from app.generation.semantic_generation_plan import SemanticGenerationPlan
 
 
@@ -35,6 +38,7 @@ def resolve_production_prompt(plan: SemanticGenerationPlan) -> Optional[str]:
 __all__ = [
     "QUADRATIC_FULL_HARD_PRODUCTION_PROMPT",
     "build_quadratic_full_hard_prompt",
+    "build_quadratic_mtech_prompt",
     "resolve_production_prompt",
     "uses_quadratic_production_prompt",
 ]

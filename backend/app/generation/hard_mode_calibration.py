@@ -375,6 +375,16 @@ def evaluate_hard_mode(
     flags: List[str] = list(arch_flags)
     score = min(1.0, arch.get("architect_score", 1.0))
     band = slot_band or meta.get("band", "L3")
+    mtech_quadratic = False
+    if full_hard and chapter == "quadratic":
+        try:
+            from app.generation.topic_isolation import get_current_topic_state
+
+            mtech_quadratic = bool(
+                (get_current_topic_state() or {}).get("mtech_quadratic")
+            )
+        except Exception:
+            pass
     min_sol = (
         FULL_HARD_SLOT_MIN_SOLUTION_BAND.get(band, "L5")
         if full_hard
@@ -382,7 +392,10 @@ def evaluate_hard_mode(
     )
     sol_band = q.get("solution_band", "L1")
 
-    if full_hard and band != "L5":
+    if full_hard and mtech_quadratic and band not in ("L8", "L9"):
+        flags.append(f"mtech_full_hard_slot_band_{band}_requires_L8_L9")
+        score -= 0.5
+    elif full_hard and not mtech_quadratic and band != "L5":
         flags.append(f"full_hard_slot_band_{band}_requires_L5")
         score -= 0.5
 

@@ -125,12 +125,22 @@ def persist_generation_calibration(
     difficulty_distribution: object = None,
     instructions: str = "",
     class_level: str = "",
+    compact_rag_query: bool = False,
+    mtech_quadratic: bool = False,
 ) -> None:
     """Persist exam track + difficulty for GATE/CBSE benchmark scoring in quality.py."""
     state = _read_state()
     state["exam_track"] = (exam_track or "board").strip().lower()
     state["ui_difficulty"] = (ui_difficulty or "medium").strip().lower()
     state["full_hard"] = bool(full_hard)
+    if compact_rag_query:
+        state["compact_rag_query"] = True
+    else:
+        state.pop("compact_rag_query", None)
+    if mtech_quadratic:
+        state["mtech_quadratic"] = True
+    else:
+        state.pop("mtech_quadratic", None)
     if instructions:
         state["instructions"] = instructions
     if class_level:

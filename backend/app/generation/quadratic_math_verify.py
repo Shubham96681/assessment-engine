@@ -227,6 +227,55 @@ def verify_equal_roots_parameter(
     return flags
 
 
+_LINEAR_ROOT_CONSTRAINT_RE = re.compile(
+    r"(?:satisfies|satisfy|when)\s+(\d+)\s*x\s*([+\−-])\s*(\d+)\s*=\s*(\d+)",
+    re.I,
+)
+
+
+def verify_equal_roots_linear_constraint(stem: str, answer_text: str) -> List[str]:
+    """Equal roots + ax + b = c on the repeated root — constraint must match r = −b/(2a)."""
+    flags: List[str] = []
+    if not re.search(r"equal\s+roots", stem, re.I):
+        return flags
+    lc = _LINEAR_ROOT_CONSTRAINT_RE.search(stem)
+    if not lc:
+        return flags
+    m_eq = _EQ_PARAM_RE.search(stem.replace(" ", ""))
+    if not m_eq:
+        return flags
+    a = int(m_eq.group(1) or "1")
+    b = _sign_char(m_eq.group(2)) * int(m_eq.group(3))
+    lin_a = int(lc.group(1))
+    lin_rhs = int(lc.group(4))
+    lin_offset = int(lc.group(3))
+    if lc.group(2) in ("+", ""):
+        x_from_constraint = Fraction(lin_rhs - lin_offset, lin_a)
+    else:
+        x_from_constraint = Fraction(lin_rhs + lin_offset, lin_a)
+    if 2 * a == 0:
+        return flags
+    r_from_formula = Fraction(-b, 2 * a)
+    if x_from_constraint != r_from_formula:
+        flags.append(
+            f"equal_roots_linear_constraint_mismatch:constraint_r={x_from_constraint}_"
+            f"formula_r={r_from_formula}"
+        )
+    m_sq = re.search(
+        r"\(x\s*[-−]\s*(\d+)\)",
+        answer_text.replace(" ", ""),
+        re.I,
+    )
+    if m_sq:
+        stated_r = int(m_sq.group(1))
+        if Fraction(stated_r, 1) != r_from_formula:
+            flags.append(
+                f"equal_roots_perfect_square_root_mismatch:stated_r={stated_r}_"
+                f"expected_r={r_from_formula}"
+            )
+    return flags
+
+
 _SPEED_DIST_RE = re.compile(
     r"(\d+)\s*km\s+at\s+([a-z])\s*km/h",
     re.I,
@@ -482,8 +531,9 @@ def verify_quadratic_question_math(
         flags.extend(verify_factorisation_consistency(stem, answer))
         if re.search(r"factoris", stem, re.I):
             flags.extend(verify_factorisation_required(stem, answer))
-        if re.search(r"equal\s+real\s+roots|d\s*=\s*0", stem, re.I):
+        if re.search(r"equal\s+real\s+roots|equal\s+roots|d\s*=\s*0", stem, re.I):
             flags.extend(verify_equal_roots_parameter(stem, answer))
+            flags.extend(verify_equal_roots_linear_constraint(stem, answer))
             pm = _PARAM_CONST_RE.search(stem.replace(" ", ""))
             if pm:
                 flags.extend(

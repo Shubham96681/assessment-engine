@@ -40,6 +40,92 @@ function exportCacheKey(assessment: { questions?: { id?: string }[] } | null): s
   return ids || "0";
 }
 
+function ExportActions({
+  assessment,
+  cacheKey,
+  exportingPdf,
+  onRegenerateExport,
+  variant = "inline",
+}: {
+  assessment: {
+    pdf_url?: string | null;
+    answer_key_url?: string | null;
+    questions?: unknown[];
+    status?: string;
+  };
+  cacheKey: string;
+  exportingPdf: boolean;
+  onRegenerateExport: () => void;
+  variant?: "inline" | "card";
+}) {
+  const base = getApiBaseUrl();
+  const hasQuestions = (assessment.questions?.length ?? 0) > 0;
+  const canBuildPdf = hasQuestions && assessment.status !== "generating";
+  if (!canBuildPdf && !assessment.pdf_url && !assessment.answer_key_url) {
+    return null;
+  }
+
+  const btn =
+    variant === "card"
+      ? "flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-all"
+      : "flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-medium transition-all";
+
+  const controls = (
+    <>
+      {assessment.pdf_url ? (
+        <a
+          href={`${base}${assessment.pdf_url}?v=${cacheKey}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className={`${btn} bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20`}
+        >
+          <Download className="w-4 h-4" /> Question Paper
+        </a>
+      ) : canBuildPdf ? (
+        <button
+          type="button"
+          onClick={onRegenerateExport}
+          disabled={exportingPdf}
+          className={`${btn} bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white shadow-lg shadow-indigo-500/20`}
+        >
+          <Download className="w-4 h-4" />
+          {exportingPdf ? "Creating PDF…" : "Create PDF download"}
+        </button>
+      ) : null}
+      {assessment.answer_key_url && (
+        <a
+          href={`${base}${assessment.answer_key_url}?v=${cacheKey}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          download
+          className={`${btn} bg-[#1e293b] hover:bg-indigo-500/20 border border-[#334155] hover:border-indigo-500/30 text-white`}
+        >
+          <FileCheck className="w-4 h-4" /> Answer Key
+        </a>
+      )}
+    </>
+  );
+
+  if (variant === "card") {
+    return (
+      <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-white">Download question paper</h2>
+          <p className="text-sm text-slate-400">
+            {assessment.pdf_url
+              ? "PDF ready — open or save to your device."
+              : "Create PDFs from the generated questions below."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">{controls}</div>
+      </div>
+    );
+  }
+
+  return <div className="flex flex-wrap gap-3 w-full md:w-auto">{controls}</div>;
+}
+
 export default function AssessmentDetails() {
   const params = useParams();
   const id = params.id as string;
@@ -69,6 +155,30 @@ export default function AssessmentDetails() {
     setRagPending(false);
     let cancelled = false;
     let notFoundRetries = 0;
+    let autoApplyDone = false;
+
+    const tryAutoApplyRag = async (rag: {
+      pending?: boolean;
+      ready_for_apply?: boolean;
+    }) => {
+      if (autoApplyDone) return false;
+      if (rag.pending || !rag.ready_for_apply) return false;
+      autoApplyDone = true;
+      setApplyingRag(true);
+      try {
+        const applied = await applyRagResponse(id, true);
+        setAssessment(applied);
+        setLoading(false);
+        setPollNote("");
+        setAwaitingRegenApply(false);
+        return applied?.status === "ready";
+      } catch {
+        autoApplyDone = false;
+        return false;
+      } finally {
+        setApplyingRag(false);
+      }
+    };
 
     const poll = async () => {
       if (cancelled) return;
@@ -92,23 +202,58 @@ export default function AssessmentDetails() {
             setRagPending(!!rag.pending);
             setRegenSlot(rag.regen_slot ?? null);
             if (rag.regen_slot) setAwaitingRegenApply(true);
+            if (await tryAutoApplyRag(rag)) return;
             setPollNote(
               rag.pending
-                ? "Finishing your paper — this page will update automatically."
-                : "Generation in progress. This page will update automatically."
+                ? "Waiting for Cursor capture — say go capture in Agent chat; this page updates automatically."
+                : rag.ready_for_apply
+                  ? "Applying your paper automatically…"
+                  : "Generation in progress. This page will update automatically."
             );
           } catch {
             setPollNote(
-              "Generation in progress (RAG may take up to 3 minutes). This page will update automatically."
+              "Generation in progress (RAG may take up to 5 minutes). This page will update automatically."
             );
           }
           window.setTimeout(poll, 3000);
           return;
         }
 
+        setAssessment((prev: any) =>
+          prev?.id === status.id
+            ? {
+                ...prev,
+                status: status.status,
+                title: status.title ?? prev.title,
+                total_marks: status.total_marks ?? prev.total_marks,
+                pdf_url: status.pdf_url ?? prev.pdf_url,
+                answer_key_url: status.answer_key_url ?? prev.answer_key_url,
+              }
+            : prev
+        );
+
         const full = await getAssessment(id);
         if (cancelled) return;
-        setAssessment(full);
+        setAssessment({
+          ...full,
+          pdf_url: full.pdf_url || status.pdf_url,
+          answer_key_url: full.answer_key_url || status.answer_key_url,
+          total_marks: full.total_marks ?? status.total_marks,
+        });
+
+        if (full.status === "failed" && !(full.questions && full.questions.length > 0)) {
+          try {
+            const rag = await getRagPending();
+            setRagPending(!!rag.pending);
+            if (await tryAutoApplyRag(rag)) return;
+          } catch {
+            /* ignore */
+          }
+          setLoading(false);
+          setPollNote("");
+          return;
+        }
+
         setLoading(false);
         setPollNote("");
         try {
@@ -217,15 +362,14 @@ export default function AssessmentDetails() {
           <p className="text-slate-400 mb-2">
             {ragPending ? (
               <>
-                <strong className="text-amber-200">Cursor Agent needed:</strong> open an Agent chat for{" "}
-                <code className="text-indigo-300">assessment-engine</code>, enable Hooks, then let it write{" "}
-                <code className="text-indigo-300">rag_response.txt</code> after{" "}
-                <code className="text-indigo-300">rag_query.txt</code> updates.
+                <strong className="text-amber-200">Say go capture</strong> in Cursor Agent for this repo
+                (Hooks enabled). The agent writes <code className="text-indigo-300">rag_response.txt</code>;
+                verification and apply run automatically — no extra clicks.
               </>
             ) : (
               <>
-                Save <code className="text-indigo-300">rag_response.txt</code> at the project root after{" "}
-                <code className="text-indigo-300">rag_query.txt</code> updates (once per quiz).
+                Applying or finishing your paper automatically when{" "}
+                <code className="text-indigo-300">rag_response.txt</code> is valid.
               </>
             )}
           </p>
@@ -386,43 +530,23 @@ export default function AssessmentDetails() {
                   : "Apply rag_response.txt updates"}
             </button>
           )}
-          {assessment.status === "ready" &&
-            assessment.questions?.length > 0 &&
-            !assessment.pdf_url && (
-              <button
-                type="button"
-                onClick={handleRegenerateExport}
-                disabled={exportingPdf}
-                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all"
-              >
-                <Download className="w-4 h-4" />
-                {exportingPdf ? "Creating PDF…" : "Create PDF download"}
-              </button>
-            )}
-          {assessment.pdf_url && (
-            <a
-              href={`${getBaseUrl()}${assessment.pdf_url}?v=${cacheKey}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-500/20 transition-all"
-            >
-              <Download className="w-4 h-4" /> Question Paper
-            </a>
-          )}
-          {assessment.answer_key_url && (
-            <a
-              href={`${getBaseUrl()}${assessment.answer_key_url}?v=${cacheKey}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              download
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#1e293b] hover:bg-indigo-500/20 border border-[#334155] hover:border-indigo-500/30 text-white px-6 py-2.5 rounded-xl font-medium transition-all"
-            >
-              <FileCheck className="w-4 h-4" /> Answer Key
-            </a>
-          )}
+          <ExportActions
+            assessment={assessment}
+            cacheKey={cacheKey}
+            exportingPdf={exportingPdf}
+            onRegenerateExport={handleRegenerateExport}
+            variant="inline"
+          />
         </div>
       </header>
+
+      <ExportActions
+        assessment={assessment}
+        cacheKey={cacheKey}
+        exportingPdf={exportingPdf}
+        onRegenerateExport={handleRegenerateExport}
+        variant="card"
+      />
 
       {assessment.generation_log && assessment.generation_log.length > 0 && (
         <div className="bg-[#1e293b]/50 backdrop-blur-md border border-[#334155] rounded-2xl p-6 shadow-xl">

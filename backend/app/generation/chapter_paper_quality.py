@@ -167,6 +167,12 @@ def expand_sequence_slots(
 
         return benchmark_slots(question_count)
     if full_hard and ch == "quadratic":
+        from app.core.config import settings
+
+        if bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+            from app.generation.quadratic_mtech_benchmark import benchmark_slots
+
+            return benchmark_slots(question_count)
         from app.generation.quadratic_hard_benchmark import benchmark_slots
 
         return benchmark_slots(question_count)

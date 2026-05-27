@@ -130,6 +130,25 @@ def test_accepts_correct_alpha_squared_sum():
     assert ev["math_verification_ok"]
 
 
+def test_rejects_equal_roots_linear_constraint_mismatch():
+    q = {
+        "question": "Find m if 11x² − 66x + (m + 30) = 0 has equal roots and the repeated root satisfies 2x + 1 = 9.",
+        "correct_answer": "x = 4. m = 69. 11(x − 4)² = 11x² − 88x + 176.",
+    }
+    ev = verify_quadratic_question_math(q)
+    assert not ev["math_verification_ok"]
+    assert any("linear_constraint" in f for f in ev["math_verification_flags"])
+
+
+def test_accepts_equal_roots_linear_constraint_consistent():
+    q = {
+        "question": "Find m if 11x² − 66x + (m + 30) = 0 has equal roots and the repeated root satisfies 2x + 1 = 7.",
+        "correct_answer": "r = 3. D = 0 ⇒ m = 69. 11(x − 3)² = 11x² − 66x + 153.",
+    }
+    ev = verify_quadratic_question_math(q)
+    assert ev["math_verification_ok"]
+
+
 def test_rejects_wrong_alpha_squared_sum():
     q = {
         "question": "The equation 6x² − 61x + 10 = 0 has roots α and β.",

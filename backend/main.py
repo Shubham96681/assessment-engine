@@ -73,6 +73,8 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(_preload_embeddings())
     asyncio.create_task(_repair_stale_generating_assessments())
+    if settings.RAG_FILE_AGENT_ENABLED and settings.RAG_AUTO_APPLY_ON_CAPTURE:
+        asyncio.create_task(_rag_capture_auto_apply_loop())
     if settings.ENABLE_CBSE_REFERENCE and settings.CBSE_REFERENCE_AUTO_BUILD:
         asyncio.create_task(_build_cbse_reference_if_needed())
     if settings.ENABLE_GATE_REFERENCE and settings.GATE_REFERENCE_AUTO_BUILD:
@@ -129,6 +131,19 @@ async def _build_gate_benchmark_if_needed():
         )
     except Exception as e:
         logger.warning("GATE benchmark auto-build skipped: %s", e)
+
+
+async def _rag_capture_auto_apply_loop():
+    """When rag_response.txt validates, finish the generating/failed assessment automatically."""
+    from app.generation.rag_capture import auto_apply_capture_if_ready
+
+    await asyncio.sleep(3)
+    while True:
+        try:
+            await auto_apply_capture_if_ready()
+        except Exception as e:
+            logger.debug("rag capture auto-apply tick: %s", e)
+        await asyncio.sleep(2.0)
 
 
 async def _repair_stale_generating_assessments():

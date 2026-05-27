@@ -1,0 +1,31 @@
+\documentclass[11pt,a4paper]{article}
+{% if use_xelatex -%}
+\usepackage{fontspec}
+\setmainfont{DejaVu Serif}
+{% else -%}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+{% endif -%}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{geometry}
+\geometry{margin=20mm}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{hyperref}
+\hypersetup{colorlinks=false}
+\usepackage{fancyhdr}
+{% raw %}
+\newcommand{\Real}{\mathbb{R}}
+\newcommand{\Complex}{\mathbb{C}}
+\newcommand{\Integer}{\mathbb{Z}}
+\newcommand{\Rational}{\mathbb{Q}}
+\newcommand{\vect}[1]{\mathbf{#1}}
+{% endraw %}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[C]{\small {{ subject | latex_escape }} — {{ title | latex_escape }}}
+\fancyfoot[C]{\small Page \thepage}
+\renewcommand{\headrulewidth}{0.4pt}

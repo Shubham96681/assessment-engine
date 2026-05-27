@@ -48,7 +48,200 @@ const INLINE_MATH_PATTERNS: RegExp[] = [
   new RegExp(`√\\s*\\([^)]{1,40}\\)`, "gi"),
   new RegExp(`(?:[xyz]\\s*)?√\\s*\\(\\s*1\\s*-\\s*[xyz](?:\\^2|²)\\s*\\)`, "gi"),
   new RegExp(`\\d+\\s*°\\s*≤\\s*θ\\s*≤\\s*\\d+\\s*°?`, "gi"),
+  new RegExp(
+    `(?:\\d+\\s*)?x[²2]\\s*[+\\-−]\\s*(?:\\d+|[a-z]+)\\s*x\\s*[+\\-−]\\s*(?:\\d+|[a-z]+)\\s*=\\s*0`,
+    "gi",
+  ),
+  new RegExp(`x[²2]\\s*[+\\-−]\\s*[a-z]\\s*x\\s*[+\\-−]\\s*[a-z]\\s*=\\s*0`, "gi"),
+  new RegExp(
+    `p_\\{n\\}\\s*=\\s*[sstαβγ]\\s*[·]?\\s*p_\\{n-1\\}\\s*[-−]\\s*[sstαβγ]\\s*[·]?\\s*p_\\{n-2\\}`,
+    "gi",
+  ),
+  new RegExp(`\\b\\d+\\s*/\\s*\\d+\\b`, "gi"),
+  new RegExp(`\\([A-Za-zαβγ]+\\s*\\+\\s*[A-Za-zαβγ]+\\)\\s*[²2]`, "gi"),
 ];
+
+const SUBSCRIPT_UNICODE: Record<string, string> = {
+  "\u2080": "0",
+  "\u2081": "1",
+  "\u2082": "2",
+  "\u2083": "3",
+  "\u2084": "4",
+  "\u2085": "5",
+  "\u2086": "6",
+  "\u2087": "7",
+  "\u2088": "8",
+  "\u2089": "9",
+  "\u208a": "+",
+  "\u208b": "-",
+  "\u208c": "=",
+  "\u208d": "(",
+  "\u208e": ")",
+  "\u2090": "a",
+  "\u2091": "e",
+  "\u2093": "x",
+  "\u2095": "h",
+  "\u2096": "k",
+  "\u2097": "l",
+  "\u2098": "m",
+  "\u2099": "n",
+  "\u209a": "o",
+  "\u209b": "p",
+  "\u209c": "t",
+};
+
+const SUBSCRIPT_RUN = /[\u2080-\u208e\u2090-\u209c]+/g;
+
+export type StandardMathSpan =
+  | { kind: "text"; value: string }
+  | { kind: "sup"; value: string }
+  | { kind: "sub"; value: string };
+
+const SUPERSCRIPT_MAP: Record<string, string> = {
+  "\u00b2": "2",
+  "\u00b3": "3",
+  "\u00b9": "1",
+  "\u2070": "0",
+  "\u2074": "4",
+  "\u2075": "5",
+  "\u2076": "6",
+  "\u2077": "7",
+  "\u2078": "8",
+  "\u2079": "9",
+  "\u207f": "n",
+};
+
+const STANDARD_MATH_TOKEN =
+  /(\^\{[^{}]+\}|_\{[^{}]+\}|\^[0-9A-Za-z+\-]+|(?<=[A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9\)\]])_[0-9A-Za-z+\-]+|[\u2080-\u208e\u2090-\u209c]+|[\u00b2\u00b3\u00b9\u2070-\u207f]+)/g;
+
+const EXP_TO_UNICODE: Record<string, string> = {
+  "0": "\u2070",
+  "1": "\u00b9",
+  "2": "\u00b2",
+  "3": "\u00b3",
+  "4": "\u2074",
+  "5": "\u2075",
+  "6": "\u2076",
+  "7": "\u2077",
+  "8": "\u2078",
+  "9": "\u2079",
+  n: "\u207f",
+  "+": "\u207a",
+  "-": "\u207b",
+};
+
+function expToUnicodeSuperscript(exp: string): string | null {
+  if (!/^[0-9n+\-]+$/.test(exp)) return null;
+  return [...exp].map((c) => EXP_TO_UNICODE[c] ?? c).join("");
+}
+
+const SEQ_ASCII_SUB = /\b([a-z])_(?!\{)([a-z0-9+\-]+)\b/g;
+
+export function normalizePaperSequenceSubscripts(text: string): string {
+  if (!text || !text.includes("_")) return text;
+  return text.replace(SEQ_ASCII_SUB, "$1_{$2}");
+}
+
+/** Board-style subscripts + superscripts before UI/PDF split. */
+export function normalizePaperMathNotation(text: string): string {
+  if (!text) return text;
+  return normalizePaperSuperscripts(normalizePaperSequenceSubscripts(text));
+}
+
+/** Board-style exponents (x^2 → x²; p_{n} unchanged). */
+export function normalizePaperSuperscripts(text: string): string {
+  if (!text || !text.includes("^")) return text;
+  return text
+    .replace(
+      /([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9)\]])\^\{([^{}]+)\}/g,
+      (full, base: string, exp: string) => {
+        const uni = expToUnicodeSuperscript(exp);
+        return uni ? `${base}${uni}` : full;
+      },
+    )
+    .replace(
+      /([A-Za-zαβγδεζηθικλμνξοπρστυφχψω0-9)\]])\^([0-9n+\-]+)/g,
+      (full, base: string, exp: string) => {
+        const uni = expToUnicodeSuperscript(exp);
+        return uni ? `${base}${uni}` : full;
+      },
+    );
+}
+
+/** Split prose into text / standard super- and sub-script spans for UI. */
+export function splitStandardMathSpans(value: string): StandardMathSpan[] {
+  if (!value) return [{ kind: "text", value: "" }];
+  value = normalizePaperMathNotation(value);
+  const spans: StandardMathSpan[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  STANDARD_MATH_TOKEN.lastIndex = 0;
+  while ((m = STANDARD_MATH_TOKEN.exec(value)) !== null) {
+    if (m.index > last) {
+      spans.push({ kind: "text", value: value.slice(last, m.index) });
+    }
+    const tok = m[0];
+    if (tok.startsWith("^{")) {
+      spans.push({ kind: "sup", value: tok.slice(2, -1) });
+    } else if (tok.startsWith("^")) {
+      spans.push({ kind: "sup", value: tok.slice(1) });
+    } else if (tok.startsWith("_{")) {
+      spans.push({ kind: "sub", value: tok.slice(2, -1) });
+    } else if (tok.startsWith("_")) {
+      spans.push({ kind: "sub", value: tok.slice(1) });
+    } else if (/[\u00b2\u00b3\u00b9\u2070-\u207f]/.test(tok)) {
+      spans.push({ kind: "text", value: tok });
+    } else {
+      spans.push({
+        kind: "sub",
+        value: [...tok].map((c) => SUBSCRIPT_UNICODE[c] ?? c).join(""),
+      });
+    }
+    last = m.index + tok.length;
+  }
+  if (last < value.length) {
+    spans.push({ kind: "text", value: value.slice(last) });
+  }
+  return spans.length ? spans : [{ kind: "text", value }];
+}
+
+/** Unicode sub/superscripts → plain p_n, α^n (legacy). */
+export function unicodeMathIndicesToPlain(text: string): string {
+  if (!text || !SUBSCRIPT_RUN.test(text)) {
+    SUBSCRIPT_RUN.lastIndex = 0;
+    const sup = /[\u00b2\u00b3\u2070-\u207f]/;
+    if (!sup.test(text)) return text;
+  }
+  SUBSCRIPT_RUN.lastIndex = 0;
+  let out = text.replace(SUBSCRIPT_RUN, (run) => {
+    const ascii = [...run].map((c) => SUBSCRIPT_UNICODE[c] ?? c).join("");
+    return `_${ascii}`;
+  });
+  out = out.replace(/[\u00b2\u00b3\u2070-\u207f]+/g, (run) => {
+    const map: Record<string, string> = {
+      "\u00b2": "2",
+      "\u00b3": "3",
+      "\u2074": "4",
+      "\u207f": "n",
+    };
+    const ascii = [...run].map((c) => map[c] ?? c).join("");
+    return `^${ascii}`;
+  });
+  return out;
+}
+
+/** Unicode subscripts (pₙ₋₁) → LaTeX p_{n-1} for KaTeX; avoids □ in browsers/PDF. */
+export function unicodeSubscriptsToLatex(text: string): string {
+  if (!text || !SUBSCRIPT_RUN.test(text)) {
+    SUBSCRIPT_RUN.lastIndex = 0;
+    return text;
+  }
+  SUBSCRIPT_RUN.lastIndex = 0;
+  return text.replace(SUBSCRIPT_RUN, (run) => {
+    const ascii = [...run].map((c) => SUBSCRIPT_UNICODE[c] ?? c).join("");
+    return `_{${ascii}}`;
+  });
+}
 
 /** Restore spaces in English prose (PDF/UI parity with backend). */
 export function normalizeProseGlued(text: string): string {
@@ -89,7 +282,7 @@ function normalizePlain(s: string): string {
 }
 
 export function examPlainToLatex(plain: string): string {
-  let s = normalizePlain(plain.trim());
+  let s = unicodeSubscriptsToLatex(normalizePlain(plain.trim()));
   if (!s || s.length > MAX_MATH_SPAN * 2) return s.slice(0, MAX_MATH_SPAN * 2);
 
   s = s.replace(/θ/g, "\\theta ");

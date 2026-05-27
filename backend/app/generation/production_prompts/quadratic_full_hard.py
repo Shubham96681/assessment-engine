@@ -192,6 +192,28 @@ Before finalizing each question, verify:
 
 ---
 
+## DUPLICATE PREVENTION (Mandatory)
+
+If BANNED COEFFICIENT REGISTRY appears above, do not reuse any listed triple, area model, or speed/time set.
+Invent new (a,b,c), new dimension expressions, and new distance/speed/time givens every generation.
+
+## FORMAT ENFORCEMENT (Mandatory)
+
+This JSON pool is for backend oversample (typically 10 items, deliver 5).
+- Do not set exam duration in JSON — the PDF header is chosen from mark count.
+- For 5–6 question internal papers: target 25–35 marks total across the pool.
+
+## ARCHETYPE COVERAGE CHECK (Mandatory)
+
+Before finalizing, verify the pool includes:
+□ factorisation_roots (Q1)
+□ nature_of_roots with parameter or classification (Q2 or Q8)
+□ equal_roots_parameter (Q3 or Q9)
+□ word_problem_area (Q4)
+□ formula_roots OR branch OR hots_quad speed/time (Q5 or Q6 or Q10)
+
+If any archetype is missing, replace the weakest slot.
+
 ## GENERATION INSTRUCTION
 
 Generate 10 questions following the blueprint exactly. Ensure:
@@ -205,7 +227,20 @@ Begin response immediately with `[`."""
 
 
 def build_quadratic_full_hard_prompt(plan: SemanticGenerationPlan) -> str:
-    """Production QUESTION block; optional short SOURCE appendix when PDF context exists."""
+    """Production QUESTION block; M.Tech L8–L9 when UI is 100% hard, else board L5."""
+    from app.core.config import settings
+    from app.generation.full_hard_mode import is_full_hard_paper
+
+    fh = getattr(plan, "full_hard", False) or is_full_hard_paper(
+        getattr(plan, "difficulty_distribution", None)
+    )
+    if fh and bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+        from app.generation.production_prompts.quadratic_mtech_full_hard import (
+            build_quadratic_mtech_prompt,
+        )
+
+        return build_quadratic_mtech_prompt(plan)
+
     n = int(plan.question_count or 10)
     deliver = int(getattr(plan, "delivery_count", None) or n)
     lines = [

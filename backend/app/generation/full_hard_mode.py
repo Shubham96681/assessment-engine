@@ -119,6 +119,17 @@ TRIGONOMETRY_FULL_HARD_SEQUENCE_SLOTS: List[Dict[str, Any]] = [
 ]
 
 def _quadratic_full_hard_rules() -> str:
+    from app.core.config import settings
+
+    if bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+        from app.generation.quadratic_mtech_benchmark import benchmark_prompt_block
+
+        return (
+            GENERIC_FULL_HARD_RULES
+            + "\n\n"
+            + benchmark_prompt_block()
+        )
+
     from app.generation.quadratic_hard_benchmark import benchmark_prompt_block
 
     return (
@@ -205,6 +216,14 @@ def full_hard_calibration_lines(chapter: str) -> tuple[str, ...]:
 
         return benchmark_calibration_lines()
     if ch == "quadratic":
+        from app.core.config import settings
+
+        if bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+            from app.generation.quadratic_mtech_benchmark import (
+                benchmark_calibration_lines,
+            )
+
+            return benchmark_calibration_lines()
         from app.generation.quadratic_hard_benchmark import benchmark_calibration_lines
 
         return benchmark_calibration_lines()

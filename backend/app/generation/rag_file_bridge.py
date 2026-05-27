@@ -27,6 +27,7 @@ QUERY_FILE = PROJECT_ROOT / "rag_query.txt"
 RESPONSE_FILE = PROJECT_ROOT / "rag_response.txt"
 REGEN_PENDING_FILE = PROJECT_ROOT / "rag_regen_pending.json"
 PENDING_SIGNAL_FILE = PROJECT_ROOT / ".cursor" / "rag_pending.json"
+ARCHIVE_DIR = PROJECT_ROOT / ".rag_archive"
 
 # Windows mtime can be same-second as query write
 MTIME_TOLERANCE_SEC = 2.0
@@ -94,8 +95,19 @@ def write_rag_query(
     if compact_query:
         parts.append(
             "COMPACT PROMPT MODE: follow the QUESTION block only. "
-            "Prior stems and rejection corpus are omitted; backend dedup still applies after parse.\n"
+            "Backend dedup and coefficient registry still apply after parse.\n"
         )
+        if exclude_prior_stems:
+            try:
+                from app.generation.quadratic_duplicate_registry import (
+                    build_banned_registry_block,
+                )
+
+                block = build_banned_registry_block(exclude_prior_stems)
+                if block:
+                    parts.append(block)
+            except Exception:
+                pass
     if exclude_prior_stems and not compact_query:
         parts.append("PRIOR QUESTIONS — DO NOT REPEAT OR PARAPHRASE:")
         for stem in exclude_prior_stems[:25]:
@@ -139,6 +151,9 @@ def write_rag_query(
 def _signal_rag_pending() -> None:
     """Notify Cursor hooks / watcher that a response is required."""
     try:
+        from app.generation.rag_capture import read_capture_signal
+
+        extra = read_capture_signal()
         PENDING_SIGNAL_FILE.parent.mkdir(parents=True, exist_ok=True)
         PENDING_SIGNAL_FILE.write_text(
             json.dumps(
@@ -146,6 +161,7 @@ def _signal_rag_pending() -> None:
                     "pending": True,
                     "query_file": str(QUERY_FILE),
                     "written_at": time.time(),
+                    **{k: v for k, v in extra.items() if v is not None},
                 },
                 indent=2,
             ),
@@ -179,6 +195,30 @@ def parse_rag_response(raw: str) -> tuple[str, str]:
         if len(parts) > 1:
             sources = parts[1].strip()
     return answer, sources
+
+
+def parse_rag_response_json(raw: str) -> tuple[list[dict], str]:
+    """
+    Structured parse via Jinja2 normalizer (when RAG_USE_JINJA_JSON).
+    Returns (question dicts, sources text).
+    """
+    from app.core.config import settings
+
+    if settings.RAG_USE_JINJA_JSON:
+        from app.generation.rag_response_jinja import parse_rag_response_structured
+
+        return parse_rag_response_structured(raw)
+    answer, sources = parse_rag_response(raw)
+    from app.generation.rag_response_jinja import extract_json_array
+
+    return extract_json_array(answer), sources
+
+
+def format_rag_response_json(questions: list[dict], *, sources: str = "") -> str:
+    """Render canonical rag_response.txt from question dicts (Jinja2)."""
+    from app.generation.rag_response_jinja import render_rag_response_file
+
+    return render_rag_response_file(questions, sources=sources)
 
 
 def _try_read_valid_response(query_mtime: float) -> Optional[str]:
@@ -376,6 +416,9 @@ async def request_rag_file_response(
                         exc,
                     )
                     if app_settings.QUADRATIC_MATH_VERIFY_BLOCK_DELIVERY:
+                        from app.generation.rag_capture import archive_rejected_response
+
+                        archive_rejected_response(str(exc))
                         return None
         return answer
     if settings.RAG_FILE_AGENT_ONLY:

@@ -198,11 +198,20 @@ export const deleteAssessment = async (id: string) => {
 /** Whether rag_query.txt still needs rag_response.txt (Cursor agent). */
 export const getRagPending = async (): Promise<{
   pending: boolean;
+  ready_for_apply?: boolean;
+  ready_reason?: string;
+  assessment_id?: string | null;
   hint?: string;
   regen_slot?: number | null;
   regen_feedback?: string | null;
 }> => {
   const res = await api.get('/rag/pending', { timeout: 8000 });
+  return res.data;
+};
+
+/** Validate rag_response.txt and apply to the assessment from the capture signal. */
+export const finishRagCapture = async () => {
+  const res = await api.post('/rag/finish-capture', null, { timeout: 180000 });
   return res.data;
 };
 

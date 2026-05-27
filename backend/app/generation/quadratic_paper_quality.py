@@ -221,7 +221,17 @@ def evaluate_quadratic_stem_quality(
 ) -> Dict[str, Any]:
     """Per-stem L5 audit — extends fusion gate."""
     content = _stem(stem)
-    base = evaluate_quadratic_full_hard_stem(content, sparse_hard=sparse_hard)
+    mtech = False
+    try:
+        from app.generation.topic_isolation import get_current_topic_state
+
+        ts = get_current_topic_state() or {}
+        mtech = bool(ts.get("mtech_quadratic"))
+    except Exception:
+        pass
+    base = evaluate_quadratic_full_hard_stem(
+        content, sparse_hard=sparse_hard, mtech=mtech
+    )
     flags: List[str] = list(base.get("quadratic_hard_stem_flags") or [])
     flags.extend(detect_dead_subpart(content))
     flags.extend(detect_malformed_or(content))

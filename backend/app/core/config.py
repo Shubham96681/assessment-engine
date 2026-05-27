@@ -63,8 +63,13 @@ class Settings(BaseSettings):
     RAG_FILE_SLOT_REGEN_TIMEOUT_SECONDS: int = 120
     RAG_FILE_POLL_INTERVAL_SECONDS: float = 0.2
     RAG_FILE_MAX_RETRIES: int = 6
+    # When rag_response.txt validates, auto POST apply-rag-response (no UI click)
+    RAG_AUTO_APPLY_ON_CAPTURE: bool = True
+    API_INTERNAL_BASE_URL: str = "http://127.0.0.1:8000"
     # Compact self-contained prompt for quadratic full-hard (replaces verbose compiler stack)
     QUADRATIC_PRODUCTION_PROMPT_ENABLED: bool = True
+    # 100% hard UI on quadratic → M.Tech L8–L9 prompt (not board L5)
+    QUADRATIC_MTECH_AT_FULL_HARD: bool = True
     # Extended L5 stem + paper audits (Hence, OR balance, constraint fatigue)
     ENABLE_QUADRATIC_QUALITY_MONITOR: bool = True
     QUADRATIC_QUALITY_BLOCK_DELIVERY: bool = True
@@ -117,6 +122,8 @@ class Settings(BaseSettings):
     PDF_FONT_BODY_PT: float = 10.5
     # Blank ruled lines under each question in the question paper PDF
     PDF_MATH_LATEX: bool = True
+    PDF_MATH_USE_IMAGES: bool = False
+    PDF_MATH_USE_IMAGES_ON_STEMS: bool = False
     PDF_MATH_DPI: int = 150
     PDF_SHOW_ANSWER_LINES: bool = False
     # CBSE-style instructions box below the header (off by default)
@@ -124,6 +131,12 @@ class Settings(BaseSettings):
     PDF_RE_ENRICH_FIGURES: bool = True
     ENABLE_PDF_POST_VALIDATE: bool = True
     PDF_POST_VALIDATE_STRICT: bool = False
+    # PDF export: reportlab | latex (Jinja2 .tex → xelatex/pdflatex; falls back if engine missing)
+    PDF_BACKEND: str = "latex"
+    PDF_LATEX_ENGINE: str = "xelatex"
+    PDF_LATEX_TIMEOUT_SECONDS: int = 120
+    # Canonical rag_response.txt JSON via Jinja2 templates
+    RAG_USE_JINJA_JSON: bool = True
     AWS_S3_BUCKET: str = ""
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

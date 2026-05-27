@@ -19,7 +19,7 @@ from app.schemas import (
     AssessmentStatusOut,
     QuestionOut,
 )
-from app.export.pdf_builder import PDFExporter
+from app.export.pdf_export import get_pdf_exporter
 from app.core.config import settings
 from app.core.demo_user import DEMO_USER_ID
 from app.generation.generator import QuestionGenerator
@@ -213,8 +213,23 @@ async def generate_assessment(
 
 async def _run_generation(assessment_id: str, config: GenerationConfig, gen_num: int):
     from app.core.database import AsyncSessionLocal
+    from app.generation.chapter_concept_classifier import resolve_locked_chapter
+    from app.generation.rag_capture import set_capture_context
+
     generator = QuestionGenerator()
-    exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
+    exporter = get_pdf_exporter(settings.LOCAL_STORAGE_PATH)
+
+    locked_for_capture, _, _ = resolve_locked_chapter(
+        filename="",
+        topic_focus=config.topic_focus or "",
+        context="",
+    )
+    set_capture_context(
+        assessment_id=assessment_id,
+        delivery_count=config.total_questions,
+        locked_chapter=locked_for_capture,
+        title=config.title or "",
+    )
 
     async with AsyncSessionLocal() as db:
         generation_log: list = []
@@ -468,6 +483,8 @@ async def get_assessment_status(assessment_id: str, db: AsyncSession = Depends(g
         status=a.status,
         question_count=int(cnt_r.scalar() or 0),
         total_marks=float(a.total_marks or 0),
+        pdf_url=a.pdf_url,
+        answer_key_url=a.answer_key_url,
     )
 
 
@@ -687,6 +704,7 @@ async def apply_rag_response(
             delivery_count=delivery_n,
             drop_failed_stems=drop_stems,
             apply_structural_dedup=False,
+            prior_stems=all_prior,
         )
         if settings.ENABLE_QUADRATIC_MATH_VERIFY:
             from app.generation.quadratic_math_gate import (
@@ -1144,7 +1162,7 @@ async def apply_rag_response(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
+    exporter = get_pdf_exporter(settings.LOCAL_STORAGE_PATH)
     question_ids, total_marks = [], 0.0
     from sqlalchemy import delete as sql_delete
     await db.execute(sql_delete(Question).where(Question.assessment_id == assessment_id))
@@ -1403,7 +1421,7 @@ async def regenerate_export(assessment_id: str, db: AsyncSession = Depends(get_d
             ),
         )
 
-    exporter = PDFExporter(settings.LOCAL_STORAGE_PATH)
+    exporter = get_pdf_exporter(settings.LOCAL_STORAGE_PATH)
     export_urls = exporter.export_assessment(
         questions=export_payload,
         config=cfg_dict,

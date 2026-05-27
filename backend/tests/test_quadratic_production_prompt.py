@@ -45,10 +45,20 @@ def test_resolve_production_prompt_has_blueprint():
     plan = _quadratic_plan()
     text = resolve_production_prompt(plan)
     assert text is not None
-    assert "QUESTION ARCHETYPE BLUEPRINT" in text
     assert "Begin response immediately with `[`" in text
     assert "ASSESSMENT ARCHITECT PROTOCOL" not in text
     assert len(text) < 12000
+
+
+def test_resolve_mtech_prompt_at_full_hard():
+    plan = _quadratic_plan(full_hard=True)
+    text = resolve_production_prompt(plan)
+    assert text is not None
+    if settings.QUADRATIC_MTECH_AT_FULL_HARD:
+        assert "M.TECH" in text
+        assert "existence_proof" in text
+    else:
+        assert "QUESTION ARCHETYPE BLUEPRINT" in text
 
 
 def test_resolve_disabled_by_setting(monkeypatch):

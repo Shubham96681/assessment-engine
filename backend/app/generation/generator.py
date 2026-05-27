@@ -267,16 +267,26 @@ class QuestionGenerator:
             difficulty_distribution=config.difficulty_distribution,
         )
         _preview_profile.chapter_key = locked_chapter
+        from app.core.config import settings
         from app.generation.full_hard_mode import is_full_hard_paper
         from app.generation.topic_isolation import persist_generation_calibration
 
+        _fh = is_full_hard_paper(config.difficulty_distribution)
+        _quad_prod = (
+            settings.QUADRATIC_PRODUCTION_PROMPT_ENABLED
+            and locked_chapter == "quadratic"
+            and _fh
+        )
+        _quad_mtech = bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False))
         persist_generation_calibration(
             exam_track=_preview_profile.exam_track,
             ui_difficulty=_diff,
-            full_hard=is_full_hard_paper(config.difficulty_distribution),
+            full_hard=_fh,
             difficulty_distribution=config.difficulty_distribution,
             instructions=config.instructions or "",
             class_level=config.class_level or "10",
+            compact_rag_query=_quad_prod,
+            mtech_quadratic=_quad_prod and _quad_mtech,
         )
         try:
             _plan = _build_plan(
@@ -592,6 +602,7 @@ class QuestionGenerator:
                     generation_log=generation_log,
                     stage=f"post_parse_attempt_{attempt}",
                     delivery_count=config.total_questions,
+                    prior_stems=prior_stems,
                 )
 
                 if task["type"] == QuestionType.FIGURE_BASED and settings.ENABLE_FIGURE_GENERATION:
@@ -901,6 +912,7 @@ class QuestionGenerator:
                 generation_log=generation_log,
                 stage="pre_delivery",
                 delivery_count=config.total_questions,
+                prior_stems=prior_stems,
             )
             final = self._finalize_paper_delivery(
                 final,
@@ -940,6 +952,7 @@ class QuestionGenerator:
         generation_log: List[Dict[str, Any]],
         stage: str,
         delivery_count: int = 5,
+        prior_stems: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """Computational math gate (all quadratic) + L5 stem audits (full-hard)."""
         if (locked_chapter or "").lower() != "quadratic" or not questions:
@@ -997,6 +1010,7 @@ class QuestionGenerator:
             delivery_count=delivery_count,
             drop_failed_stems=False,
             apply_structural_dedup=False,
+            prior_stems=prior_stems,
         )
         generation_log.append(
             {
@@ -1952,6 +1966,8 @@ class QuestionGenerator:
                 and ts["full_hard"]
             ):
                 ts["compact_rag_query"] = True
+                if bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+                    ts["mtech_quadratic"] = True
             rag_context = "" if ts.get("compact_rag_query") else context
             profile = build_content_profile(
                 topic_focus=meta.get("topic_focus", ""),

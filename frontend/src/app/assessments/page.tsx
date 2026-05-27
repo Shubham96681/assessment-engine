@@ -143,14 +143,22 @@ export default function AssessmentsList() {
                   <ExternalLink className="w-4 h-4" /> View Details
                 </Link>
                 
-                {item.status === "ready" ? (
+                {item.pdf_url ? (
                   <a 
                     href={`${getApiBaseUrl()}${item.pdf_url}`}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-medium transition-colors"
                   >
                     <Download className="w-4 h-4" /> PDF
                   </a>
+                ) : item.status === "ready" ? (
+                  <Link
+                    href={`/assessments/${item.id}`}
+                    className="flex items-center justify-center gap-2 bg-indigo-600/80 hover:bg-indigo-500 text-white py-2 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    <Download className="w-4 h-4" /> Export
+                  </Link>
                 ) : (
                   <button className="flex items-center justify-center gap-2 bg-[#0f172a] border border-[#334155] text-slate-500 py-2 rounded-xl text-sm font-medium cursor-not-allowed">
                     <Download className="w-4 h-4" /> Unavailable

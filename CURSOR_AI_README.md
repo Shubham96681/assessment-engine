@@ -2,6 +2,15 @@
 
 **Read first:** [SETUP_GUIDE.md](./SETUP_GUIDE.md) (full install, run, troubleshoot).
 
+## Daily workflow (automated)
+
+1. User clicks **Generate** in the UI (http://localhost:3000).
+2. User says **go capture** in this Agent chat (or Hooks auto-prompt on `stop` when pending).
+3. You read `rag_query.txt`, write verified `rag_response.txt`, run `cd backend && python scripts/rag_capture_finish.py`.
+4. Backend auto-applies when the file validates — user does **not** click "Apply rag_response.txt".
+
+Enable **Cursor → Settings → Hooks** for `.cursor/hooks.json`.
+
 ## Your job when `rag_query.txt` changes
 
 1. Read `rag_query.txt` at the **repository root** (not `backend/`).

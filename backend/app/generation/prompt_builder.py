@@ -213,10 +213,17 @@ CRITICAL GUIDELINES:
                 lines.extend(f"  • {ln}" for ln in benchmark_calibration_lines())
                 lines.append(benchmark_prompt_block())
             elif p.locked_chapter == "quadratic":
-                from app.generation.quadratic_hard_benchmark import (
-                    benchmark_calibration_lines,
-                    benchmark_prompt_block,
-                )
+                from app.core.config import settings
+                if bool(getattr(settings, "QUADRATIC_MTECH_AT_FULL_HARD", False)):
+                    from app.generation.quadratic_mtech_benchmark import (
+                        benchmark_calibration_lines,
+                        benchmark_prompt_block,
+                    )
+                else:
+                    from app.generation.quadratic_hard_benchmark import (
+                        benchmark_calibration_lines,
+                        benchmark_prompt_block,
+                    )
 
                 lines.extend(f"  • {ln}" for ln in benchmark_calibration_lines())
                 lines.append(benchmark_prompt_block())
